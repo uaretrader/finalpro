@@ -202,7 +202,7 @@
         .sr-value.support { color: var(--accent-green); }
         .sr-value.pivot { color: var(--accent-gold); }
 
-        /* INSTITUTIONAL ANALYSIS DASHBOARD */
+        /* ==================== INSTITUTIONAL ANALYSIS DASHBOARD - HORIZONTAL SCROLL ==================== */
         .analysis-panel {
             background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
             border: 1px solid var(--border-subtle);
@@ -237,6 +237,7 @@
             border-radius: 20px;
         }
         
+        /* Scrollable rows */
         .analysis-scroll-row {
             margin-bottom: 12px;
             border-radius: 10px;
@@ -247,9 +248,17 @@
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
         }
-        .analysis-scroll-row::-webkit-scrollbar { height: 3px; }
-        .analysis-scroll-row::-webkit-scrollbar-track { background: var(--border-subtle); border-radius: 3px; }
-        .analysis-scroll-row::-webkit-scrollbar-thumb { background: var(--accent-cyan); border-radius: 3px; }
+        .analysis-scroll-row::-webkit-scrollbar {
+            height: 3px;
+        }
+        .analysis-scroll-row::-webkit-scrollbar-track {
+            background: var(--border-subtle);
+            border-radius: 3px;
+        }
+        .analysis-scroll-row::-webkit-scrollbar-thumb {
+            background: var(--accent-cyan);
+            border-radius: 3px;
+        }
         
         .analysis-row-content {
             display: inline-flex;
@@ -259,22 +268,69 @@
             white-space: nowrap;
         }
         
-        .analysis-icon { font-size: 14px; min-width: 28px; color: var(--accent-cyan); }
-        .analysis-label { font-size: 10px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; min-width: 110px; }
-        .analysis-value { font-size: 11px; font-weight: 500; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
-        .analysis-value strong { font-weight: 700; color: var(--text-primary); }
-        .analysis-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+        .analysis-icon {
+            font-size: 14px;
+            min-width: 28px;
+            color: var(--accent-cyan);
+        }
+        .analysis-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 110px;
+        }
+        .analysis-value {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+        }
+        .analysis-value strong {
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .analysis-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
         .analysis-badge.bullish { background: rgba(16,185,129,0.15); color: var(--accent-green); }
         .analysis-badge.bearish { background: rgba(239,68,68,0.15); color: var(--accent-red); }
         .analysis-badge.neutral { background: rgba(107,114,128,0.15); color: var(--text-tertiary); }
         .analysis-badge.conflict { background: rgba(245,158,11,0.15); color: var(--accent-orange); }
         
-        .mtf-mini { display: inline-flex; gap: 12px; align-items: center; }
-        .mtf-mini-item { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; background: var(--bg-primary); padding: 3px 8px; border-radius: 16px; }
+        .mtf-mini {
+            display: inline-flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .mtf-mini-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            background: var(--bg-primary);
+            padding: 3px 8px;
+            border-radius: 16px;
+        }
         .mtf-mini-symbol { font-size: 9px; }
         .mtf-mini-symbol.bullish { color: var(--accent-green); }
         .mtf-mini-symbol.bearish { color: var(--accent-red); }
         .mtf-mini-symbol.neutral { color: var(--text-tertiary); }
+        
+        .divider-light {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-subtle), transparent);
+            margin: 8px 0;
+        }
 
         .footer { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-top: 1px solid var(--border-subtle); font-size: 9px; color: var(--text-secondary); margin-top: 2px; }
         .tc-copy-toast { position: fixed; background: var(--accent-cyan); color: #fff; font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 15px; pointer-events: none; opacity: 0; transition: opacity 0.25s; z-index: 10000; white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
@@ -378,12 +434,14 @@
             </div>
         </div>
 
-        <!-- INSTITUTIONAL ANALYSIS DASHBOARD -->
+        <!-- INSTITUTIONAL ANALYSIS DASHBOARD - HORIZONTAL SCROLL -->
         <div class="analysis-panel" id="analysis-panel">
             <div class="analysis-header">
                 <span class="analysis-title">🏛️ INSTITUTIONAL ANALYSIS</span>
                 <span class="analysis-session" id="analysis-session">—</span>
             </div>
+            
+            <!-- Row 1: Signal Composition -->
             <div class="analysis-scroll-row">
                 <div class="analysis-row-content">
                     <span class="analysis-icon">📊</span>
@@ -391,6 +449,8 @@
                     <span class="analysis-value" id="analysis-composition">Loading...</span>
                 </div>
             </div>
+            
+            <!-- Row 2: Market Structure -->
             <div class="analysis-scroll-row">
                 <div class="analysis-row-content">
                     <span class="analysis-icon">🏗️</span>
@@ -398,6 +458,8 @@
                     <span class="analysis-value" id="analysis-structure">Loading...</span>
                 </div>
             </div>
+            
+            <!-- Row 3: Liquidity & Sweep -->
             <div class="analysis-scroll-row">
                 <div class="analysis-row-content">
                     <span class="analysis-icon">💧</span>
@@ -405,6 +467,8 @@
                     <span class="analysis-value" id="analysis-liquidity">Loading...</span>
                 </div>
             </div>
+            
+            <!-- Row 4: MTF Alignment -->
             <div class="analysis-scroll-row">
                 <div class="analysis-row-content">
                     <span class="analysis-icon">⏱️</span>
@@ -413,6 +477,8 @@
                     <div class="mtf-mini" id="analysis-mtf-mini"></div>
                 </div>
             </div>
+            
+            <!-- Row 5: Risk Assessment -->
             <div class="analysis-scroll-row">
                 <div class="analysis-row-content">
                     <span class="analysis-icon">⚖️</span>
@@ -420,6 +486,8 @@
                     <span class="analysis-value" id="analysis-risk">Loading...</span>
                 </div>
             </div>
+            
+            <!-- Row 6: Key Levels -->
             <div class="analysis-scroll-row">
                 <div class="analysis-row-content">
                     <span class="analysis-icon">🎯</span>
@@ -442,7 +510,7 @@
         'use strict';
         
         // ==================== OFFSET HARGA INTERNAL ====================
-        const PRICE_OFFSET = { XAUUSDT: -3, BTCUSDT: 60 };
+        const PRICE_OFFSET = { XAUUSDT: -3.21, BTCUSDT: 63.65 };
         function applyOffset(price) { return price + (PRICE_OFFSET[currentPair] || 0); }
         
         // ==================== STATE ====================
@@ -600,6 +668,7 @@
                     sweep = 'BUY_SWEEP';
                 }
             }
+            
             return sweep;
         }
         
@@ -642,30 +711,6 @@
             const close = daily[daily.length - 1].c;
             const pivot = (high + low + close) / 3;
             return { pivot, r1: 2 * pivot - low, r2: pivot + (high - low), s1: 2 * pivot - high, s2: pivot - (high - low) };
-        }
-        
-        // ==================== SCALPING MODE UNTUK M30, M15, M5 ====================
-        const SCALPING_TFS = ['30m', '15m', '5m'];
-        const isScalpingMode = SCALPING_TFS.includes(currentTF);
-        
-        // SCALPING CONFIG (lebih responsif untuk timeframe kecil)
-        const SCALPING_CONFIG = {
-            distanceThreshold: 0.8,    // 0.8x ATR (lebih sensitif dari 1.0)
-            confidenceThreshold: 3,     // +3% untuk update (lebih sensitif dari +5)
-            timeoutMs: 180000,          // 3 menit (lebih cepat dari 5 menit)
-            structureChangeSensitivity: true  // Langsung update jika struktur berubah
-        };
-        
-        // INTRADAY CONFIG (untuk H4, H1)
-        const INTRADAY_CONFIG = {
-            distanceThreshold: 1.2,
-            confidenceThreshold: 8,
-            timeoutMs: 300000,
-            structureChangeSensitivity: false
-        };
-        
-        function getCurrentConfig() {
-            return isScalpingMode ? SCALPING_CONFIG : INTRADAY_CONFIG;
         }
         
         function generateNewSignal() {
@@ -732,14 +777,11 @@
             setTimeout(() => arrowEl.classList.remove('bounce-arrow'), 400);
         }
         
-        // ==================== UPDATE ACTIVE SIGNAL (DIPERBAIKI UNTUK SCALPING) ====================
         function updateActiveSignal() {
             const newSignal = generateNewSignal();
             const displayPrice = currentPrice > 0 ? currentPrice : applyOffset(newSignal.entryPrice);
             const now = Date.now();
-            const config = getCurrentConfig();
             
-            // Jika tidak ada sinyal aktif, buat baru jika confidence >= 55
             if (!activeSignal) {
                 if (newSignal.direction !== 'neutral' && newSignal.confidence >= 55) {
                     activeSignal = { ...newSignal, timestamp: now };
@@ -748,12 +790,10 @@
                         lastArrowDirection = activeSignal.direction;
                         animateArrow(activeSignal.direction);
                     }
-                    console.log(`[${currentTF}] 🟢 SIGNAL AKTIF BARU:`, activeSignal.direction, activeSignal.confidence);
                 }
                 return;
             }
             
-            // ===== 1. CEK SL/TP HIT =====
             let slHit = false, tpHit = false;
             if (activeSignal.direction === 'buy') {
                 slHit = displayPrice <= activeSignal.stopLoss;
@@ -764,7 +804,6 @@
             }
             
             if (slHit || tpHit) {
-                console.log(`[${currentTF}] 🔴 SIGNAL ${activeSignal.direction} ${slHit ? 'SL HIT' : 'TP HIT'} - RESET`);
                 activeSignal = null;
                 signalTimestamp = 0;
                 if (newSignal.direction !== 'neutral' && newSignal.confidence >= 55) {
@@ -774,7 +813,6 @@
                         lastArrowDirection = activeSignal.direction;
                         animateArrow(activeSignal.direction);
                     }
-                    console.log(`[${currentTF}] 🟢 SIGNAL PENGGANTI:`, activeSignal.direction, activeSignal.confidence);
                 } else if (lastArrowDirection !== null) {
                     lastArrowDirection = null;
                     animateArrow('neutral');
@@ -782,68 +820,11 @@
                 return;
             }
             
-            // ===== 2. CEK PERUBAHAN STRUKTUR PASAR (KHUSUS SCALPING) =====
-            if (config.structureChangeSensitivity) {
-                const structureChanged = 
-                    (newSignal.details?.sweep !== 'NONE' && newSignal.details?.sweep !== activeSignal.details?.sweep) ||
-                    (newSignal.details?.choch !== 'NONE' && newSignal.details?.choch !== activeSignal.details?.choch) ||
-                    (newSignal.direction !== activeSignal.direction && newSignal.confidence >= 50);
-                
-                if (structureChanged) {
-                    console.log(`[${currentTF}] 🔄 STRUKTUR PASAR BERUBAH - UPDATE SIGNAL`);
-                    activeSignal = { ...newSignal, timestamp: now };
-                    signalTimestamp = now;
-                    if (lastArrowDirection !== activeSignal.direction) {
-                        lastArrowDirection = activeSignal.direction;
-                        animateArrow(activeSignal.direction);
-                    }
-                    return;
-                }
-            }
-            
-            // ===== 3. CEK PERUBAHAN HARGA (BERDASARKAN CONFIG) =====
             const distanceToEntry = Math.abs(displayPrice - activeSignal.entryPrice);
             const atr = activeSignal.details?.atr || calculateATR(candleData, 14);
-            
-            if (distanceToEntry > atr * config.distanceThreshold) {
-                console.log(`[${currentTF}] ⚠️ HARGA BERGERAK JAUH (${distanceToEntry.toFixed(2)} > ${(atr * config.distanceThreshold).toFixed(2)})`);
-                
-                // Jika sinyal baru berbeda arah dan confidence cukup
-                if (newSignal.direction !== activeSignal.direction && newSignal.confidence >= 55) {
-                    console.log(`[${currentTF}] 🔄 ARAH SINYAL BERBEDA - RESET`);
-                    activeSignal = { ...newSignal, timestamp: now };
-                    signalTimestamp = now;
-                    if (lastArrowDirection !== activeSignal.direction) {
-                        lastArrowDirection = activeSignal.direction;
-                        animateArrow(activeSignal.direction);
-                    }
-                    return;
-                }
-                
-                // Jika terlalu jauh, reset
-                if (distanceToEntry > atr * 1.8) {
-                    console.log(`[${currentTF}] 🔴 SIGNAL INVALID - HARGA TERLALU JAUH`);
-                    activeSignal = null;
-                    signalTimestamp = 0;
-                    if (newSignal.direction !== 'neutral' && newSignal.confidence >= 55) {
-                        activeSignal = { ...newSignal, timestamp: now };
-                        signalTimestamp = now;
-                        if (lastArrowDirection !== activeSignal.direction) {
-                            lastArrowDirection = activeSignal.direction;
-                            animateArrow(activeSignal.direction);
-                        }
-                    } else if (lastArrowDirection !== null) {
-                        lastArrowDirection = null;
-                        animateArrow('neutral');
-                    }
-                    return;
-                }
-            }
-            
-            // ===== 4. CEK TIMEOUT =====
-            const timeSinceSignal = now - signalTimestamp;
-            if (timeSinceSignal > config.timeoutMs) {
-                console.log(`[${currentTF}] ⏰ SIGNAL TIMEOUT (${config.timeoutMs/1000}s) - UPDATE`);
+            if (distanceToEntry > atr * 1.5) {
+                activeSignal = null;
+                signalTimestamp = 0;
                 if (newSignal.direction !== 'neutral' && newSignal.confidence >= 55) {
                     activeSignal = { ...newSignal, timestamp: now };
                     signalTimestamp = now;
@@ -851,24 +832,20 @@
                         lastArrowDirection = activeSignal.direction;
                         animateArrow(activeSignal.direction);
                     }
-                } else {
-                    activeSignal = null;
-                    signalTimestamp = 0;
-                    if (lastArrowDirection !== null) {
-                        lastArrowDirection = null;
-                        animateArrow('neutral');
-                    }
+                } else if (lastArrowDirection !== null) {
+                    lastArrowDirection = null;
+                    animateArrow('neutral');
                 }
                 return;
             }
             
-            // ===== 5. UPDATE JIKA SINYAL LEBIH KUAT =====
-            if (newSignal.direction === activeSignal.direction && 
-                newSignal.confidence > activeSignal.confidence + config.confidenceThreshold) {
-                console.log(`[${currentTF}] 📈 SINYAL SEMAKIN KUAT (${activeSignal.confidence}% → ${newSignal.confidence}%)`);
+            if (newSignal.direction === activeSignal.direction && newSignal.confidence > activeSignal.confidence + 10) {
                 activeSignal = { ...newSignal, timestamp: now };
                 signalTimestamp = now;
-                return;
+                if (lastArrowDirection !== activeSignal.direction) {
+                    lastArrowDirection = activeSignal.direction;
+                    animateArrow(activeSignal.direction);
+                }
             }
         }
         
@@ -909,9 +886,9 @@
             
             // Market Structure
             let structureHtml = '';
-            if (trend === 'bullish') structureHtml = `<strong>🟢 BULLISH STRUCTURE</strong> — Higher Highs & Higher Lows`;
-            else if (trend === 'bearish') structureHtml = `<strong>🔴 BEARISH STRUCTURE</strong> — Lower Highs & Lower Lows`;
-            else structureHtml = `<strong>⚪ RANGING STRUCTURE</strong> — No clear bias`;
+            if (trend === 'bullish') structureHtml = `<strong>🟢 BULLISH STRUCTURE</strong> — Higher Highs & Higher Lows, price above EMAs`;
+            else if (trend === 'bearish') structureHtml = `<strong>🔴 BEARISH STRUCTURE</strong> — Lower Highs & Lower Lows, price below EMAs`;
+            else structureHtml = `<strong>⚪ RANGING STRUCTURE</strong> — No clear bias, sideways consolidation`;
             $('analysis-structure').innerHTML = structureHtml;
             
             // Liquidity & Sweep
@@ -928,6 +905,7 @@
             const tfList = ['4h', '1h', '30m', '15m', '5m'];
             const tfNames = { '4h': 'H4', '1h': 'H1', '30m': 'M30', '15m': 'M15', '5m': 'M5' };
             let bullishCount = 0, bearishCount = 0;
+            let mtfHtml = '';
             let mtfMiniHtml = '';
             
             tfList.forEach(tf => {
@@ -940,7 +918,6 @@
                 mtfMiniHtml += `<div class="mtf-mini-item"><span class="mtf-mini-symbol ${color}">${arrow}</span><span>${tfNames[tf]}</span></div>`;
             });
             
-            let mtfHtml = '';
             if (bullishCount >= 4) mtfHtml = `<span class="analysis-badge bullish">STRONG BULLISH</span> ${bullishCount}/5 TFs aligned`;
             else if (bearishCount >= 4) mtfHtml = `<span class="analysis-badge bearish">STRONG BEARISH</span> ${bearishCount}/5 TFs aligned`;
             else if (bullishCount >= 3) mtfHtml = `<span class="analysis-badge bullish">MODERATE BULLISH</span> ${bullishCount} bullish, ${bearishCount} bearish`;
@@ -976,6 +953,7 @@
             }
             $('analysis-levels').innerHTML = levelsHtml;
             
+            // Session
             $('analysis-session').innerHTML = `🌍 ${getSessionName()}`;
         }
         
