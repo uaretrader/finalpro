@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Precision Terminal v4.0 - Optimized</title>
+    <title>URA PRECISSION v18.0 - Persistent</title>
     <style>
         :root {
             --bg: #0b0e11;
@@ -120,8 +120,11 @@
 
         .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .label { font-size: 0.75rem; color: var(--text-dim); }
-        .status-tag { font-size: 0.65rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: #2b3139; color: #474d57; }
-        .status-tag.active { background: rgba(14, 203, 129, 0.15); color: var(--success); }
+        
+        /* WARNA DETECTION DINAMIS */
+        .status-tag { font-size: 0.65rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: #2b3139; color: #474d57; transition: all 0.3s; }
+        .status-tag.active-buy { background: rgba(14, 203, 129, 0.15); color: var(--success); }
+        .status-tag.active-sell { background: rgba(246, 70, 93, 0.15); color: var(--danger); }
 
         .signal-btn {
             width: 100%;
@@ -146,7 +149,7 @@
 <div class="container">
     <header>
         <h1>URA PRECISSION</h1>
-        <p class="subtitle">Engine v18.0 • Patched & Optimized</p>
+        <p class="subtitle">Engine v18.0 • Persistent & Multi-Color</p>
         <button class="switch-btn" onclick="switchPair()" id="toggle-btn">Switch</button>
     </header>
 
@@ -195,27 +198,33 @@
     </div>
 
     <footer>
-        Data: Binance WebSocket Direct Feed (M15 TF)<br>
-        Optimized: SL/TP Guard & Anti-ReEntry Logic
+        Data: Binance WebSocket • M15 TF<br>
+        Feature: Bullish/Bearish Smart Coloring
     </footer>
 </div>
 
 <script>
-    // --- 1. KONFIGURASI & STATE ---
     const offsets = { xau: 7.00, btc: 0.00 };
     const config = {
         xau: { sl: 10.00, rr: 1.55 },
         btc: { sl: 450.00, rr: 1.55 }
     };
 
-    let currentPair = 'xau';
-    let currentPrices = { xau: 0, btc: 0 };
-    let engineState = {
-        xau: { l1: false, l2: false, l3: false, type: 'none', setup: null, cooldown: false },
-        btc: { l1: false, l2: false, l3: false, type: 'none', setup: null, cooldown: false }
-    };
+    function loadSavedState() {
+        const saved = localStorage.getItem('ura_terminal_state');
+        return saved ? JSON.parse(saved) : {
+            xau: { l1: false, l2: false, l3: false, type: 'none', setup: null, cooldown: false },
+            btc: { l1: false, l2: false, l3: false, type: 'none', setup: null, cooldown: false }
+        };
+    }
 
-    // --- 2. WEBSOCKET HANDLING ---
+    let currentPrices = { xau: 0, btc: 0 };
+    let engineState = loadSavedState();
+
+    function saveState() {
+        localStorage.setItem('ura_terminal_state', JSON.stringify(engineState));
+    }
+
     function initWebSocket(id, symbol) {
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@ticker`);
         ws.onmessage = (e) => {
@@ -223,17 +232,22 @@
             updatePrice(id, parseFloat(data.c));
             processLogic(id);
         };
-        ws.onclose = () => setTimeout(() => initWebSocket(id, symbol), 5000); // Auto-reconnect
+        ws.onclose = () => setTimeout(() => initWebSocket(id, symbol), 5000);
     }
 
     initWebSocket('btc', 'btcusdt');
     initWebSocket('xau', 'paxgusdt');
+    
+    window.onload = () => {
+        updateStatusUI('xau');
+        updateStatusUI('btc');
+        renderSetupUI('xau');
+        renderSetupUI('btc');
+    };
 
-    // --- 3. CORE FUNCTIONS ---
     function switchPair() {
         document.getElementById('card-xau').classList.toggle('active');
         document.getElementById('card-btc').classList.toggle('active');
-        currentPair = (currentPair === 'xau') ? 'btc' : 'xau';
     }
 
     function updatePrice(id, rawPrice) {
@@ -243,87 +257,83 @@
         
         const el = document.getElementById(`price-${id}`);
         el.innerText = price.toLocaleString(undefined, {minimumFractionDigits: 2});
-        
-        if (price !== oldPrice) {
-            el.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
-        }
+        if (price !== oldPrice) el.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
 
-        // SL/TP Monitor & Auto Reset
         const s = engineState[id];
         if (s.setup) {
             const hitTP = (s.type === 'buy' && price >= s.setup.tp) || (s.type === 'sell' && price <= s.setup.tp);
             const hitSL = (s.type === 'buy' && price <= s.setup.sl) || (s.type === 'sell' && price >= s.setup.sl);
-            
-            if (hitTP || hitSL) {
-                resetEngine(id, true); // Aktifkan cooldown agar tidak langsung re-entry
-            }
+            if (hitTP || hitSL) resetEngine(id, true);
         }
     }
 
     function resetEngine(id, withCooldown = false) {
         engineState[id] = { l1: false, l2: false, l3: false, type: 'none', setup: null, cooldown: withCooldown };
-        
-        // UI Reset
+        saveState();
         document.getElementById(`setup-${id}`).classList.remove('show');
-        const btn = document.getElementById(`btn-${id}`);
-        btn.className = "signal-btn";
-        btn.innerText = withCooldown ? "Waiting New Cycle..." : "Scanning Market...";
-        
         updateStatusUI(id);
-
-        // Jika cooldown aktif, izinkan scanning lagi setelah 10 detik
         if (withCooldown) {
             setTimeout(() => { 
                 engineState[id].cooldown = false; 
-                btn.innerText = "Scanning Market...";
+                saveState();
+                updateStatusUI(id);
             }, 10000);
         }
     }
 
     function processLogic(id) {
         const s = engineState[id];
-        if (s.setup || s.cooldown) return; // Anti-ReEntry: Berhenti jika ada trade aktif atau cooldown
+        if (s.setup || s.cooldown) return;
+        let changed = false;
 
-        // Simulasi Probabilitas Bertahap (Audit: Penambahan Logika Sekuensial)
         if (!s.l1 && Math.random() > 0.992) {
             s.l1 = true;
             s.type = Math.random() > 0.5 ? 'buy' : 'sell';
-            updateStatusUI(id);
+            changed = true;
         } else if (s.l1 && !s.l2 && Math.random() > 0.988) {
             s.l2 = true;
-            updateStatusUI(id);
+            changed = true;
         } else if (s.l2 && !s.l3 && Math.random() > 0.995) {
             s.l3 = true;
             const entry = currentPrices[id];
             const slDist = config[id].sl;
             const tpDist = slDist * config[id].rr;
-            
             s.setup = {
                 entry: entry,
                 sl: s.type === 'buy' ? entry - slDist : entry + slDist,
                 tp: s.type === 'buy' ? entry + tpDist : entry - tpDist
             };
-            
             renderSetupUI(id);
-            updateStatusUI(id);
+            changed = true;
         }
+
+        if (changed) { updateStatusUI(id); saveState(); }
     }
 
-    // --- 4. UI RENDERING (Optimized) ---
     function updateStatusUI(id) {
         const s = engineState[id];
         const btn = document.getElementById(`btn-${id}`);
         
         ['l1', 'l2', 'l3'].forEach(l => {
             const tag = document.getElementById(`${l}-${id}`);
-            const isDetected = s[l];
-            tag.className = isDetected ? "status-tag active" : "status-tag";
-            tag.innerText = isDetected ? "DETECTED" : "WAITING";
+            tag.className = "status-tag";
+            if (s[l]) {
+                tag.classList.add(s.type === 'buy' ? 'active-buy' : 'active-sell');
+                tag.innerText = "DETECTED";
+            } else {
+                tag.innerText = "WAITING";
+            }
         });
 
-        if (s.l3 && s.setup) {
+        if (s.cooldown) {
+            btn.className = "signal-btn";
+            btn.innerText = "Waiting New Cycle...";
+        } else if (s.l3 && s.setup) {
             btn.className = `signal-btn ${s.type}`;
             btn.innerText = `CONFIRMED ${s.type.toUpperCase()}`;
+        } else {
+            btn.className = "signal-btn";
+            btn.innerText = "Scanning Market...";
         }
     }
 
