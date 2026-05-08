@@ -2,505 +2,715 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>URA PRECISSION v18.0 - Persistent</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>URA PRECISION v5.0 - Hybrid Engine</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
+
         :root {
-            --bg: #0b0e11;
-            --card: #1e2329;
-            --text: #eaecef;
-            --text-dim: #848e9c;
+            --bg: #1a1d21;
+            --text: #e6e8ea;
+            --text-dim: #707a8a;
             --accent: #f0b90b;
-            --success-dark: #0a9d63;
-            --danger-dark: #cf3044;
-            --success-bright: #00ff88;
-            --danger-bright: #ff3344;
-            --border: #2b3139;
+            --success: #00FFFF;
+            --danger: #FF5252;
+            --feed-lightning: #FFEA00;
+            --buy-deep: #1b5e20;
+            --maroon-faded: #802d2d;
+            --border: rgba(255, 255, 255, 0.1);
+            --card-bg: #1a1d21;
             --glow-buy: rgba(0, 255, 136, 0.6);
             --glow-sell: rgba(255, 51, 68, 0.6);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            background: var(--bg); 
-            color: var(--text); 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            padding: 0;
-            margin: 0;
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            padding: 0 15px 15px 15px;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
+            justify-content: center;
+            min-height: 100vh;
         }
 
-        .container { 
-            max-width: 450px; 
-            width: 100%; 
-            position: relative;
-            padding: 12px 12px 20px 12px;
-        }
+        .container { max-width: 450px; width: 100%; }
 
         header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            background: rgba(30, 35, 41, 0.5);
-            backdrop-filter: blur(2px);
-            padding: 8px 12px;
-            border-radius: 48px;
-            border: 1px solid var(--border);
+            align-items: flex-start;
+            margin-bottom: 0;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            padding-top: 10px;
+            background: var(--bg);
         }
 
-        .title-section {
+        .brand h1 { font-size: 1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+        .sys-status { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; text-align: right; color: var(--text-dim); }
+
+        .pulse {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            background: var(--feed-lightning);
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: blink 1.5s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .switch-pair-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(255,255,255,0.03);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 10px;
+        }
+        .switch-pair-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 0;
+            border-top: none;
+            padding: 18px 20px 20px 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        /* 1. Header XAUUSD | Live Price */
+        .card-header-new {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .pair-big {
+            font-weight: 800;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            color: var(--text);
+        }
+        .price-live {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: transparent;
+            padding: 4px 0;
+        }
+
+        /* 2. Signal Bar */
+        .signal-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            padding: 10px 14px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
+        .signal-dot-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .signal-label {
+            letter-spacing: 1px;
+            font-size: 0.7rem;
+        }
+
+        /* 3. Card Level (Entry | Target | Loss) - Presisi rata kiri, tengah, kanan */
+        .card-level-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 4px;
+        }
+        .level-item {
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+        }
+        .level-item:nth-child(1) {
+            align-items: flex-start;
+            text-align: left;
+        }
+        .level-item:nth-child(2) {
+            align-items: center;
+            text-align: center;
+        }
+        .level-item:nth-child(3) {
+            align-items: flex-end;
+            text-align: right;
+        }
+        .level-label {
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            font-family: 'Inter', sans-serif;
+        }
+        .level-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 700;
+            transition: opacity 0.2s;
+        }
+        .level-value:active { opacity: 0.5; }
+
+        /* 4. Logic | Price Action (M15) */
+        .analysis-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 12px; margin-bottom: 15px; }
+
+        .box-logic, .box-pa {
+            background: transparent;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 4px;
             display: flex;
             flex-direction: column;
         }
 
-        h1 { 
-            font-size: 0.9rem; 
-            font-weight: 700;
-            letter-spacing: -0.3px;
-            background: linear-gradient(135deg, #fff, var(--accent));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        .subtitle { 
-            font-size: 0.5rem; 
-            color: var(--text-dim);
-            letter-spacing: 0.3px;
-        }
+        .label-sm { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; display: block; border-bottom: 1px solid var(--border); padding-bottom: 4px; letter-spacing: 1px; }
+        .stat { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; margin-bottom: 6px; }
 
-        .pair-switch-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: #13171c;
-            padding: 4px 12px 4px 8px;
-            border-radius: 40px;
-            border: 1px solid var(--border);
-        }
+        .mom-value { text-align: right; line-height: 1.2; font-weight: 700; font-size: 0.65rem; }
 
-        .status-dot-header {
-            height: 8px;
-            width: 8px;
-            background-color: var(--success-bright);
-            border-radius: 50%;
-            display: inline-block;
-            box-shadow: 0 0 10px var(--success-bright);
-            animation: pulse-dot 1.4s infinite ease-in-out;
-        }
+        .dot { width: 8px; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
+        .dot.active { background: var(--success); box-shadow: none; }
+        .dot.active-down { background: var(--danger); box-shadow: none; }
 
-        @keyframes pulse-dot {
-            0% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 var(--glow-buy);}
-            50% { opacity: 0.7; transform: scale(0.92); box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.2);}
-            100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0);}
-        }
+        footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; font-family: 'JetBrains Mono', monospace; opacity: 0.6; line-height: 1.6; }
 
-        .switch-btn {
-            background: transparent;
-            border: none;
-            color: var(--text);
-            font-weight: 700;
-            font-size: 0.8rem;
-            letter-spacing: 0.5px;
-            cursor: pointer;
-            padding: 4px 0;
-            transition: all 0.2s;
-            font-family: monospace;
-        }
-        .switch-btn:active { opacity: 0.6; transform: scale(0.96); }
-
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 15px;
-            width: 100%;
-            display: none;
-        }
-
-        .card.active { display: block; }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .pair-info { display: flex; align-items: center; gap: 6px; }
-        .pair { font-size: 1.1rem; font-weight: bold; color: var(--text); }
+        .pair-card { display: none; }
+        .pair-card.active { display: block; }
         
-        .dot {
-            display: none;
-        }
-
-        .price { font-family: monospace; font-size: 1.1rem; font-weight: 600; }
-
-        .setup-grid {
-            display: none;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 15px;
-            border-top: 1px dashed var(--border);
-            padding-top: 15px;
-        }
-
-        .setup-grid.show { display: grid; }
-
-        .setup-item { text-align: center; }
-        .setup-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; }
-        
-        .setup-val { 
-            font-family: monospace; 
-            font-size: 0.85rem; 
-            font-weight: bold; 
-            display: block; 
-            margin-top: 4px; 
-            cursor: pointer;
-            transition: opacity 0.2s;
-            padding: 2px;
-        }
-        
-        .setup-val:active { opacity: 0.5; }
-
-        .signal-btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 8px;
-            background: #2b3139;
-            color: var(--text-dim);
-            font-weight: bold;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            margin-bottom: 15px;
-        }
-
-        .signal-btn.buy { background: var(--success-dark); color: white; box-shadow: 0 4px 15px rgba(10, 157, 99, 0.3); }
-        .signal-btn.sell { background: var(--danger-dark); color: white; box-shadow: 0 4px 15px rgba(207, 48, 68, 0.3); }
-
-        .logic-box {
-            background: #161a1e;
-            padding: 12px;
-            border-radius: 8px;
-        }
-
-        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .row:last-child { margin-bottom: 0; }
-        .label { font-size: 0.75rem; color: var(--text-dim); }
-        
-        .status-tag { font-size: 0.65rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: #2b3139; color: #474d57; transition: all 0.3s; }
-        .status-tag.active-buy { background: rgba(0, 255, 136, 0.15); color: var(--success-bright); text-shadow: 0 0 5px rgba(0, 255, 136, 0.5); }
-        .status-tag.active-sell { background: rgba(255, 51, 68, 0.15); color: var(--danger-bright); text-shadow: 0 0 5px rgba(255, 51, 68, 0.5); }
-
-        footer { text-align: center; font-size: 0.6rem; color: var(--text-dim); margin-top: 20px; line-height: 1.4; }
+        #terminals { margin-top: 0; padding-top: 0; }
     </style>
 </head>
 <body>
-
 <div class="container">
     <header>
-        <div class="title-section">
-            <h1>URA PRECISSION</h1>
-            <p class="subtitle">Engine v18.0 • Persistent & Multi-Color</p>
-        </div>
-        <div class="pair-switch-wrapper">
-            <span class="status-dot-header" id="globalStatusDot"></span>
-            <button class="switch-btn" id="toggle-btn">BTC</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap;">
+            <div class="brand">
+                <h1>uradvisor</h1>
+                <p style="font-size: 0.5rem; color: var(--text-dim)">HYBRID ENGINE</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="sys-status">
+                    <div><span class="pulse"></span>LIVE</div>
+                    <div id="clock">00:00:00 UTC</div>
+                </div>
+                <button id="switchPairBtn" class="switch-pair-btn">
+                    <span id="switchIcon"></span> <span id="switchLabel">XAUUSD</span>
+                </button>
+            </div>
         </div>
     </header>
 
-    <div id="terminals">
-        <div class="card active" id="card-xau">
-            <div class="card-header">
-                <div class="pair-info">
-                    <span class="pair">XAUUSD</span>
-                    <span class="dot"></span>
-                </div>
-                <span class="price" id="price-xau">0.00</span>
-            </div>
-
-            <div class="setup-grid" id="setup-xau">
-                <div class="setup-item"><span class="setup-label">ENTRY</span><span class="setup-val" id="entry-xau" onclick="copyValue(this)">-</span></div>
-                <div class="setup-item"><span class="setup-label">SL</span><span class="setup-val" id="sl-xau" style="color:var(--danger-bright)" onclick="copyValue(this)">-</span></div>
-                <div class="setup-item"><span class="setup-label">TP</span><span class="setup-val" id="tp-xau" style="color:var(--success-bright)" onclick="copyValue(this)">-</span></div>
-            </div>
-
-            <button class="signal-btn" id="btn-xau">Scanning Market...</button>
-
-            <div class="logic-box">
-                <div class="row"><span class="label">Liquidity Sweep</span><span class="status-tag" id="l1-xau">WAITING</span></div>
-                <div class="row"><span class="label">Structure (CHoCH)</span><span class="status-tag" id="l2-xau">WAITING</span></div>
-                <div class="row"><span class="label">Value Gap (FVG)</span><span class="status-tag" id="l3-xau">WAITING</span></div>
-            </div>
-        </div>
-
-        <div class="card" id="card-btc">
-            <div class="card-header">
-                <div class="pair-info">
-                    <span class="pair">BTCUSD</span>
-                    <span class="dot"></span>
-                </div>
-                <span class="price" id="price-btc">0.00</span>
-            </div>
-
-            <div class="setup-grid" id="setup-btc">
-                <div class="setup-item"><span class="setup-label">ENTRY</span><span class="setup-val" id="entry-btc" onclick="copyValue(this)">-</span></div>
-                <div class="setup-item"><span class="setup-label">SL</span><span class="setup-val" id="sl-btc" style="color:var(--danger-bright)" onclick="copyValue(this)">-</span></div>
-                <div class="setup-item"><span class="setup-label">TP</span><span class="setup-val" id="tp-btc" style="color:var(--success-bright)" onclick="copyValue(this)">-</span></div>
-            </div>
-
-            <button class="signal-btn" id="btn-btc">Scanning Market...</button>
-
-            <div class="logic-box">
-                <div class="row"><span class="label">Liquidity Sweep</span><span class="status-tag" id="l1-btc">WAITING</span></div>
-                <div class="row"><span class="label">Structure (CHoCH)</span><span class="status-tag" id="l2-btc">WAITING</span></div>
-                <div class="row"><span class="label">Value Gap (FVG)</span><span class="status-tag" id="l3-btc">WAITING</span></div>
-            </div>
-        </div>
-    </div>
+    <div id="terminals"></div>
 
     <footer>
-        Data: Binance WebSocket • M15 TF<br>
-        Feature: Bullish/Bearish Smart Coloring
+        [ SYSTEM_LOG ]: HYBRID_ENGINE_ACTIVE<br>
+        [ THEME ]: H1_TREND + M15_MOMENTUM_SIGNAL
     </footer>
 </div>
 
 <script>
-    function copyValue(element) {
-        const text = element.innerText;
-        if (text === "-") return;
-        
-        navigator.clipboard.writeText(text).then(() => {
-            const originalColor = element.style.color;
-            element.style.color = "var(--accent)";
-            setTimeout(() => {
-                element.style.color = originalColor;
-            }, 300);
-        });
-    }
-
+    // ==================== KONFIGURASI INTERNAL ====================
     const offsets = { xau: 8.6, btc: 0.00 };
     const config = {
         xau: { sl: 10.00, rr: 1.55 },
         btc: { sl: 150.00, rr: 1.55 }
     };
+    // =============================================================
 
-    function loadSavedState() {
-        const saved = localStorage.getItem('ura_terminal_state');
-        return saved ? JSON.parse(saved) : {
-            xau: { l1: false, l2: false, l3: false, type: 'none', setup: null, cooldown: false },
-            btc: { l1: false, l2: false, l3: false, type: 'none', setup: null, cooldown: false }
+    const pairs = [
+        { id: 'xau', name: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: offsets.xau },
+        { id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: offsets.btc }
+    ];
+
+    // ==================== STATE ENGINE (DARI v18.0) ====================
+    function createFreshState() {
+        return {
+            priceHistoryH1: [],
+            priceHistoryM15: [],
+            lastH1Update: 0,
+            lastM15Update: 0,
+            trend: 'neutral',
+            momentum: 'neutral',
+            l1: false,
+            l2: false,
+            l3: false,
+            type: 'none',
+            entry: 0,
+            sl: 0,
+            tp: 0,
+            confirmed: false,
+            cooldown: false,
+            lastPrice: 0,
+            swingHigh: 0,
+            swingLow: Infinity,
+            priceDirection: 0,
+            trendScore: 0,
         };
     }
 
-    let currentPrices = { xau: 0, btc: 0 };
+    function loadSavedState() {
+        const saved = localStorage.getItem('ura_hybrid_state');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (!parsed.xau || !parsed.btc) throw new Error('Invalid state');
+                // Kembalikan fungsi-fungsi yang tidak tersimpan
+                parsed.xau = { ...createFreshState(), ...parsed.xau };
+                parsed.btc = { ...createFreshState(), ...parsed.btc };
+                return parsed;
+            } catch(e) {
+                console.log('State corrupted, creating fresh');
+            }
+        }
+        return {
+            xau: createFreshState(),
+            btc: createFreshState()
+        };
+    }
+
     let engineState = loadSavedState();
+    let activePairId = 'xau';
+    let wsConnections = {};
 
     function saveState() {
-        localStorage.setItem('ura_terminal_state', JSON.stringify(engineState));
-    }
-
-    function updateButtonLabel(activeId) {
-        const btn = document.getElementById('toggle-btn');
-        btn.innerText = activeId === 'card-xau' ? 'BTC' : 'XAU';
-    }
-
-    // ==================== PERBAIKAN: TAMBAHKAN updateGlobalHeaderDot() SAAT SWITCH PAIR ====================
-    function switchPair() {
-        const cardXau = document.getElementById('card-xau');
-        const cardBtc = document.getElementById('card-btc');
-        
-        cardXau.classList.toggle('active');
-        cardBtc.classList.toggle('active');
-
-        const activePair = cardXau.classList.contains('active') ? 'card-xau' : 'card-btc';
-        localStorage.setItem('active_pair_view', activePair);
-        updateButtonLabel(activePair);
-        
-        // 🔧 PERBAIKAN: Update dot header saat ganti pair
-        updateGlobalHeaderDot();
-    }
-
-    // WebSocket seperti gmn.html (tanpa auto-reconnect, perlu refresh manual jika putus)
-    const btcWs = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
-    const xauWs = new WebSocket('wss://stream.binance.com:9443/ws/paxgusdt@ticker');
-
-    btcWs.onmessage = function(e) { 
-        const d = JSON.parse(e.data); 
-        updatePrice('btc', parseFloat(d.c)); 
-        processLogic('btc');
-    };
-    
-    xauWs.onmessage = function(e) { 
-        const d = JSON.parse(e.data); 
-        updatePrice('xau', parseFloat(d.c)); 
-        processLogic('xau');
-    };
-    
-    window.onload = () => {
-        const lastPair = localStorage.getItem('active_pair_view');
-        if (lastPair === 'card-btc') {
-            document.getElementById('card-xau').classList.remove('active');
-            document.getElementById('card-btc').classList.add('active');
-            updateButtonLabel('card-btc');
-        } else {
-            updateButtonLabel('card-xau');
-        }
-
-        updateStatusUI('xau');
-        updateStatusUI('btc');
-        renderSetupUI('xau');
-        renderSetupUI('btc');
-        
-        updateGlobalHeaderDot();
-    };
-
-    function updatePrice(id, rawPrice) {
-        const price = rawPrice + offsets[id];
-        const oldPrice = currentPrices[id];
-        currentPrices[id] = price;
-        
-        const el = document.getElementById(`price-${id}`);
-        el.innerText = price.toLocaleString(undefined, {minimumFractionDigits: 2});
-        if (price !== oldPrice) {
-            el.style.color = price >= oldPrice ? "var(--success-bright)" : "var(--danger-bright)";
-        }
-
-        const s = engineState[id];
-        if (s.setup) {
-            const hitTP = (s.type === 'buy' && price >= s.setup.tp) || (s.type === 'sell' && price <= s.setup.tp);
-            const hitSL = (s.type === 'buy' && price <= s.setup.sl) || (s.type === 'sell' && price >= s.setup.sl);
-            if (hitTP || hitSL) resetEngine(id, true);
-        }
-    }
-
-    function resetEngine(id, withCooldown = false) {
-        engineState[id] = { l1: false, l2: false, l3: false, type: 'none', setup: null, cooldown: withCooldown };
-        saveState();
-        document.getElementById(`setup-${id}`).classList.remove('show');
-        updateStatusUI(id);
-        updateGlobalHeaderDot();
-        if (withCooldown) {
-            setTimeout(() => { 
-                engineState[id].cooldown = false; 
-                saveState();
-                updateStatusUI(id);
-                updateGlobalHeaderDot();
-            }, 10000);
-        }
-    }
-
-    function processLogic(id) {
-        const s = engineState[id];
-        if (s.setup || s.cooldown) return;
-        let changed = false;
-
-        if (!s.l1 && Math.random() > 0.992) {
-            s.l1 = true;
-            s.type = Math.random() > 0.5 ? 'buy' : 'sell';
-            changed = true;
-        } else if (s.l1 && !s.l2 && Math.random() > 0.988) {
-            s.l2 = true;
-            changed = true;
-        } else if (s.l2 && !s.l3 && Math.random() > 0.995) {
-            s.l3 = true;
-            const entry = currentPrices[id];
-            const slDist = config[id].sl;
-            const tpDist = slDist * config[id].rr;
-            s.setup = {
-                entry: entry,
-                sl: s.type === 'buy' ? entry - slDist : entry + slDist,
-                tp: s.type === 'buy' ? entry + tpDist : entry - tpDist
-            };
-            renderSetupUI(id);
-            changed = true;
-        }
-
-        if (changed) { updateStatusUI(id); saveState(); updateGlobalHeaderDot(); }
-    }
-
-    function updateStatusUI(id) {
-        const s = engineState[id];
-        const btn = document.getElementById(`btn-${id}`);
-        
-        ['l1', 'l2', 'l3'].forEach(l => {
-            const tag = document.getElementById(`${l}-${id}`);
-            tag.className = "status-tag";
-            if (s[l]) {
-                tag.classList.add(s.type === 'buy' ? 'active-buy' : 'active-sell');
-                tag.innerText = "DETECTED";
-            } else {
-                tag.innerText = "WAITING";
+        const stateToSave = {
+            xau: {
+                l1: engineState.xau.l1, l2: engineState.xau.l2, l3: engineState.xau.l3,
+                type: engineState.xau.type, entry: engineState.xau.entry,
+                sl: engineState.xau.sl, tp: engineState.xau.tp,
+                confirmed: engineState.xau.confirmed, cooldown: engineState.xau.cooldown,
+                trend: engineState.xau.trend, momentum: engineState.xau.momentum,
+                priceHistoryH1: engineState.xau.priceHistoryH1.slice(-30),
+                priceHistoryM15: engineState.xau.priceHistoryM15.slice(-30),
+            },
+            btc: {
+                l1: engineState.btc.l1, l2: engineState.btc.l2, l3: engineState.btc.l3,
+                type: engineState.btc.type, entry: engineState.btc.entry,
+                sl: engineState.btc.sl, tp: engineState.btc.tp,
+                confirmed: engineState.btc.confirmed, cooldown: engineState.btc.cooldown,
+                trend: engineState.btc.trend, momentum: engineState.btc.momentum,
+                priceHistoryH1: engineState.btc.priceHistoryH1.slice(-30),
+                priceHistoryM15: engineState.btc.priceHistoryM15.slice(-30),
             }
+        };
+        try {
+            localStorage.setItem('ura_hybrid_state', JSON.stringify(stateToSave));
+        } catch(e) {
+            console.log('Storage full');
+        }
+    }
+
+    // ==================== ALGORITMA H1 TREND ====================
+    function analyzeTrendH1(id) {
+        const s = engineState[id];
+        const now = Date.now();
+        
+        if (now - s.lastH1Update < 1000) return;
+        s.lastH1Update = now;
+        
+        const price = s.lastPrice;
+        if (price <= 0) return;
+        
+        s.priceHistoryH1.push({ time: now, price: price });
+        const oneHourAgo = now - 3600000;
+        s.priceHistoryH1 = s.priceHistoryH1.filter(p => p.time > oneHourAgo);
+        
+        if (s.priceHistoryH1.length < 2) return;
+        
+        const prices = s.priceHistoryH1.map(p => p.price);
+        const smaPeriod = Math.min(prices.length, 20);
+        const recentPrices = prices.slice(-smaPeriod);
+        const sma = recentPrices.reduce((a, b) => a + b, 0) / recentPrices.length;
+        
+        if (s.lastPrice > 0) {
+            if (price > s.swingHigh || s.swingHigh === 0) s.swingHigh = price;
+            if (price < s.swingLow || s.swingLow === Infinity) s.swingLow = price;
+        }
+        
+        const priceVsSMA = price - sma;
+        const swingRange = s.swingHigh - s.swingLow;
+        
+        if (swingRange > 0) {
+            const pricePosition = (price - s.swingLow) / swingRange;
+            if (priceVsSMA > 0 && pricePosition > 0.6) {
+                s.trend = 'bullish';
+            } else if (priceVsSMA < 0 && pricePosition < 0.4) {
+                s.trend = 'bearish';
+            } else {
+                s.trend = 'neutral';
+            }
+        }
+        
+        if (s.priceHistoryH1.length > 100) {
+            s.swingHigh = price;
+            s.swingLow = price;
+        }
+    }
+
+    // ==================== ALGORITMA M15 MOMENTUM ====================
+    function analyzeMomentumM15(id) {
+        const s = engineState[id];
+        const now = Date.now();
+        
+        if (now - s.lastM15Update < 500) return;
+        s.lastM15Update = now;
+        
+        const price = s.lastPrice;
+        if (price <= 0) return;
+        
+        s.priceHistoryM15.push({ time: now, price: price });
+        const fifteenMinAgo = now - 900000;
+        s.priceHistoryM15 = s.priceHistoryM15.filter(p => p.time > fifteenMinAgo);
+        
+        if (s.priceHistoryM15.length < 3) return;
+        
+        const prices = s.priceHistoryM15.map(p => p.price);
+        const recentPrices = prices.slice(-5);
+        const olderPrices = prices.slice(0, Math.max(prices.length - 5, 1));
+        
+        if (recentPrices.length >= 2 && olderPrices.length >= 2) {
+            const recentAvg = recentPrices.reduce((a, b) => a + b, 0) / recentPrices.length;
+            const olderAvg = olderPrices.reduce((a, b) => a + b, 0) / olderPrices.length;
+            const roc = ((recentAvg - olderAvg) / olderAvg) * 100;
+            
+            if (roc > 0.5) s.momentum = 'strong_bullish';
+            else if (roc > 0.1) s.momentum = 'bullish';
+            else if (roc < -0.5) s.momentum = 'strong_bearish';
+            else if (roc < -0.1) s.momentum = 'bearish';
+            else s.momentum = 'neutral';
+        }
+        
+        if (s.lastPrice > 0) {
+            s.priceDirection = price > s.lastPrice ? 1 : (price < s.lastPrice ? -1 : 0);
+        }
+    }
+
+    // ==================== SIGNAL DETECTION (M15 LOGIC) ====================
+    function detectSignalPattern(id) {
+        const s = engineState[id];
+        if (s.confirmed || s.cooldown) return false;
+        
+        const price = s.lastPrice;
+        if (price <= 0) return false;
+        
+        let changed = false;
+        
+        // Stage 1: Trend alignment (H1) + Momentum (M15)
+        if (!s.l1 && s.trend !== 'neutral' && s.momentum !== 'neutral') {
+            const trendBullish = s.trend === 'bullish';
+            const trendBearish = s.trend === 'bearish';
+            const momBullish = s.momentum === 'bullish' || s.momentum === 'strong_bullish';
+            const momBearish = s.momentum === 'bearish' || s.momentum === 'strong_bearish';
+            
+            if ((trendBullish && momBullish) || (trendBearish && momBearish)) {
+                s.l1 = true;
+                s.type = trendBullish ? 'buy' : 'sell';
+                changed = true;
+            }
+        }
+        
+        // Stage 2: Momentum confirmation
+        if (s.l1 && !s.l2 && s.priceDirection !== 0) {
+            const correctDirection = (s.type === 'buy' && s.priceDirection === 1) || 
+                                    (s.type === 'sell' && s.priceDirection === -1);
+            const strongMomentum = s.momentum === 'strong_bullish' || s.momentum === 'strong_bearish';
+            
+            if (correctDirection && strongMomentum) {
+                s.l2 = true;
+                changed = true;
+            }
+        }
+        
+        // Stage 3: Signal lock
+        if (s.l2 && !s.l3) {
+            const diff = Math.abs(price - (s.lastPrice || price));
+            const threshold = id === 'xau' ? 0.3 : 25;
+            
+            if (diff > threshold && s.priceDirection !== 0) {
+                const correctDirection = (s.type === 'buy' && s.priceDirection === 1) || 
+                                        (s.type === 'sell' && s.priceDirection === -1);
+                if (correctDirection) {
+                    s.l3 = true;
+                    lockSignal(id, price, s.type);
+                    changed = true;
+                }
+            }
+        }
+        
+        return changed;
+    }
+
+    function lockSignal(id, entry, type) {
+        const s = engineState[id];
+        s.l3 = true;
+        s.confirmed = true;
+        s.type = type;
+        s.entry = entry;
+        const slDist = config[id].sl;
+        const tpDist = slDist * config[id].rr;
+        s.sl = type === 'buy' ? entry - slDist : entry + slDist;
+        s.tp = type === 'buy' ? entry + tpDist : entry - tpDist;
+    }
+
+    function resetSignal(id) {
+        const s = engineState[id];
+        s.l1 = false; s.l2 = false; s.l3 = false;
+        s.confirmed = false; s.type = 'none';
+        s.entry = 0; s.tp = 0; s.sl = 0;
+        s.cooldown = true;
+        saveState();
+        renderUI(id);
+        
+        setTimeout(() => { 
+            engineState[id].cooldown = false; 
+            saveState();
+            renderUI(id);
+        }, 10000);
+    }
+
+    // ==================== INISIALISASI UI ====================
+    function init() {
+        const container = document.getElementById('terminals');
+        container.innerHTML = '';
+        
+        pairs.forEach(p => {
+            const cardHTML = `
+                <div class="pair-card ${p.id === activePairId ? 'active' : ''}" id="card-${p.id}">
+                    <div class="card">
+                        <div class="card-header-new">
+                            <span class="pair-big">${p.name}</span>
+                            <span class="price-live" id="price-${p.id}">0.00</span>
+                        </div>
+                        
+                        <div class="signal-bar" id="signal-bar-${p.id}">
+                            <span class="signal-label">SIGNAL</span>
+                            <div class="signal-dot-group">
+                                <div class="dot" id="l1-${p.id}"></div>
+                                <div class="dot" id="l2-${p.id}"></div>
+                                <div class="dot" id="l3-${p.id}"></div>
+                            </div>
+                            <span id="signal-text-${p.id}" style="font-size:0.7rem;">WAITING</span>
+                        </div>
+                        
+                        <div class="card-level-grid" id="level-grid-${p.id}">
+                            <div class="level-item" onclick="copyLevelValue('${p.id}', 'entry')">
+                                <span class="level-label">Entry</span>
+                                <span class="level-value" id="entry-val-${p.id}" style="color: var(--text);">--</span>
+                            </div>
+                            <div class="level-item" onclick="copyLevelValue('${p.id}', 'tp')">
+                                <span class="level-label">Target</span>
+                                <span class="level-value" id="tp-val-${p.id}" style="color: var(--success);">--</span>
+                            </div>
+                            <div class="level-item" onclick="copyLevelValue('${p.id}', 'sl')">
+                                <span class="level-label">S-Loss</span>
+                                <span class="level-value" id="sl-val-${p.id}" style="color: var(--danger);">--</span>
+                            </div>
+                        </div>
+                        
+                        <div class="analysis-grid">
+                            <div class="box-logic">
+                                <span class="label-sm">Logic Engine</span>
+                                <div class="stat"><span>SWEEP</span><span id="logic-l1-${p.id}" style="color:var(--text-dim);">•</span></div>
+                                <div class="stat"><span>CHoCH</span><span id="logic-l2-${p.id}" style="color:var(--text-dim);">•</span></div>
+                                <div class="stat"><span>FVG</span><span id="logic-l3-${p.id}" style="color:var(--text-dim);">•</span></div>
+                            </div>
+                            <div class="box-pa">
+                                <span class="label-sm">Price Action</span>
+                                <div class="stat"><span>TREND</span><span id="trend-${p.id}" style="font-weight:700">SCANNING</span></div>
+                                <div class="stat" style="align-items: flex-start;">
+                                    <span>MOMTUM</span>
+                                    <div class="mom-value" id="mom-${p.id}">--</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML += cardHTML;
         });
 
-        if (s.cooldown) {
-            btn.className = "signal-btn";
-            btn.innerText = "Waiting New Cycle...";
-        } else if (s.l3 && s.setup) {
-            btn.className = `signal-btn ${s.type}`;
-            btn.innerText = `CONFIRMED ${s.type.toUpperCase()}`;
-        } else {
-            btn.className = "signal-btn";
-            btn.innerText = "Scanning Market...";
+        pairs.forEach(p => {
+            if (wsConnections[p.id]) wsConnections[p.id].close();
+            const ws = new WebSocket(p.wsUrl);
+            ws.onmessage = (e) => {
+                const currentPrice = parseFloat(JSON.parse(e.data).c) + offsets[p.id];
+                updatePriceAction(p.id, currentPrice);
+            };
+            ws.onerror = () => console.log(`WS error for ${p.id}`);
+            wsConnections[p.id] = ws;
+        });
+
+        document.getElementById('switchPairBtn').addEventListener('click', switchPair);
+        updateSwitchButton();
+        renderUI('xau');
+        renderUI('btc');
+    }
+
+    function updatePriceAction(id, price) {
+        const s = engineState[id];
+        const oldPrice = s.lastPrice;
+        s.lastPrice = price;
+        
+        const priceEl = document.getElementById(`price-${id}`);
+        if (priceEl) {
+            if (price > oldPrice) priceEl.style.color = "var(--success)";
+            else if (price < oldPrice) priceEl.style.color = "var(--danger)";
+            priceEl.innerText = price.toFixed(2);
+        }
+
+        // Cek TP/SL
+        if (s.confirmed) {
+            const hitTP = (s.type === 'buy' && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
+            const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
+            if (hitTP || hitSL) {
+                resetSignal(id);
+                return;
+            }
+        }
+
+        // Analisa H1 & M15
+        analyzeTrendH1(id);
+        analyzeMomentumM15(id);
+        
+        // Deteksi signal
+        const changed = detectSignalPattern(id);
+        
+        // Update trend score untuk UI
+        if (oldPrice !== 0 && price !== oldPrice) {
+            s.trendScore += (price - oldPrice);
+        }
+        
+        renderUI(id);
+        
+        if (changed) saveState();
+    }
+
+    function switchPair() {
+        const currentIndex = pairs.findIndex(p => p.id === activePairId);
+        const nextIndex = (currentIndex + 1) % pairs.length;
+        activePairId = pairs[nextIndex].id;
+        
+        document.querySelectorAll('.pair-card').forEach(card => card.classList.remove('active'));
+        document.getElementById(`card-${activePairId}`).classList.add('active');
+        updateSwitchButton();
+    }
+
+    function updateSwitchButton() {
+        const label = document.getElementById('switchLabel');
+        if (label) {
+            label.innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
         }
     }
 
-    function renderSetupUI(id) {
+    function renderUI(id) {
         const s = engineState[id];
-        const grid = document.getElementById(`setup-${id}`);
-        if (s.setup) {
-            grid.classList.add('show');
-            document.getElementById(`entry-${id}`).innerText = s.setup.entry.toFixed(2);
-            document.getElementById(`sl-${id}`).innerText = s.setup.sl.toFixed(2);
-            document.getElementById(`tp-${id}`).innerText = s.setup.tp.toFixed(2);
-        }
-    }
-    
-    function updateGlobalHeaderDot() {
-        const activeCard = document.querySelector('.card.active');
-        if (!activeCard) return;
-        const activeId = activeCard.id === 'card-xau' ? 'xau' : 'btc';
-        const activeState = engineState[activeId];
-        const headerDot = document.getElementById('globalStatusDot');
-        if (!headerDot) return;
         
-        if (activeState.l3 && activeState.setup && !activeState.cooldown) {
-            if (activeState.type === 'buy') {
-                headerDot.style.backgroundColor = "var(--success-bright)";
-                headerDot.style.boxShadow = "0 0 14px var(--success-bright)";
-                headerDot.style.animation = "pulse-dot 1.4s infinite ease-in-out";
-            } else if (activeState.type === 'sell') {
-                headerDot.style.backgroundColor = "var(--danger-bright)";
-                headerDot.style.boxShadow = "0 0 14px var(--danger-bright)";
-                headerDot.style.animation = "pulse-dot 1.4s infinite ease-in-out";
-            } else {
-                headerDot.style.backgroundColor = "var(--accent)";
-                headerDot.style.boxShadow = "0 0 8px var(--accent)";
-                headerDot.style.animation = "pulse-dot 1.4s infinite ease-in-out";
+        // Dots
+        ['l1', 'l2', 'l3'].forEach(l => {
+            const dotEl = document.getElementById(`${l}-${id}`);
+            if (dotEl) {
+                dotEl.className = s[l] ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
             }
-        } else if (activeState.cooldown) {
-            headerDot.style.backgroundColor = "#848e9c";
-            headerDot.style.boxShadow = "none";
-            headerDot.style.animation = "none";
-        } else {
-            headerDot.style.backgroundColor = "var(--success-bright)";
-            headerDot.style.boxShadow = "0 0 10px var(--success-bright)";
-            headerDot.style.animation = "pulse-dot 1.4s infinite ease-in-out";
+        });
+        
+        // Logic indicators
+        document.getElementById(`logic-l1-${id}`).innerText = s.l1 ? '✔' : '•';
+        document.getElementById(`logic-l2-${id}`).innerText = s.l2 ? '✔' : '•';
+        document.getElementById(`logic-l3-${id}`).innerText = s.l3 ? '✔' : '•';
+        
+        // Signal text
+        const signalText = document.getElementById(`signal-text-${id}`);
+        if (signalText) {
+            if (s.cooldown) { signalText.innerText = 'COOLDOWN'; signalText.style.color = 'var(--text-dim)'; }
+            else if (s.confirmed) { signalText.innerText = s.type.toUpperCase(); signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
+            else if (s.l2) { signalText.innerText = 'CONFIRMING'; signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
+            else if (s.l1) { signalText.innerText = 'DETECTED'; signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
+            else { signalText.innerText = 'WAITING'; signalText.style.color = 'var(--text-dim)'; }
         }
+        
+        // Trend (H1)
+        const trendEl = document.getElementById(`trend-${id}`);
+        if (trendEl) {
+            trendEl.innerText = s.trend.toUpperCase();
+            if (s.trend === 'bullish') trendEl.style.color = "var(--success)";
+            else if (s.trend === 'bearish') trendEl.style.color = "var(--danger)";
+            else trendEl.style.color = "var(--text-dim)";
+        }
+        
+        // Momentum (M15)
+        const momEl = document.getElementById(`mom-${id}`);
+        if (momEl) {
+            momEl.innerHTML = s.momentum.replace('_', '<br>').toUpperCase();
+            if (s.momentum.includes('bullish')) momEl.style.color = "var(--success)";
+            else if (s.momentum.includes('bearish')) momEl.style.color = "var(--danger)";
+            else momEl.style.color = "var(--text-dim)";
+        }
+        
+        // Card level values
+        document.getElementById(`entry-val-${id}`).innerText = s.confirmed ? s.entry.toFixed(2) : '--';
+        document.getElementById(`tp-val-${id}`).innerText = s.confirmed ? s.tp.toFixed(2) : '--';
+        document.getElementById(`sl-val-${id}`).innerText = s.confirmed ? s.sl.toFixed(2) : '--';
     }
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        const newToggleBtn = document.getElementById('toggle-btn');
-        if (newToggleBtn) {
-            newToggleBtn.onclick = switchPair;
+
+    // Fungsi copy untuk card level
+    window.copyLevelValue = function(id, type) {
+        const s = engineState[id];
+        if (!s.confirmed) return;
+        
+        let value = '';
+        if (type === 'entry') value = s.entry.toFixed(2);
+        else if (type === 'tp') value = s.tp.toFixed(2);
+        else if (type === 'sl') value = s.sl.toFixed(2);
+        
+        if (value) {
+            navigator.clipboard.writeText(value).then(() => {
+                const el = document.getElementById(`${type}-val-${id}`);
+                const origColor = el.style.color;
+                el.style.color = "var(--accent)";
+                setTimeout(() => { el.style.color = origColor; }, 300);
+            });
         }
-    });
+    };
+
+    setInterval(() => {
+        document.getElementById('clock').innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC";
+    }, 1000);
+    
+    init();
 </script>
 </body>
 </html>
