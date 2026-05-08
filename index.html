@@ -11,18 +11,18 @@
             --text: #eaecef;
             --text-dim: #848e9c;
             --accent: #f0b90b;
-            --success-dark: #0a9d63; 
+            --success-dark: #0a9d63;
             --danger-dark: #cf3044;
-            --success-bright: #00ff88; 
+            --success-bright: #00ff88;
             --danger-bright: #ff3344;
             --border: #2b3139;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            background: var(--bg); 
-            color: var(--text); 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             padding: 15px;
             display: flex;
             flex-direction: column;
@@ -35,17 +35,42 @@
             margin: 10px 0 20px 0;
             border-left: 4px solid var(--accent);
             padding-left: 12px;
-            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-left {
+            display: flex;
+            flex-direction: column;
         }
 
         h1 { font-size: 1rem; letter-spacing: -0.5px; }
         .subtitle { font-size: 0.55rem; color: var(--text-dim); }
 
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dot {
+            height: 7px;
+            width: 7px;
+            background-color: var(--success-bright);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 12px var(--success-bright);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px var(--success-bright); }
+            50% { opacity: 0.6; transform: scale(0.9); box-shadow: 0 0 4px var(--success-bright); }
+            100% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px var(--success-bright); }
+        }
+
         .switch-btn {
-            position: absolute;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
             background: var(--accent);
             color: #000;
             border: none;
@@ -78,22 +103,6 @@
 
         .pair-info { display: flex; align-items: center; gap: 6px; }
         .pair { font-size: 1.1rem; font-weight: bold; color: var(--text); }
-        
-        .dot {
-            height: 7px;
-            width: 7px;
-            background-color: var(--success-bright);
-            border-radius: 50%;
-            display: inline-block;
-            box-shadow: 0 0 12px var(--success-bright);
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px var(--success-bright); }
-            50% { opacity: 0.6; transform: scale(0.9); box-shadow: 0 0 4px var(--success-bright); }
-            100% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px var(--success-bright); }
-        }
 
         .price { font-family: monospace; font-size: 1.1rem; font-weight: 600; }
 
@@ -110,18 +119,18 @@
 
         .setup-item { text-align: center; }
         .setup-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; }
-        
-        .setup-val { 
-            font-family: monospace; 
-            font-size: 0.85rem; 
-            font-weight: bold; 
-            display: block; 
-            margin-top: 4px; 
+
+        .setup-val {
+            font-family: monospace;
+            font-size: 0.85rem;
+            font-weight: bold;
+            display: block;
+            margin-top: 4px;
             cursor: pointer;
             transition: opacity 0.2s;
             padding: 2px;
         }
-        
+
         .setup-val:active { opacity: 0.5; }
 
         .signal-btn {
@@ -149,7 +158,7 @@
         .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .row:last-child { margin-bottom: 0; }
         .label { font-size: 0.75rem; color: var(--text-dim); }
-        
+
         .status-tag { font-size: 0.65rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: #2b3139; color: #474d57; transition: all 0.3s; }
         .status-tag.active-buy { background: rgba(0, 255, 136, 0.15); color: var(--success-bright); text-shadow: 0 0 5px rgba(0, 255, 136, 0.5); }
         .status-tag.active-sell { background: rgba(255, 51, 68, 0.15); color: var(--danger-bright); text-shadow: 0 0 5px rgba(255, 51, 68, 0.5); }
@@ -161,9 +170,14 @@
 
 <div class="container">
     <header>
-        <h1>URA PRECISSION</h1>
-        <p class="subtitle">Engine v18.0 • Persistent & Multi-Color</p>
-        <button class="switch-btn" onclick="switchPair()" id="toggle-btn">BTC</button>
+        <div class="header-left">
+            <h1>URA PRECISSION</h1>
+            <p class="subtitle">Engine v18.0 • Persistent & Multi-Color</p>
+        </div>
+        <div class="header-right">
+            <span class="dot"></span>
+            <button class="switch-btn" onclick="switchPair()" id="toggle-btn">BTC</button>
+        </div>
     </header>
 
     <div id="terminals">
@@ -171,7 +185,6 @@
             <div class="card-header">
                 <div class="pair-info">
                     <span class="pair">XAUUSD</span>
-                    <span class="dot"></span>
                 </div>
                 <span class="price" id="price-xau">0.00</span>
             </div>
@@ -195,7 +208,6 @@
             <div class="card-header">
                 <div class="pair-info">
                     <span class="pair">BTCUSD</span>
-                    <span class="dot"></span>
                 </div>
                 <span class="price" id="price-btc">0.00</span>
             </div>
@@ -226,7 +238,7 @@
     function copyValue(element) {
         const text = element.innerText;
         if (text === "-") return;
-        
+
         navigator.clipboard.writeText(text).then(() => {
             const originalColor = element.style.color;
             element.style.color = "var(--accent)";
@@ -257,7 +269,6 @@
         localStorage.setItem('ura_terminal_state', JSON.stringify(engineState));
     }
 
-    // Persistensi Pilihan Pair Aktif
     function updateButtonLabel(activeId) {
         const btn = document.getElementById('toggle-btn');
         btn.innerText = activeId === 'card-xau' ? 'BTC' : 'XAU';
@@ -266,7 +277,7 @@
     function switchPair() {
         const cardXau = document.getElementById('card-xau');
         const cardBtc = document.getElementById('card-btc');
-        
+
         cardXau.classList.toggle('active');
         cardBtc.classList.toggle('active');
 
@@ -287,9 +298,8 @@
 
     initWebSocket('btc', 'btcusdt');
     initWebSocket('xau', 'paxgusdt');
-    
+
     window.onload = () => {
-        // Restore Active Pair View
         const lastPair = localStorage.getItem('active_pair_view');
         if (lastPair === 'card-btc') {
             document.getElementById('card-xau').classList.remove('active');
@@ -298,6 +308,17 @@
         } else {
             updateButtonLabel('card-xau');
         }
+
+        // Bug #2 Fix: Validasi setup basi saat reload
+        ['xau', 'btc'].forEach(id => {
+            const s = engineState[id];
+            if (s.setup && currentPrices[id] > 0) {
+                const priceGap = Math.abs(currentPrices[id] - s.setup.entry);
+                if (priceGap > config[id].sl * 5) {
+                    resetEngine(id, true);
+                }
+            }
+        });
 
         updateStatusUI('xau');
         updateStatusUI('btc');
@@ -309,9 +330,9 @@
         const price = rawPrice + offsets[id];
         const oldPrice = currentPrices[id];
         currentPrices[id] = price;
-        
+
         const el = document.getElementById(`price-${id}`);
-        el.innerText = price.toLocaleString(undefined, {minimumFractionDigits: 2});
+        el.innerText = price.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (price !== oldPrice) {
             el.style.color = price >= oldPrice ? "var(--success-bright)" : "var(--danger-bright)";
         }
@@ -330,8 +351,8 @@
         document.getElementById(`setup-${id}`).classList.remove('show');
         updateStatusUI(id);
         if (withCooldown) {
-            setTimeout(() => { 
-                engineState[id].cooldown = false; 
+            setTimeout(() => {
+                engineState[id].cooldown = false;
                 saveState();
                 updateStatusUI(id);
             }, 10000);
@@ -345,7 +366,9 @@
 
         if (!s.l1 && Math.random() > 0.992) {
             s.l1 = true;
-            s.type = Math.random() > 0.5 ? 'buy' : 'sell';
+            // Bug #1 Fix: Balik type langsung sejak L1
+            const rawType = Math.random() > 0.5 ? 'buy' : 'sell';
+            s.type = rawType === 'buy' ? 'sell' : 'buy';
             changed = true;
         } else if (s.l1 && !s.l2 && Math.random() > 0.988) {
             s.l2 = true;
@@ -370,7 +393,7 @@
     function updateStatusUI(id) {
         const s = engineState[id];
         const btn = document.getElementById(`btn-${id}`);
-        
+
         ['l1', 'l2', 'l3'].forEach(l => {
             const tag = document.getElementById(`${l}-${id}`);
             tag.className = "status-tag";
