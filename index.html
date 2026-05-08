@@ -40,7 +40,6 @@
             padding: 12px 12px 20px 12px;
         }
 
-        /* HEADER baru dengan dot di sebelah kiri tombol pair */
         header {
             display: flex;
             justify-content: space-between;
@@ -113,7 +112,6 @@
         }
         .switch-btn:active { opacity: 0.6; transform: scale(0.96); }
 
-        /* card - sesuai asli */
         .card {
             background: var(--card);
             border: 1px solid var(--border);
@@ -136,8 +134,6 @@
         .pair-info { display: flex; align-items: center; gap: 6px; }
         .pair { font-size: 1.1rem; font-weight: bold; color: var(--text); }
         
-        /* dot dalam card TETAP ADA sesuai engine asli, tapi disembunyikan secara visual */
-        /* engine asli tetap menggunakan class .dot, kita sembunyikan dengan display:none */
         .dot {
             display: none;
         }
@@ -207,7 +203,6 @@
 <body>
 
 <div class="container">
-    <!-- HEADER BARU dengan dot di sebelah kiri tombol pair -->
     <header>
         <div class="title-section">
             <h1>URA PRECISSION</h1>
@@ -276,7 +271,6 @@
 </div>
 
 <script>
-    // ==================== ENGINE ASLI 100% (TIDAK BERUBAH) ====================
     function copyValue(element) {
         const text = element.innerText;
         if (text === "-") return;
@@ -290,7 +284,7 @@
         });
     }
 
-    const offsets = { xau: 8.2, btc: 0.00 };
+    const offsets = { xau: 8.6, btc: 0.00 };
     const config = {
         xau: { sl: 10.00, rr: 1.55 },
         btc: { sl: 150.00, rr: 1.55 }
@@ -311,12 +305,12 @@
         localStorage.setItem('ura_terminal_state', JSON.stringify(engineState));
     }
 
-    // Persistensi Pilihan Pair Aktif
     function updateButtonLabel(activeId) {
         const btn = document.getElementById('toggle-btn');
         btn.innerText = activeId === 'card-xau' ? 'BTC' : 'XAU';
     }
 
+    // ==================== PERBAIKAN: TAMBAHKAN updateGlobalHeaderDot() SAAT SWITCH PAIR ====================
     function switchPair() {
         const cardXau = document.getElementById('card-xau');
         const cardBtc = document.getElementById('card-btc');
@@ -328,25 +322,27 @@
         localStorage.setItem('active_pair_view', activePair);
         updateButtonLabel(activePair);
         
-        // update global header dot berdasarkan pair aktif
+        // 🔧 PERBAIKAN: Update dot header saat ganti pair
         updateGlobalHeaderDot();
     }
 
-    function initWebSocket(id, symbol) {
-        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@ticker`);
-        ws.onmessage = (e) => {
-            const data = JSON.parse(e.data);
-            updatePrice(id, parseFloat(data.c));
-            processLogic(id);
-        };
-        ws.onclose = () => setTimeout(() => initWebSocket(id, symbol), 5000);
-    }
+    // WebSocket seperti gmn.html (tanpa auto-reconnect, perlu refresh manual jika putus)
+    const btcWs = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
+    const xauWs = new WebSocket('wss://stream.binance.com:9443/ws/paxgusdt@ticker');
 
-    initWebSocket('btc', 'btcusdt');
-    initWebSocket('xau', 'paxgusdt');
+    btcWs.onmessage = function(e) { 
+        const d = JSON.parse(e.data); 
+        updatePrice('btc', parseFloat(d.c)); 
+        processLogic('btc');
+    };
+    
+    xauWs.onmessage = function(e) { 
+        const d = JSON.parse(e.data); 
+        updatePrice('xau', parseFloat(d.c)); 
+        processLogic('xau');
+    };
     
     window.onload = () => {
-        // Restore Active Pair View
         const lastPair = localStorage.getItem('active_pair_view');
         if (lastPair === 'card-btc') {
             document.getElementById('card-xau').classList.remove('active');
@@ -361,7 +357,6 @@
         renderSetupUI('xau');
         renderSetupUI('btc');
         
-        // initial update global dot
         updateGlobalHeaderDot();
     };
 
@@ -467,7 +462,6 @@
         }
     }
     
-    // ==================== FUNGSI TAMBAHAN UNTUK HEADER DOT (HANYA VISUAL, TIDAK MENYENTUH ENGINE) ====================
     function updateGlobalHeaderDot() {
         const activeCard = document.querySelector('.card.active');
         if (!activeCard) return;
@@ -480,27 +474,30 @@
             if (activeState.type === 'buy') {
                 headerDot.style.backgroundColor = "var(--success-bright)";
                 headerDot.style.boxShadow = "0 0 14px var(--success-bright)";
+                headerDot.style.animation = "pulse-dot 1.4s infinite ease-in-out";
             } else if (activeState.type === 'sell') {
                 headerDot.style.backgroundColor = "var(--danger-bright)";
                 headerDot.style.boxShadow = "0 0 14px var(--danger-bright)";
+                headerDot.style.animation = "pulse-dot 1.4s infinite ease-in-out";
             } else {
                 headerDot.style.backgroundColor = "var(--accent)";
                 headerDot.style.boxShadow = "0 0 8px var(--accent)";
+                headerDot.style.animation = "pulse-dot 1.4s infinite ease-in-out";
             }
         } else if (activeState.cooldown) {
             headerDot.style.backgroundColor = "#848e9c";
             headerDot.style.boxShadow = "none";
+            headerDot.style.animation = "none";
         } else {
             headerDot.style.backgroundColor = "var(--success-bright)";
             headerDot.style.boxShadow = "0 0 10px var(--success-bright)";
+            headerDot.style.animation = "pulse-dot 1.4s infinite ease-in-out";
         }
     }
     
-    // override tombol switch di header baru
     document.addEventListener('DOMContentLoaded', function() {
         const newToggleBtn = document.getElementById('toggle-btn');
         if (newToggleBtn) {
-            // replace event listener
             newToggleBtn.onclick = switchPair;
         }
     });
