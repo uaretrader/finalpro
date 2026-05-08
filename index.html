@@ -111,7 +111,6 @@
         .setup-item { text-align: center; }
         .setup-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; }
         
-        /* Gaya khusus untuk nilai yang bisa disalin */
         .setup-val { 
             font-family: monospace; 
             font-size: 0.85rem; 
@@ -164,7 +163,7 @@
     <header>
         <h1>URA PRECISSION</h1>
         <p class="subtitle">Engine v18.0 • Persistent & Multi-Color</p>
-        <button class="switch-btn" onclick="switchPair()" id="toggle-btn">Switch</button>
+        <button class="switch-btn" onclick="switchPair()" id="toggle-btn">BTC</button>
     </header>
 
     <div id="terminals">
@@ -224,7 +223,6 @@
 </div>
 
 <script>
-    /* Fungsi Baru: Copy to Clipboard */
     function copyValue(element) {
         const text = element.innerText;
         if (text === "-") return;
@@ -238,7 +236,7 @@
         });
     }
 
-    const offsets = { xau: 8.1, btc: 0.00 };
+    const offsets = { xau: 7.2, btc: 0.00 };
     const config = {
         xau: { sl: 10.00, rr: 1.55 },
         btc: { sl: 450.00, rr: 1.55 }
@@ -259,6 +257,24 @@
         localStorage.setItem('ura_terminal_state', JSON.stringify(engineState));
     }
 
+    // Persistensi Pilihan Pair Aktif
+    function updateButtonLabel(activeId) {
+        const btn = document.getElementById('toggle-btn');
+        btn.innerText = activeId === 'card-xau' ? 'BTC' : 'XAU';
+    }
+
+    function switchPair() {
+        const cardXau = document.getElementById('card-xau');
+        const cardBtc = document.getElementById('card-btc');
+        
+        cardXau.classList.toggle('active');
+        cardBtc.classList.toggle('active');
+
+        const activePair = cardXau.classList.contains('active') ? 'card-xau' : 'card-btc';
+        localStorage.setItem('active_pair_view', activePair);
+        updateButtonLabel(activePair);
+    }
+
     function initWebSocket(id, symbol) {
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@ticker`);
         ws.onmessage = (e) => {
@@ -273,16 +289,21 @@
     initWebSocket('xau', 'paxgusdt');
     
     window.onload = () => {
+        // Restore Active Pair View
+        const lastPair = localStorage.getItem('active_pair_view');
+        if (lastPair === 'card-btc') {
+            document.getElementById('card-xau').classList.remove('active');
+            document.getElementById('card-btc').classList.add('active');
+            updateButtonLabel('card-btc');
+        } else {
+            updateButtonLabel('card-xau');
+        }
+
         updateStatusUI('xau');
         updateStatusUI('btc');
         renderSetupUI('xau');
         renderSetupUI('btc');
     };
-
-    function switchPair() {
-        document.getElementById('card-xau').classList.toggle('active');
-        document.getElementById('card-btc').classList.toggle('active');
-    }
 
     function updatePrice(id, rawPrice) {
         const price = rawPrice + offsets[id];
