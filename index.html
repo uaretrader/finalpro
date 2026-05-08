@@ -314,7 +314,7 @@
             const s = engineState[id];
             if (s.setup && currentPrices[id] > 0) {
                 const priceGap = Math.abs(currentPrices[id] - s.setup.entry);
-                if (priceGap > config[id].sl * 5) {
+                if (priceGap > config[id].sl * 1) {
                     resetEngine(id, true);
                 }
             }
