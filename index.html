@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>URA PRECISION v5.0 - Hybrid Engine</title>
+    <title>URA PRECISION v18.2 - Persistent Hybrid Engine</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -15,12 +15,8 @@
             --success: #00FFFF;
             --danger: #FF5252;
             --feed-lightning: #FFEA00;
-            --buy-deep: #1b5e20;
-            --maroon-faded: #802d2d;
             --border: rgba(255, 255, 255, 0.1);
             --card-bg: #1a1d21;
-            --glow-buy: rgba(0, 255, 136, 0.6);
-            --glow-sell: rgba(255, 51, 68, 0.6);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -94,28 +90,15 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
 
-        /* 1. Header XAUUSD | Live Price */
         .card-header-new {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 16px;
         }
-        .pair-big {
-            font-weight: 800;
-            font-size: 1.1rem;
-            letter-spacing: 1px;
-            color: var(--text);
-        }
-        .price-live {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.2rem;
-            font-weight: 700;
-            background: transparent;
-            padding: 4px 0;
-        }
+        .pair-big { font-weight: 800; font-size: 1.1rem; letter-spacing: 1px; color: var(--text); }
+        .price-live { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 700; }
 
-        /* 2. Signal Bar */
         .signal-bar {
             display: flex;
             align-items: center;
@@ -129,19 +112,12 @@
             font-size: 0.8rem;
             font-weight: 700;
             text-transform: uppercase;
-            color: var(--text-dim);
         }
-        .signal-dot-group {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-        .signal-label {
-            letter-spacing: 1px;
-            font-size: 0.7rem;
-        }
+        .signal-dot-group { display: flex; gap: 12px; align-items: center; }
+        .dot { width: 8px; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
+        .dot.active { background: var(--success); box-shadow: 0 0 10px var(--success); }
+        .dot.active-down { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
 
-        /* 3. Card Level (Entry | Target | Loss) - Presisi rata kiri, tengah, kanan */
         .card-level-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -152,75 +128,27 @@
             padding: 12px;
             border-radius: 4px;
         }
-        .level-item {
-            display: flex;
-            flex-direction: column;
-            cursor: pointer;
-        }
-        .level-item:nth-child(1) {
-            align-items: flex-start;
-            text-align: left;
-        }
-        .level-item:nth-child(2) {
-            align-items: center;
-            text-align: center;
-        }
-        .level-item:nth-child(3) {
-            align-items: flex-end;
-            text-align: right;
-        }
-        .level-label {
-            font-size: 0.6rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
-            font-family: 'Inter', sans-serif;
-        }
-        .level-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            font-weight: 700;
-            transition: opacity 0.2s;
-        }
-        .level-value:active { opacity: 0.5; }
+        .level-item { display: flex; flex-direction: column; cursor: pointer; }
+        .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
+        .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
 
-        /* 4. Logic | Price Action (M15) */
         .analysis-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 12px; margin-bottom: 15px; }
+        .box-logic, .box-pa { background: transparent; border: 1px solid var(--border); padding: 12px; border-radius: 4px; }
+        .label-sm { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; display: block; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+        .stat { display: flex; justify-content: space-between; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; margin-bottom: 6px; }
 
-        .box-logic, .box-pa {
-            background: transparent;
-            border: 1px solid var(--border);
-            padding: 12px;
-            border-radius: 4px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .label-sm { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; display: block; border-bottom: 1px solid var(--border); padding-bottom: 4px; letter-spacing: 1px; }
-        .stat { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; margin-bottom: 6px; }
-
-        .mom-value { text-align: right; line-height: 1.2; font-weight: 700; font-size: 0.65rem; }
-
-        .dot { width: 8px; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
-        .dot.active { background: var(--success); box-shadow: none; }
-        .dot.active-down { background: var(--danger); box-shadow: none; }
-
-        footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; font-family: 'JetBrains Mono', monospace; opacity: 0.6; line-height: 1.6; }
-
+        footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; font-family: 'JetBrains Mono', monospace; opacity: 0.6; }
         .pair-card { display: none; }
         .pair-card.active { display: block; }
-        
-        #terminals { margin-top: 0; padding-top: 0; }
     </style>
 </head>
 <body>
 <div class="container">
     <header>
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap;">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div class="brand">
                 <h1>uradvisor</h1>
-                <p style="font-size: 0.5rem; color: var(--text-dim)">HYBRID ENGINE</p>
+                <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION ENGINE v18.2</p>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
                 <div class="sys-status">
@@ -228,7 +156,7 @@
                     <div id="clock">00:00:00 UTC</div>
                 </div>
                 <button id="switchPairBtn" class="switch-pair-btn">
-                    <span id="switchIcon"></span> <span id="switchLabel">XAUUSD</span>
+                    <span id="switchLabel">XAUUSD</span>
                 </button>
             </div>
         </div>
@@ -237,479 +165,238 @@
     <div id="terminals"></div>
 
     <footer>
-        [ SYSTEM_LOG ]: HYBRID_ENGINE_ACTIVE<br>
-        [ THEME ]: H1_TREND + M15_MOMENTUM_SIGNAL
+        [ SYSTEM_LOG ]: AUTO_RESCAN_ACTIVE<br>
+        [ METHOD ]: SWEEP + CHOCH + FVG_PRECISION
     </footer>
 </div>
 
 <script>
-    // ==================== KONFIGURASI INTERNAL ====================
-    const offsets = { xau: 8.6, btc: 0.00 };
+    // ==================== CONFIGURATION ====================
     const config = {
-        xau: { sl: 10.00, rr: 1.55 },
-        btc: { sl: 150.00, rr: 1.55 }
+        xau: { sl: 7.00, rr: 3.0, lookback: 25, ws: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 8.6 },
+        btc: { sl: 80.00, rr: 3.0, lookback: 40, ws: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0.0 }
     };
-    // =============================================================
 
-    const pairs = [
-        { id: 'xau', name: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: offsets.xau },
-        { id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: offsets.btc }
-    ];
-
-    // ==================== STATE ENGINE (DARI v18.0) ====================
-    function createFreshState() {
-        return {
-            priceHistoryH1: [],
-            priceHistoryM15: [],
-            lastH1Update: 0,
-            lastM15Update: 0,
-            trend: 'neutral',
-            momentum: 'neutral',
-            l1: false,
-            l2: false,
-            l3: false,
-            type: 'none',
-            entry: 0,
-            sl: 0,
-            tp: 0,
-            confirmed: false,
-            cooldown: false,
-            lastPrice: 0,
-            swingHigh: 0,
-            swingLow: Infinity,
-            priceDirection: 0,
-            trendScore: 0,
-        };
-    }
-
-    function loadSavedState() {
-        const saved = localStorage.getItem('ura_hybrid_state');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (!parsed.xau || !parsed.btc) throw new Error('Invalid state');
-                // Kembalikan fungsi-fungsi yang tidak tersimpan
-                parsed.xau = { ...createFreshState(), ...parsed.xau };
-                parsed.btc = { ...createFreshState(), ...parsed.btc };
-                return parsed;
-            } catch(e) {
-                console.log('State corrupted, creating fresh');
-            }
-        }
-        return {
-            xau: createFreshState(),
-            btc: createFreshState()
-        };
-    }
-
-    let engineState = loadSavedState();
-    let activePairId = 'xau';
+    let engineState = { xau: null, btc: null };
+    let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
     let wsConnections = {};
 
-    function saveState() {
-        const stateToSave = {
-            xau: {
-                l1: engineState.xau.l1, l2: engineState.xau.l2, l3: engineState.xau.l3,
-                type: engineState.xau.type, entry: engineState.xau.entry,
-                sl: engineState.xau.sl, tp: engineState.xau.tp,
-                confirmed: engineState.xau.confirmed, cooldown: engineState.xau.cooldown,
-                trend: engineState.xau.trend, momentum: engineState.xau.momentum,
-                priceHistoryH1: engineState.xau.priceHistoryH1.slice(-30),
-                priceHistoryM15: engineState.xau.priceHistoryM15.slice(-30),
-            },
-            btc: {
-                l1: engineState.btc.l1, l2: engineState.btc.l2, l3: engineState.btc.l3,
-                type: engineState.btc.type, entry: engineState.btc.entry,
-                sl: engineState.btc.sl, tp: engineState.btc.tp,
-                confirmed: engineState.btc.confirmed, cooldown: engineState.btc.cooldown,
-                trend: engineState.btc.trend, momentum: engineState.btc.momentum,
-                priceHistoryH1: engineState.btc.priceHistoryH1.slice(-30),
-                priceHistoryM15: engineState.btc.priceHistoryM15.slice(-30),
-            }
+    function createFreshState() {
+        return {
+            priceHistory: [],
+            swingHigh: 0,
+            swingLow: Infinity,
+            l1: false, l2: false, l3: false,
+            type: 'none',
+            entry: 0, sl: 0, tp: 0,
+            confirmed: false,
+            cooldown: false,
+            lastPrice: 0
         };
-        try {
-            localStorage.setItem('ura_hybrid_state', JSON.stringify(stateToSave));
-        } catch(e) {
-            console.log('Storage full');
-        }
     }
 
-    // ==================== ALGORITMA H1 TREND ====================
-    function analyzeTrendH1(id) {
-        const s = engineState[id];
-        const now = Date.now();
-        
-        if (now - s.lastH1Update < 1000) return;
-        s.lastH1Update = now;
-        
-        const price = s.lastPrice;
-        if (price <= 0) return;
-        
-        s.priceHistoryH1.push({ time: now, price: price });
-        const oneHourAgo = now - 3600000;
-        s.priceHistoryH1 = s.priceHistoryH1.filter(p => p.time > oneHourAgo);
-        
-        if (s.priceHistoryH1.length < 2) return;
-        
-        const prices = s.priceHistoryH1.map(p => p.price);
-        const smaPeriod = Math.min(prices.length, 20);
-        const recentPrices = prices.slice(-smaPeriod);
-        const sma = recentPrices.reduce((a, b) => a + b, 0) / recentPrices.length;
-        
-        if (s.lastPrice > 0) {
-            if (price > s.swingHigh || s.swingHigh === 0) s.swingHigh = price;
-            if (price < s.swingLow || s.swingLow === Infinity) s.swingLow = price;
-        }
-        
-        const priceVsSMA = price - sma;
-        const swingRange = s.swingHigh - s.swingLow;
-        
-        if (swingRange > 0) {
-            const pricePosition = (price - s.swingLow) / swingRange;
-            if (priceVsSMA > 0 && pricePosition > 0.6) {
-                s.trend = 'bullish';
-            } else if (priceVsSMA < 0 && pricePosition < 0.4) {
-                s.trend = 'bearish';
-            } else {
-                s.trend = 'neutral';
-            }
-        }
-        
-        if (s.priceHistoryH1.length > 100) {
-            s.swingHigh = price;
-            s.swingLow = price;
-        }
+    // Persistence: Load Signal State
+    function loadStates() {
+        ['xau', 'btc'].forEach(id => {
+            const saved = localStorage.getItem(`ura_state_${id}`);
+            engineState[id] = saved ? JSON.parse(saved) : createFreshState();
+        });
     }
 
-    // ==================== ALGORITMA M15 MOMENTUM ====================
-    function analyzeMomentumM15(id) {
-        const s = engineState[id];
-        const now = Date.now();
-        
-        if (now - s.lastM15Update < 500) return;
-        s.lastM15Update = now;
-        
-        const price = s.lastPrice;
-        if (price <= 0) return;
-        
-        s.priceHistoryM15.push({ time: now, price: price });
-        const fifteenMinAgo = now - 900000;
-        s.priceHistoryM15 = s.priceHistoryM15.filter(p => p.time > fifteenMinAgo);
-        
-        if (s.priceHistoryM15.length < 3) return;
-        
-        const prices = s.priceHistoryM15.map(p => p.price);
-        const recentPrices = prices.slice(-5);
-        const olderPrices = prices.slice(0, Math.max(prices.length - 5, 1));
-        
-        if (recentPrices.length >= 2 && olderPrices.length >= 2) {
-            const recentAvg = recentPrices.reduce((a, b) => a + b, 0) / recentPrices.length;
-            const olderAvg = olderPrices.reduce((a, b) => a + b, 0) / olderPrices.length;
-            const roc = ((recentAvg - olderAvg) / olderAvg) * 100;
-            
-            if (roc > 0.5) s.momentum = 'strong_bullish';
-            else if (roc > 0.1) s.momentum = 'bullish';
-            else if (roc < -0.5) s.momentum = 'strong_bearish';
-            else if (roc < -0.1) s.momentum = 'bearish';
-            else s.momentum = 'neutral';
-        }
-        
-        if (s.lastPrice > 0) {
-            s.priceDirection = price > s.lastPrice ? 1 : (price < s.lastPrice ? -1 : 0);
-        }
+    function saveState(id) {
+        localStorage.setItem(`ura_state_${id}`, JSON.stringify(engineState[id]));
     }
 
-    // ==================== SIGNAL DETECTION (M15 LOGIC) ====================
-    function detectSignalPattern(id) {
+    // ==================== CORE ALGORITHM ====================
+    function analyzePrecisionLogic(id, price) {
         const s = engineState[id];
-        if (s.confirmed || s.cooldown) return false;
+        const conf = config[id];
         
-        const price = s.lastPrice;
-        if (price <= 0) return false;
-        
-        let changed = false;
-        
-        // Stage 1: Trend alignment (H1) + Momentum (M15)
-        if (!s.l1 && s.trend !== 'neutral' && s.momentum !== 'neutral') {
-            const trendBullish = s.trend === 'bullish';
-            const trendBearish = s.trend === 'bearish';
-            const momBullish = s.momentum === 'bullish' || s.momentum === 'strong_bullish';
-            const momBearish = s.momentum === 'bearish' || s.momentum === 'strong_bearish';
-            
-            if ((trendBullish && momBullish) || (trendBearish && momBearish)) {
-                s.l1 = true;
-                s.type = trendBullish ? 'buy' : 'sell';
-                changed = true;
+        s.priceHistory.push(price);
+        if (s.priceHistory.length > 100) s.priceHistory.shift();
+
+        // 1. AUTO RESET JIKA SL/TP HIT
+        if (s.confirmed) {
+            const hitTP = (s.type === 'buy' && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
+            const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
+            if (hitTP || hitSL) { 
+                resetSignal(id); 
+                return; 
             }
+            return; 
+        }
+
+        if (s.cooldown) return;
+
+        // 2. SCANNING LOGIC (SWEEP + CHOCH + FVG)
+        if (!s.l1) {
+            if (s.swingHigh !== 0 && price > s.swingHigh + (conf.sl * 0.1)) { s.l1 = true; s.type = 'sell'; saveState(id); }
+            else if (s.swingLow !== Infinity && price < s.swingLow - (conf.sl * 0.1)) { s.l1 = true; s.type = 'buy'; saveState(id); }
         }
         
-        // Stage 2: Momentum confirmation
-        if (s.l1 && !s.l2 && s.priceDirection !== 0) {
-            const correctDirection = (s.type === 'buy' && s.priceDirection === 1) || 
-                                    (s.type === 'sell' && s.priceDirection === -1);
-            const strongMomentum = s.momentum === 'strong_bullish' || s.momentum === 'strong_bearish';
-            
-            if (correctDirection && strongMomentum) {
-                s.l2 = true;
-                changed = true;
-            }
+        if (s.l1 && !s.l2) {
+            const recoveryThreshold = conf.sl * 0.2;
+            if (s.type === 'sell' && price < s.swingHigh - recoveryThreshold) { s.l2 = true; saveState(id); }
+            if (s.type === 'buy' && price > s.swingLow + recoveryThreshold) { s.l2 = true; saveState(id); }
         }
         
-        // Stage 3: Signal lock
         if (s.l2 && !s.l3) {
-            const diff = Math.abs(price - (s.lastPrice || price));
-            const threshold = id === 'xau' ? 0.3 : 25;
-            
-            if (diff > threshold && s.priceDirection !== 0) {
-                const correctDirection = (s.type === 'buy' && s.priceDirection === 1) || 
-                                        (s.type === 'sell' && s.priceDirection === -1);
-                if (correctDirection) {
-                    s.l3 = true;
-                    lockSignal(id, price, s.type);
-                    changed = true;
-                }
+            const p = s.priceHistory;
+            const gap = Math.abs(p[p.length-1] - (p[p.length-4] || p[0]));
+            if (gap > (conf.sl * 0.15)) {
+                s.l3 = true;
+                lockSignal(id, price);
             }
         }
-        
-        return changed;
+
+        // 3. STRUCTURE CHANGE DETECTOR (Auto Reset if structure breaks too far)
+        if (price > s.swingHigh) s.swingHigh = price;
+        if (price < s.swingLow) s.swingLow = price;
+
+        if (s.priceHistory.length % conf.lookback === 0) {
+            s.swingHigh = price; 
+            s.swingLow = price;
+            saveState(id);
+        }
     }
 
-    function lockSignal(id, entry, type) {
+    function lockSignal(id, entry) {
         const s = engineState[id];
-        s.l3 = true;
+        const conf = config[id];
         s.confirmed = true;
-        s.type = type;
         s.entry = entry;
-        const slDist = config[id].sl;
-        const tpDist = slDist * config[id].rr;
-        s.sl = type === 'buy' ? entry - slDist : entry + slDist;
-        s.tp = type === 'buy' ? entry + tpDist : entry - tpDist;
+        s.sl = s.type === 'buy' ? entry - conf.sl : entry + conf.sl;
+        s.tp = s.type === 'buy' ? entry + (conf.sl * conf.rr) : entry - (conf.sl * conf.rr);
+        saveState(id);
     }
 
     function resetSignal(id) {
         const s = engineState[id];
-        s.l1 = false; s.l2 = false; s.l3 = false;
-        s.confirmed = false; s.type = 'none';
-        s.entry = 0; s.tp = 0; s.sl = 0;
+        // Reset everything but keep price history for continuity
+        const history = s.priceHistory;
+        Object.assign(s, createFreshState());
+        s.priceHistory = history;
         s.cooldown = true;
-        saveState();
+        saveState(id);
         renderUI(id);
-        
+        // Kembali scanning otomatis setelah 10 detik
         setTimeout(() => { 
-            engineState[id].cooldown = false; 
-            saveState();
-            renderUI(id);
+            s.cooldown = false; 
+            saveState(id);
+            renderUI(id); 
         }, 10000);
     }
 
-    // ==================== INISIALISASI UI ====================
+    // ==================== UI ENGINE ====================
     function init() {
+        loadStates();
         const container = document.getElementById('terminals');
-        container.innerHTML = '';
-        
-        pairs.forEach(p => {
-            const cardHTML = `
-                <div class="pair-card ${p.id === activePairId ? 'active' : ''}" id="card-${p.id}">
+        ['xau', 'btc'].forEach(id => {
+            container.innerHTML += `
+                <div class="pair-card ${id === activePairId ? 'active' : ''}" id="card-${id}">
                     <div class="card">
                         <div class="card-header-new">
-                            <span class="pair-big">${p.name}</span>
-                            <span class="price-live" id="price-${p.id}">0.00</span>
+                            <span class="pair-big">${id.toUpperCase()}USD</span>
+                            <span class="price-live" id="price-${id}">0.00</span>
                         </div>
-                        
-                        <div class="signal-bar" id="signal-bar-${p.id}">
-                            <span class="signal-label">SIGNAL</span>
+                        <div class="signal-bar">
+                            <span>SIGNAL</span>
                             <div class="signal-dot-group">
-                                <div class="dot" id="l1-${p.id}"></div>
-                                <div class="dot" id="l2-${p.id}"></div>
-                                <div class="dot" id="l3-${p.id}"></div>
+                                <div class="dot" id="l1-${id}"></div>
+                                <div class="dot" id="l2-${id}"></div>
+                                <div class="dot" id="l3-${id}"></div>
                             </div>
-                            <span id="signal-text-${p.id}" style="font-size:0.7rem;">WAITING</span>
+                            <span id="signal-text-${id}">WAITING</span>
                         </div>
-                        
-                        <div class="card-level-grid" id="level-grid-${p.id}">
-                            <div class="level-item" onclick="copyLevelValue('${p.id}', 'entry')">
-                                <span class="level-label">Entry</span>
-                                <span class="level-value" id="entry-val-${p.id}" style="color: var(--text);">--</span>
-                            </div>
-                            <div class="level-item" onclick="copyLevelValue('${p.id}', 'tp')">
-                                <span class="level-label">Target</span>
-                                <span class="level-value" id="tp-val-${p.id}" style="color: var(--success);">--</span>
-                            </div>
-                            <div class="level-item" onclick="copyLevelValue('${p.id}', 'sl')">
-                                <span class="level-label">S-Loss</span>
-                                <span class="level-value" id="sl-val-${p.id}" style="color: var(--danger);">--</span>
-                            </div>
+                        <div class="card-level-grid">
+                            <div class="level-item" onclick="copyValue('${id}','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-${id}">--</span></div>
+                            <div class="level-item" onclick="copyValue('${id}','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-${id}" style="color:var(--success)">--</span></div>
+                            <div class="level-item" onclick="copyValue('${id}','sl')"><span class="level-label">S-Loss</span><span class="level-value" id="sl-${id}" style="color:var(--danger)">--</span></div>
                         </div>
-                        
                         <div class="analysis-grid">
                             <div class="box-logic">
                                 <span class="label-sm">Logic Engine</span>
-                                <div class="stat"><span>SWEEP</span><span id="logic-l1-${p.id}" style="color:var(--text-dim);">•</span></div>
-                                <div class="stat"><span>CHoCH</span><span id="logic-l2-${p.id}" style="color:var(--text-dim);">•</span></div>
-                                <div class="stat"><span>FVG</span><span id="logic-l3-${p.id}" style="color:var(--text-dim);">•</span></div>
+                                <div class="stat"><span>SWEEP</span><span id="log-l1-${id}">•</span></div>
+                                <div class="stat"><span>CHoCH</span><span id="log-l2-${id}">•</span></div>
+                                <div class="stat"><span>FVG</span><span id="log-l3-${id}">•</span></div>
                             </div>
                             <div class="box-pa">
-                                <span class="label-sm">Price Action</span>
-                                <div class="stat"><span>TREND</span><span id="trend-${p.id}" style="font-weight:700">SCANNING</span></div>
-                                <div class="stat" style="align-items: flex-start;">
-                                    <span>MOMTUM</span>
-                                    <div class="mom-value" id="mom-${p.id}">--</div>
-                                </div>
+                                <span class="label-sm">Structure</span>
+                                <div class="stat"><span>HIGH</span><span id="sh-${id}">--</span></div>
+                                <div class="stat"><span>LOW</span><span id="slw-${id}">--</span></div>
                             </div>
                         </div>
                     </div>
-                </div>
-            `;
-            container.innerHTML += cardHTML;
-        });
-
-        pairs.forEach(p => {
-            if (wsConnections[p.id]) wsConnections[p.id].close();
-            const ws = new WebSocket(p.wsUrl);
-            ws.onmessage = (e) => {
-                const currentPrice = parseFloat(JSON.parse(e.data).c) + offsets[p.id];
-                updatePriceAction(p.id, currentPrice);
+                </div>`;
+            
+            const ws = new WebSocket(config[id].ws);
+            ws.onmessage = e => {
+                const price = parseFloat(JSON.parse(e.data).c) + config[id].offset;
+                processPrice(id, price);
             };
-            ws.onerror = () => console.log(`WS error for ${p.id}`);
-            wsConnections[p.id] = ws;
+            wsConnections[id] = ws;
         });
 
-        document.getElementById('switchPairBtn').addEventListener('click', switchPair);
-        updateSwitchButton();
-        renderUI('xau');
-        renderUI('btc');
+        document.getElementById('switchLabel').innerText = activePairId.toUpperCase() + 'USD';
+        document.getElementById('switchPairBtn').onclick = () => {
+            activePairId = activePairId === 'xau' ? 'btc' : 'xau';
+            localStorage.setItem('ura_active_pair', activePairId);
+            document.getElementById('switchLabel').innerText = activePairId.toUpperCase() + 'USD';
+            document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active'));
+            document.getElementById(`card-${activePairId}`).classList.add('active');
+        };
     }
 
-    function updatePriceAction(id, price) {
+    function processPrice(id, price) {
         const s = engineState[id];
         const oldPrice = s.lastPrice;
         s.lastPrice = price;
-        
-        const priceEl = document.getElementById(`price-${id}`);
-        if (priceEl) {
-            if (price > oldPrice) priceEl.style.color = "var(--success)";
-            else if (price < oldPrice) priceEl.style.color = "var(--danger)";
-            priceEl.innerText = price.toFixed(2);
+        const el = document.getElementById(`price-${id}`);
+        if(el) {
+            el.innerText = price.toFixed(2);
+            el.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
         }
-
-        // Cek TP/SL
-        if (s.confirmed) {
-            const hitTP = (s.type === 'buy' && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
-            const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
-            if (hitTP || hitSL) {
-                resetSignal(id);
-                return;
-            }
-        }
-
-        // Analisa H1 & M15
-        analyzeTrendH1(id);
-        analyzeMomentumM15(id);
-        
-        // Deteksi signal
-        const changed = detectSignalPattern(id);
-        
-        // Update trend score untuk UI
-        if (oldPrice !== 0 && price !== oldPrice) {
-            s.trendScore += (price - oldPrice);
-        }
-        
+        analyzePrecisionLogic(id, price);
         renderUI(id);
-        
-        if (changed) saveState();
-    }
-
-    function switchPair() {
-        const currentIndex = pairs.findIndex(p => p.id === activePairId);
-        const nextIndex = (currentIndex + 1) % pairs.length;
-        activePairId = pairs[nextIndex].id;
-        
-        document.querySelectorAll('.pair-card').forEach(card => card.classList.remove('active'));
-        document.getElementById(`card-${activePairId}`).classList.add('active');
-        updateSwitchButton();
-    }
-
-    function updateSwitchButton() {
-        const label = document.getElementById('switchLabel');
-        if (label) {
-            label.innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
-        }
     }
 
     function renderUI(id) {
         const s = engineState[id];
+        const l1 = document.getElementById(`l1-${id}`);
+        if(l1) l1.className = s.l1 ? `dot ${s.type === 'buy' ? 'active' : 'active-down'}` : 'dot';
+        const l2 = document.getElementById(`l2-${id}`);
+        if(l2) l2.className = s.l2 ? `dot ${s.type === 'buy' ? 'active' : 'active-down'}` : 'dot';
+        const l3 = document.getElementById(`l3-${id}`);
+        if(l3) l3.className = s.l3 ? `dot ${s.type === 'buy' ? 'active' : 'active-down'}` : 'dot';
         
-        // Dots
-        ['l1', 'l2', 'l3'].forEach(l => {
-            const dotEl = document.getElementById(`${l}-${id}`);
-            if (dotEl) {
-                dotEl.className = s[l] ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
-            }
-        });
-        
-        // Logic indicators
-        document.getElementById(`logic-l1-${id}`).innerText = s.l1 ? '✔' : '•';
-        document.getElementById(`logic-l2-${id}`).innerText = s.l2 ? '✔' : '•';
-        document.getElementById(`logic-l3-${id}`).innerText = s.l3 ? '✔' : '•';
-        
-        // Signal text
-        const signalText = document.getElementById(`signal-text-${id}`);
-        if (signalText) {
-            if (s.cooldown) { signalText.innerText = 'COOLDOWN'; signalText.style.color = 'var(--text-dim)'; }
-            else if (s.confirmed) { signalText.innerText = s.type.toUpperCase(); signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
-            else if (s.l2) { signalText.innerText = 'CONFIRMING'; signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
-            else if (s.l1) { signalText.innerText = 'DETECTED'; signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
-            else { signalText.innerText = 'WAITING'; signalText.style.color = 'var(--text-dim)'; }
+        document.getElementById(`log-l1-${id}`).innerText = s.l1 ? '✔' : '•';
+        document.getElementById(`log-l2-${id}`).innerText = s.l2 ? '✔' : '•';
+        document.getElementById(`log-l3-${id}`).innerText = s.l3 ? '✔' : '•';
+
+        const txt = document.getElementById(`signal-text-${id}`);
+        if (txt) {
+            if (s.cooldown) { txt.innerText = 'RE-SCANNING'; txt.style.color = 'var(--text-dim)'; }
+            else if (s.confirmed) { txt.innerText = s.type.toUpperCase(); txt.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
+            else { txt.innerText = 'SCANNING'; txt.style.color = 'var(--accent)'; }
         }
-        
-        // Trend (H1)
-        const trendEl = document.getElementById(`trend-${id}`);
-        if (trendEl) {
-            trendEl.innerText = s.trend.toUpperCase();
-            if (s.trend === 'bullish') trendEl.style.color = "var(--success)";
-            else if (s.trend === 'bearish') trendEl.style.color = "var(--danger)";
-            else trendEl.style.color = "var(--text-dim)";
-        }
-        
-        // Momentum (M15)
-        const momEl = document.getElementById(`mom-${id}`);
-        if (momEl) {
-            momEl.innerHTML = s.momentum.replace('_', '<br>').toUpperCase();
-            if (s.momentum.includes('bullish')) momEl.style.color = "var(--success)";
-            else if (s.momentum.includes('bearish')) momEl.style.color = "var(--danger)";
-            else momEl.style.color = "var(--text-dim)";
-        }
-        
-        // Card level values
-        document.getElementById(`entry-val-${id}`).innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-        document.getElementById(`tp-val-${id}`).innerText = s.confirmed ? s.tp.toFixed(2) : '--';
-        document.getElementById(`sl-val-${id}`).innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+
+        document.getElementById(`entry-${id}`).innerText = s.confirmed ? s.entry.toFixed(2) : '--';
+        document.getElementById(`tp-${id}`).innerText = s.confirmed ? s.tp.toFixed(2) : '--';
+        document.getElementById(`sl-${id}`).innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+        document.getElementById(`sh-${id}`).innerText = s.swingHigh.toFixed(1);
+        document.getElementById(`slw-${id}`).innerText = s.swingLow === Infinity ? '--' : s.swingLow.toFixed(1);
     }
 
-    // Fungsi copy untuk card level
-    window.copyLevelValue = function(id, type) {
-        const s = engineState[id];
-        if (!s.confirmed) return;
-        
-        let value = '';
-        if (type === 'entry') value = s.entry.toFixed(2);
-        else if (type === 'tp') value = s.tp.toFixed(2);
-        else if (type === 'sl') value = s.sl.toFixed(2);
-        
-        if (value) {
-            navigator.clipboard.writeText(value).then(() => {
-                const el = document.getElementById(`${type}-val-${id}`);
-                const origColor = el.style.color;
-                el.style.color = "var(--accent)";
-                setTimeout(() => { el.style.color = origColor; }, 300);
-            });
-        }
+    window.copyValue = (id, type) => {
+        const val = document.getElementById(`${type}-${id}`).innerText;
+        if (val !== '--') navigator.clipboard.writeText(val);
     };
 
     setInterval(() => {
-        document.getElementById('clock').innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC";
+        const clk = document.getElementById('clock');
+        if(clk) clk.innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC";
     }, 1000);
-    
+
     init();
 </script>
 </body>
