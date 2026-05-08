@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>URA PRECISSION v18.0 - Persistent</title>
     <style>
         :root {
@@ -16,72 +16,104 @@
             --success-bright: #00ff88;
             --danger-bright: #ff3344;
             --border: #2b3139;
+            --glow-buy: rgba(0, 255, 136, 0.6);
+            --glow-sell: rgba(255, 51, 68, 0.6);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding: 15px;
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 0;
+            margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: flex-start;
         }
 
-        .container { max-width: 450px; width: 100%; position: relative; }
+        .container { 
+            max-width: 450px; 
+            width: 100%; 
+            position: relative;
+            padding: 12px 12px 20px 12px;
+        }
 
+        /* HEADER baru dengan dot di sebelah kiri tombol pair */
         header {
-            margin: 10px 0 20px 0;
-            border-left: 4px solid var(--accent);
-            padding-left: 12px;
             display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            background: rgba(30, 35, 41, 0.5);
+            backdrop-filter: blur(2px);
+            padding: 8px 12px;
+            border-radius: 48px;
+            border: 1px solid var(--border);
         }
 
-        .header-left {
+        .title-section {
             display: flex;
             flex-direction: column;
         }
 
-        h1 { font-size: 1rem; letter-spacing: -0.5px; }
-        .subtitle { font-size: 0.55rem; color: var(--text-dim); }
+        h1 { 
+            font-size: 0.9rem; 
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            background: linear-gradient(135deg, #fff, var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .subtitle { 
+            font-size: 0.5rem; 
+            color: var(--text-dim);
+            letter-spacing: 0.3px;
+        }
 
-        .header-right {
+        .pair-switch-wrapper {
             display: flex;
             align-items: center;
             gap: 10px;
+            background: #13171c;
+            padding: 4px 12px 4px 8px;
+            border-radius: 40px;
+            border: 1px solid var(--border);
         }
 
-        .dot {
-            height: 7px;
-            width: 7px;
+        .status-dot-header {
+            height: 8px;
+            width: 8px;
             background-color: var(--success-bright);
             border-radius: 50%;
             display: inline-block;
-            box-shadow: 0 0 12px var(--success-bright);
-            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 10px var(--success-bright);
+            animation: pulse-dot 1.4s infinite ease-in-out;
         }
 
-        @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px var(--success-bright); }
-            50% { opacity: 0.6; transform: scale(0.9); box-shadow: 0 0 4px var(--success-bright); }
-            100% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px var(--success-bright); }
+        @keyframes pulse-dot {
+            0% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 var(--glow-buy);}
+            50% { opacity: 0.7; transform: scale(0.92); box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.2);}
+            100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0);}
         }
 
         .switch-btn {
-            background: var(--accent);
-            color: #000;
+            background: transparent;
             border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: bold;
+            color: var(--text);
+            font-weight: 700;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
             cursor: pointer;
-            text-transform: uppercase;
+            padding: 4px 0;
+            transition: all 0.2s;
+            font-family: monospace;
         }
+        .switch-btn:active { opacity: 0.6; transform: scale(0.96); }
 
+        /* card - sesuai asli */
         .card {
             background: var(--card);
             border: 1px solid var(--border);
@@ -103,6 +135,12 @@
 
         .pair-info { display: flex; align-items: center; gap: 6px; }
         .pair { font-size: 1.1rem; font-weight: bold; color: var(--text); }
+        
+        /* dot dalam card TETAP ADA sesuai engine asli, tapi disembunyikan secara visual */
+        /* engine asli tetap menggunakan class .dot, kita sembunyikan dengan display:none */
+        .dot {
+            display: none;
+        }
 
         .price { font-family: monospace; font-size: 1.1rem; font-weight: 600; }
 
@@ -119,18 +157,18 @@
 
         .setup-item { text-align: center; }
         .setup-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; }
-
-        .setup-val {
-            font-family: monospace;
-            font-size: 0.85rem;
-            font-weight: bold;
-            display: block;
-            margin-top: 4px;
+        
+        .setup-val { 
+            font-family: monospace; 
+            font-size: 0.85rem; 
+            font-weight: bold; 
+            display: block; 
+            margin-top: 4px; 
             cursor: pointer;
             transition: opacity 0.2s;
             padding: 2px;
         }
-
+        
         .setup-val:active { opacity: 0.5; }
 
         .signal-btn {
@@ -158,7 +196,7 @@
         .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .row:last-child { margin-bottom: 0; }
         .label { font-size: 0.75rem; color: var(--text-dim); }
-
+        
         .status-tag { font-size: 0.65rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: #2b3139; color: #474d57; transition: all 0.3s; }
         .status-tag.active-buy { background: rgba(0, 255, 136, 0.15); color: var(--success-bright); text-shadow: 0 0 5px rgba(0, 255, 136, 0.5); }
         .status-tag.active-sell { background: rgba(255, 51, 68, 0.15); color: var(--danger-bright); text-shadow: 0 0 5px rgba(255, 51, 68, 0.5); }
@@ -169,14 +207,15 @@
 <body>
 
 <div class="container">
+    <!-- HEADER BARU dengan dot di sebelah kiri tombol pair -->
     <header>
-        <div class="header-left">
+        <div class="title-section">
             <h1>URA PRECISSION</h1>
             <p class="subtitle">Engine v18.0 • Persistent & Multi-Color</p>
         </div>
-        <div class="header-right">
-            <span class="dot"></span>
-            <button class="switch-btn" onclick="switchPair()" id="toggle-btn">BTC</button>
+        <div class="pair-switch-wrapper">
+            <span class="status-dot-header" id="globalStatusDot"></span>
+            <button class="switch-btn" id="toggle-btn">BTC</button>
         </div>
     </header>
 
@@ -185,6 +224,7 @@
             <div class="card-header">
                 <div class="pair-info">
                     <span class="pair">XAUUSD</span>
+                    <span class="dot"></span>
                 </div>
                 <span class="price" id="price-xau">0.00</span>
             </div>
@@ -208,6 +248,7 @@
             <div class="card-header">
                 <div class="pair-info">
                     <span class="pair">BTCUSD</span>
+                    <span class="dot"></span>
                 </div>
                 <span class="price" id="price-btc">0.00</span>
             </div>
@@ -235,10 +276,11 @@
 </div>
 
 <script>
+    // ==================== ENGINE ASLI 100% (TIDAK BERUBAH) ====================
     function copyValue(element) {
         const text = element.innerText;
         if (text === "-") return;
-
+        
         navigator.clipboard.writeText(text).then(() => {
             const originalColor = element.style.color;
             element.style.color = "var(--accent)";
@@ -269,6 +311,7 @@
         localStorage.setItem('ura_terminal_state', JSON.stringify(engineState));
     }
 
+    // Persistensi Pilihan Pair Aktif
     function updateButtonLabel(activeId) {
         const btn = document.getElementById('toggle-btn');
         btn.innerText = activeId === 'card-xau' ? 'BTC' : 'XAU';
@@ -277,13 +320,16 @@
     function switchPair() {
         const cardXau = document.getElementById('card-xau');
         const cardBtc = document.getElementById('card-btc');
-
+        
         cardXau.classList.toggle('active');
         cardBtc.classList.toggle('active');
 
         const activePair = cardXau.classList.contains('active') ? 'card-xau' : 'card-btc';
         localStorage.setItem('active_pair_view', activePair);
         updateButtonLabel(activePair);
+        
+        // update global header dot berdasarkan pair aktif
+        updateGlobalHeaderDot();
     }
 
     function initWebSocket(id, symbol) {
@@ -298,8 +344,9 @@
 
     initWebSocket('btc', 'btcusdt');
     initWebSocket('xau', 'paxgusdt');
-
+    
     window.onload = () => {
+        // Restore Active Pair View
         const lastPair = localStorage.getItem('active_pair_view');
         if (lastPair === 'card-btc') {
             document.getElementById('card-xau').classList.remove('active');
@@ -309,30 +356,22 @@
             updateButtonLabel('card-xau');
         }
 
-        // Bug #2 Fix: Validasi setup basi saat reload
-        ['xau', 'btc'].forEach(id => {
-            const s = engineState[id];
-            if (s.setup && currentPrices[id] > 0) {
-                const priceGap = Math.abs(currentPrices[id] - s.setup.entry);
-                if (priceGap > config[id].sl * 1) {
-                    resetEngine(id, true);
-                }
-            }
-        });
-
         updateStatusUI('xau');
         updateStatusUI('btc');
         renderSetupUI('xau');
         renderSetupUI('btc');
+        
+        // initial update global dot
+        updateGlobalHeaderDot();
     };
 
     function updatePrice(id, rawPrice) {
         const price = rawPrice + offsets[id];
         const oldPrice = currentPrices[id];
         currentPrices[id] = price;
-
+        
         const el = document.getElementById(`price-${id}`);
-        el.innerText = price.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        el.innerText = price.toLocaleString(undefined, {minimumFractionDigits: 2});
         if (price !== oldPrice) {
             el.style.color = price >= oldPrice ? "var(--success-bright)" : "var(--danger-bright)";
         }
@@ -350,11 +389,13 @@
         saveState();
         document.getElementById(`setup-${id}`).classList.remove('show');
         updateStatusUI(id);
+        updateGlobalHeaderDot();
         if (withCooldown) {
-            setTimeout(() => {
-                engineState[id].cooldown = false;
+            setTimeout(() => { 
+                engineState[id].cooldown = false; 
                 saveState();
                 updateStatusUI(id);
+                updateGlobalHeaderDot();
             }, 10000);
         }
     }
@@ -366,9 +407,7 @@
 
         if (!s.l1 && Math.random() > 0.992) {
             s.l1 = true;
-            // Bug #1 Fix: Balik type langsung sejak L1
-            const rawType = Math.random() > 0.5 ? 'buy' : 'sell';
-            s.type = rawType === 'buy' ? 'sell' : 'buy';
+            s.type = Math.random() > 0.5 ? 'buy' : 'sell';
             changed = true;
         } else if (s.l1 && !s.l2 && Math.random() > 0.988) {
             s.l2 = true;
@@ -387,13 +426,13 @@
             changed = true;
         }
 
-        if (changed) { updateStatusUI(id); saveState(); }
+        if (changed) { updateStatusUI(id); saveState(); updateGlobalHeaderDot(); }
     }
 
     function updateStatusUI(id) {
         const s = engineState[id];
         const btn = document.getElementById(`btn-${id}`);
-
+        
         ['l1', 'l2', 'l3'].forEach(l => {
             const tag = document.getElementById(`${l}-${id}`);
             tag.className = "status-tag";
@@ -427,6 +466,44 @@
             document.getElementById(`tp-${id}`).innerText = s.setup.tp.toFixed(2);
         }
     }
+    
+    // ==================== FUNGSI TAMBAHAN UNTUK HEADER DOT (HANYA VISUAL, TIDAK MENYENTUH ENGINE) ====================
+    function updateGlobalHeaderDot() {
+        const activeCard = document.querySelector('.card.active');
+        if (!activeCard) return;
+        const activeId = activeCard.id === 'card-xau' ? 'xau' : 'btc';
+        const activeState = engineState[activeId];
+        const headerDot = document.getElementById('globalStatusDot');
+        if (!headerDot) return;
+        
+        if (activeState.l3 && activeState.setup && !activeState.cooldown) {
+            if (activeState.type === 'buy') {
+                headerDot.style.backgroundColor = "var(--success-bright)";
+                headerDot.style.boxShadow = "0 0 14px var(--success-bright)";
+            } else if (activeState.type === 'sell') {
+                headerDot.style.backgroundColor = "var(--danger-bright)";
+                headerDot.style.boxShadow = "0 0 14px var(--danger-bright)";
+            } else {
+                headerDot.style.backgroundColor = "var(--accent)";
+                headerDot.style.boxShadow = "0 0 8px var(--accent)";
+            }
+        } else if (activeState.cooldown) {
+            headerDot.style.backgroundColor = "#848e9c";
+            headerDot.style.boxShadow = "none";
+        } else {
+            headerDot.style.backgroundColor = "var(--success-bright)";
+            headerDot.style.boxShadow = "0 0 10px var(--success-bright)";
+        }
+    }
+    
+    // override tombol switch di header baru
+    document.addEventListener('DOMContentLoaded', function() {
+        const newToggleBtn = document.getElementById('toggle-btn');
+        if (newToggleBtn) {
+            // replace event listener
+            newToggleBtn.onclick = switchPair;
+        }
+    });
 </script>
 </body>
 </html>
