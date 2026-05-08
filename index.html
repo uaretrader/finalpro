@@ -11,8 +11,10 @@
             --text: #eaecef;
             --text-dim: #848e9c;
             --accent: #f0b90b;
-            --success: #0ecb81;
-            --danger: #f6465d;
+            --success-dark: #0a9d63; 
+            --danger-dark: #cf3044;
+            --success-bright: #00ff88; 
+            --danger-bright: #ff3344;
             --border: #2b3139;
         }
 
@@ -80,27 +82,20 @@
         .dot {
             height: 7px;
             width: 7px;
-            background-color: var(--success);
+            background-color: var(--success-bright);
             border-radius: 50%;
             display: inline-block;
-            box-shadow: 0 0 8px var(--success);
+            box-shadow: 0 0 12px var(--success-bright);
             animation: pulse 1.5s infinite;
         }
 
         @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.9); }
-            100% { opacity: 1; transform: scale(1); }
+            0% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px var(--success-bright); }
+            50% { opacity: 0.6; transform: scale(0.9); box-shadow: 0 0 4px var(--success-bright); }
+            100% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px var(--success-bright); }
         }
 
         .price { font-family: monospace; font-size: 1.1rem; font-weight: 600; }
-
-        .logic-box {
-            background: #161a1e;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-        }
 
         .setup-grid {
             display: none;
@@ -115,14 +110,20 @@
 
         .setup-item { text-align: center; }
         .setup-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; }
-        .setup-val { font-family: monospace; font-size: 0.85rem; font-weight: bold; display: block; margin-top: 4px; }
-        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .label { font-size: 0.75rem; color: var(--text-dim); }
         
-        /* WARNA DETECTION DINAMIS */
-        .status-tag { font-size: 0.65rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: #2b3139; color: #474d57; transition: all 0.3s; }
-        .status-tag.active-buy { background: rgba(14, 203, 129, 0.15); color: var(--success); }
-        .status-tag.active-sell { background: rgba(246, 70, 93, 0.15); color: var(--danger); }
+        /* Gaya khusus untuk nilai yang bisa disalin */
+        .setup-val { 
+            font-family: monospace; 
+            font-size: 0.85rem; 
+            font-weight: bold; 
+            display: block; 
+            margin-top: 4px; 
+            cursor: pointer;
+            transition: opacity 0.2s;
+            padding: 2px;
+        }
+        
+        .setup-val:active { opacity: 0.5; }
 
         .signal-btn {
             width: 100%;
@@ -134,10 +135,25 @@
             font-weight: bold;
             font-size: 0.85rem;
             text-transform: uppercase;
+            margin-bottom: 15px;
         }
 
-        .signal-btn.buy { background: var(--success); color: white; box-shadow: 0 4px 15px rgba(14, 203, 129, 0.3); }
-        .signal-btn.sell { background: var(--danger); color: white; box-shadow: 0 4px 15px rgba(246, 70, 93, 0.3); }
+        .signal-btn.buy { background: var(--success-dark); color: white; box-shadow: 0 4px 15px rgba(10, 157, 99, 0.3); }
+        .signal-btn.sell { background: var(--danger-dark); color: white; box-shadow: 0 4px 15px rgba(207, 48, 68, 0.3); }
+
+        .logic-box {
+            background: #161a1e;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .row:last-child { margin-bottom: 0; }
+        .label { font-size: 0.75rem; color: var(--text-dim); }
+        
+        .status-tag { font-size: 0.65rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: #2b3139; color: #474d57; transition: all 0.3s; }
+        .status-tag.active-buy { background: rgba(0, 255, 136, 0.15); color: var(--success-bright); text-shadow: 0 0 5px rgba(0, 255, 136, 0.5); }
+        .status-tag.active-sell { background: rgba(255, 51, 68, 0.15); color: var(--danger-bright); text-shadow: 0 0 5px rgba(255, 51, 68, 0.5); }
 
         footer { text-align: center; font-size: 0.6rem; color: var(--text-dim); margin-top: 20px; line-height: 1.4; }
     </style>
@@ -160,17 +176,20 @@
                 </div>
                 <span class="price" id="price-xau">0.00</span>
             </div>
+
+            <div class="setup-grid" id="setup-xau">
+                <div class="setup-item"><span class="setup-label">ENTRY</span><span class="setup-val" id="entry-xau" onclick="copyValue(this)">-</span></div>
+                <div class="setup-item"><span class="setup-label">SL</span><span class="setup-val" id="sl-xau" style="color:var(--danger-bright)" onclick="copyValue(this)">-</span></div>
+                <div class="setup-item"><span class="setup-label">TP</span><span class="setup-val" id="tp-xau" style="color:var(--success-bright)" onclick="copyValue(this)">-</span></div>
+            </div>
+
+            <button class="signal-btn" id="btn-xau">Scanning Market...</button>
+
             <div class="logic-box">
                 <div class="row"><span class="label">Liquidity Sweep</span><span class="status-tag" id="l1-xau">WAITING</span></div>
                 <div class="row"><span class="label">Structure (CHoCH)</span><span class="status-tag" id="l2-xau">WAITING</span></div>
                 <div class="row"><span class="label">Value Gap (FVG)</span><span class="status-tag" id="l3-xau">WAITING</span></div>
             </div>
-            <div class="setup-grid" id="setup-xau">
-                <div class="setup-item"><span class="setup-label">ENTRY</span><span class="setup-val" id="entry-xau">-</span></div>
-                <div class="setup-item"><span class="setup-label">SL</span><span class="setup-val" id="sl-xau" style="color:var(--danger)">-</span></div>
-                <div class="setup-item"><span class="setup-label">TP</span><span class="setup-val" id="tp-xau" style="color:var(--success)">-</span></div>
-            </div>
-            <button class="signal-btn" id="btn-xau">Scanning Market...</button>
         </div>
 
         <div class="card" id="card-btc">
@@ -181,17 +200,20 @@
                 </div>
                 <span class="price" id="price-btc">0.00</span>
             </div>
+
+            <div class="setup-grid" id="setup-btc">
+                <div class="setup-item"><span class="setup-label">ENTRY</span><span class="setup-val" id="entry-btc" onclick="copyValue(this)">-</span></div>
+                <div class="setup-item"><span class="setup-label">SL</span><span class="setup-val" id="sl-btc" style="color:var(--danger-bright)" onclick="copyValue(this)">-</span></div>
+                <div class="setup-item"><span class="setup-label">TP</span><span class="setup-val" id="tp-btc" style="color:var(--success-bright)" onclick="copyValue(this)">-</span></div>
+            </div>
+
+            <button class="signal-btn" id="btn-btc">Scanning Market...</button>
+
             <div class="logic-box">
                 <div class="row"><span class="label">Liquidity Sweep</span><span class="status-tag" id="l1-btc">WAITING</span></div>
                 <div class="row"><span class="label">Structure (CHoCH)</span><span class="status-tag" id="l2-btc">WAITING</span></div>
                 <div class="row"><span class="label">Value Gap (FVG)</span><span class="status-tag" id="l3-btc">WAITING</span></div>
             </div>
-            <div class="setup-grid" id="setup-btc">
-                <div class="setup-item"><span class="setup-label">ENTRY</span><span class="setup-val" id="entry-btc">-</span></div>
-                <div class="setup-item"><span class="setup-label">SL</span><span class="setup-val" id="sl-btc" style="color:var(--danger)">-</span></div>
-                <div class="setup-item"><span class="setup-label">TP</span><span class="setup-val" id="tp-btc" style="color:var(--success)">-</span></div>
-            </div>
-            <button class="signal-btn" id="btn-btc">Scanning Market...</button>
         </div>
     </div>
 
@@ -202,7 +224,21 @@
 </div>
 
 <script>
-    const offsets = { xau: 7.2, btc: 0.00 };
+    /* Fungsi Baru: Copy to Clipboard */
+    function copyValue(element) {
+        const text = element.innerText;
+        if (text === "-") return;
+        
+        navigator.clipboard.writeText(text).then(() => {
+            const originalColor = element.style.color;
+            element.style.color = "var(--accent)";
+            setTimeout(() => {
+                element.style.color = originalColor;
+            }, 300);
+        });
+    }
+
+    const offsets = { xau: 8.1, btc: 0.00 };
     const config = {
         xau: { sl: 10.00, rr: 1.55 },
         btc: { sl: 450.00, rr: 1.55 }
@@ -255,7 +291,9 @@
         
         const el = document.getElementById(`price-${id}`);
         el.innerText = price.toLocaleString(undefined, {minimumFractionDigits: 2});
-        if (price !== oldPrice) el.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
+        if (price !== oldPrice) {
+            el.style.color = price >= oldPrice ? "var(--success-bright)" : "var(--danger-bright)";
+        }
 
         const s = engineState[id];
         if (s.setup) {
