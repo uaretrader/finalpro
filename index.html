@@ -377,7 +377,7 @@
         if (txt) {
             if (s.cooldown) { txt.innerText = 'RE-SCANNING'; txt.style.color = 'var(--text-dim)'; }
             else if (s.confirmed) { txt.innerText = s.type.toUpperCase(); txt.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
-            else { txt.innerText = 'SCANNING'; txt.style.color = 'var(--accent)'; }
+            else { txt.innerText = 'SCANNING...'; txt.style.color = 'var(--accent)'; }
         }
 
         document.getElementById(`entry-${id}`).innerText = s.confirmed ? s.entry.toFixed(2) : '--';
