@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>URA PRECISION v18.2 - Persistent Hybrid Engine</title>
+    <title>URA PRECISION v18.3 - Persistent Hybrid Engine</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -17,6 +17,7 @@
             --feed-lightning: #FFEA00;
             --border: rgba(255, 255, 255, 0.1);
             --card-bg: #1a1d21;
+            --warning: #FFB74D;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -54,6 +55,14 @@
             border-radius: 50%;
             margin-right: 5px;
             animation: blink 1.5s infinite;
+        }
+        .pulse.connected {
+            background: var(--success);
+            box-shadow: 0 0 5px var(--success);
+        }
+        .pulse.disconnected {
+            background: var(--danger);
+            animation: blink 0.5s infinite;
         }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
@@ -132,14 +141,71 @@
         .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
         .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
 
-        .analysis-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 12px; margin-bottom: 15px; }
-        .box-logic, .box-pa { background: transparent; border: 1px solid var(--border); padding: 12px; border-radius: 4px; }
-        .label-sm { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; display: block; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
-        .stat { display: flex; justify-content: space-between; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; margin-bottom: 6px; }
+        .box-htf { 
+            background: transparent; 
+            border: 1px solid var(--border); 
+            padding: 12px; 
+            border-radius: 4px; 
+            margin-bottom: 15px;
+        }
+        .label-sm { 
+            font-size: 0.6rem; 
+            color: var(--text-dim); 
+            text-transform: uppercase; 
+            margin-bottom: 10px; 
+            display: block; 
+            border-bottom: 1px solid var(--border); 
+            padding-bottom: 4px; 
+        }
+        .htf-main {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .htf-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 4px 0;
+        }
+        .htf-label {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .htf-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+        .trend-up { color: var(--success); }
+        .trend-down { color: var(--danger); }
+        .trend-neutral { color: var(--text-dim); }
+        .momentum-up { color: var(--success); }
+        .momentum-down { color: var(--danger); }
+
+        .conn-status {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.5rem;
+            margin-top: 8px;
+            padding: 4px 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.03);
+            display: inline-block;
+            width: 100%;
+            text-align: center;
+        }
+        .conn-status.online { color: var(--success); }
+        .conn-status.offline { color: var(--danger); }
 
         footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; font-family: 'JetBrains Mono', monospace; opacity: 0.6; }
         .pair-card { display: none; }
         .pair-card.active { display: block; }
+
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -148,11 +214,11 @@
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div class="brand">
                 <h1>uradvisor</h1>
-                <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION ENGINE v18.2</p>
+                <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION ENGINE v18.3</p>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
                 <div class="sys-status">
-                    <div><span class="pulse"></span>LIVE</div>
+                    <div><span class="pulse" id="globalPulse"></span>LIVE</div>
                     <div id="clock">00:00:00 UTC</div>
                 </div>
                 <button id="switchPairBtn" class="switch-pair-btn">
@@ -165,21 +231,25 @@
     <div id="terminals"></div>
 
     <footer>
-        [ SYSTEM_LOG ]: AUTO_RESCAN_ACTIVE<br>
-        [ METHOD ]: SWEEP + CHOCH + FVG_PRECISION
+        [ SYSTEM_LOG ]: AUTO_RESCAN_ACTIVE | HTF_ANALYSIS_ENABLED<br>
+        [ METHOD ]: SWEEP + CHOCH + FVG_PRECISION + HTF_TREND
     </footer>
 </div>
 
 <script>
     // ==================== CONFIGURATION ====================
     const config = {
-        xau: { sl: 7, rr: 1.5, lookback: 25, ws: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 4.4 },
-        btc: { sl: 150, rr: 1.5, lookback: 40, ws: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0.0 }
+        xau: { sl: 7, rr: 1.5, lookback: 25, ws: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 4.4, symbol: 'PAXGUSD' },
+        btc: { sl: 150, rr: 1.5, lookback: 40, ws: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0.0, symbol: 'BTCUSDT' }
     };
 
     let engineState = { xau: null, btc: null };
     let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
     let wsConnections = {};
+    let connectionStatus = { xau: false, btc: false };
+    let lastHeartbeat = { xau: Date.now(), btc: Date.now() };
+    let reconnectAttempts = { xau: 0, btc: 0 };
+    let htfData = { xau: { trend: 'neutral', momentum: 0, lastPrice: 0 }, btc: { trend: 'neutral', momentum: 0, lastPrice: 0 } };
 
     function createFreshState() {
         return {
@@ -207,6 +277,53 @@
         localStorage.setItem(`ura_state_${id}`, JSON.stringify(engineState[id]));
     }
 
+    // ==================== HTF TREND & MOMENTUM ANALYSIS (SEDERHANA) ====================
+    function analyzeHTF(id, currentPrice) {
+        const s = engineState[id];
+        
+        if (!s.priceHistoryHTF) {
+            s.priceHistoryHTF = [];
+        }
+        s.priceHistoryHTF.push(currentPrice);
+        if (s.priceHistoryHTF.length > 30) s.priceHistoryHTF.shift();
+        
+        // Trend sederhana: bandingkan harga saat ini dengan rata2 20 periode sebelumnya
+        if (s.priceHistoryHTF.length >= 20) {
+            const avg20 = s.priceHistoryHTF.slice(-20).reduce((a,b) => a+b, 0) / 20;
+            const avg10 = s.priceHistoryHTF.slice(-10).reduce((a,b) => a+b, 0) / 10;
+            
+            if (avg10 > avg20 * 1.001) {
+                htfData[id].trend = 'up';
+            } else if (avg10 < avg20 * 0.999) {
+                htfData[id].trend = 'down';
+            } else {
+                htfData[id].trend = 'neutral';
+            }
+            
+            // Momentum: perubahan 5 periode terakhir
+            if (s.priceHistoryHTF.length >= 5) {
+                const oldPrice = s.priceHistoryHTF[s.priceHistoryHTF.length - 5];
+                const momentumPct = ((currentPrice - oldPrice) / oldPrice) * 100;
+                htfData[id].momentum = momentumPct;
+            }
+        }
+        
+        htfData[id].lastPrice = currentPrice;
+    }
+    
+    function getTrendSymbol(trend) {
+        if (trend === 'up') return '▲ BULLISH';
+        if (trend === 'down') return '▼ BEARISH';
+        return '◆ NEUTRAL';
+    }
+    
+    function getMomentumSymbol(momentum) {
+        if (momentum > 0.1) return '▲ STRONG';
+        if (momentum > 0) return '▲ WEAK';
+        if (momentum > -0.1) return '▼ WEAK';
+        return '▼ STRONG';
+    }
+
     // ==================== CORE ALGORITHM ====================
     function analyzePrecisionLogic(id, price) {
         const s = engineState[id];
@@ -215,7 +332,7 @@
         s.priceHistory.push(price);
         if (s.priceHistory.length > 100) s.priceHistory.shift();
 
-        // 1. AUTO RESET JIKA SL/TP HIT
+        // AUTO RESET JIKA SL/TP HIT
         if (s.confirmed) {
             const hitTP = (s.type === 'buy' && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
             const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
@@ -228,7 +345,7 @@
 
         if (s.cooldown) return;
 
-        // 2. SCANNING LOGIC (SWEEP + CHOCH + FVG)
+        // SCANNING LOGIC (SWEEP + CHOCH + FVG)
         if (!s.l1) {
             if (s.swingHigh !== 0 && price > s.swingHigh + (conf.sl * 0.1)) { s.l1 = true; s.type = 'sell'; saveState(id); }
             else if (s.swingLow !== Infinity && price < s.swingLow - (conf.sl * 0.1)) { s.l1 = true; s.type = 'buy'; saveState(id); }
@@ -249,7 +366,7 @@
             }
         }
 
-        // 3. STRUCTURE CHANGE DETECTOR (Auto Reset if structure breaks too far)
+        // STRUCTURE CHANGE DETECTOR
         if (price > s.swingHigh) s.swingHigh = price;
         if (price < s.swingLow) s.swingLow = price;
 
@@ -272,19 +389,92 @@
 
     function resetSignal(id) {
         const s = engineState[id];
-        // Reset everything but keep price history for continuity
         const history = s.priceHistory;
+        const htfHistory = s.priceHistoryHTF;
         Object.assign(s, createFreshState());
         s.priceHistory = history;
+        s.priceHistoryHTF = htfHistory || [];
         s.cooldown = true;
         saveState(id);
         renderUI(id);
-        // Kembali scanning otomatis setelah 10 detik
         setTimeout(() => { 
             s.cooldown = false; 
             saveState(id);
             renderUI(id); 
         }, 10000);
+    }
+
+    // ==================== WEBSOCKET WITH RECONNECT ====================
+    function createWebSocket(id) {
+        const ws = new WebSocket(config[id].ws);
+        
+        ws.onopen = () => {
+            console.log(`${id} WebSocket connected`);
+            connectionStatus[id] = true;
+            reconnectAttempts[id] = 0;
+            lastHeartbeat[id] = Date.now();
+            updateGlobalConnectionStatus();
+            renderUI(id);
+        };
+        
+        ws.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                const price = parseFloat(data.c) + config[id].offset;
+                lastHeartbeat[id] = Date.now();
+                processPrice(id, price);
+            } catch (err) {
+                console.error(`${id} parse error:`, err);
+            }
+        };
+        
+        ws.onerror = (err) => {
+            console.error(`${id} WebSocket error:`, err);
+            connectionStatus[id] = false;
+            updateGlobalConnectionStatus();
+            renderUI(id);
+        };
+        
+        ws.onclose = () => {
+            console.log(`${id} WebSocket closed, reconnecting...`);
+            connectionStatus[id] = false;
+            updateGlobalConnectionStatus();
+            renderUI(id);
+            
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts[id]), 30000);
+            reconnectAttempts[id]++;
+            setTimeout(() => {
+                if (wsConnections[id]) {
+                    wsConnections[id] = createWebSocket(id);
+                }
+            }, delay);
+        };
+        
+        return ws;
+    }
+    
+    function updateGlobalConnectionStatus() {
+        const anyConnected = connectionStatus.xau || connectionStatus.btc;
+        const pulseEl = document.getElementById('globalPulse');
+        if (pulseEl) {
+            pulseEl.className = anyConnected ? 'pulse connected' : 'pulse disconnected';
+        }
+    }
+    
+    function checkConnectionHeartbeat() {
+        setInterval(() => {
+            ['xau', 'btc'].forEach(id => {
+                if (connectionStatus[id] && Date.now() - lastHeartbeat[id] > 10000) {
+                    connectionStatus[id] = false;
+                    updateGlobalConnectionStatus();
+                    renderUI(id);
+                    if (wsConnections[id]) {
+                        try { wsConnections[id].close(); } catch(e) {}
+                        wsConnections[id] = createWebSocket(id);
+                    }
+                }
+            });
+        }, 5000);
     }
 
     // ==================== UI ENGINE ====================
@@ -313,28 +503,24 @@
                             <div class="level-item" onclick="copyValue('${id}','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-${id}" style="color:var(--success)">--</span></div>
                             <div class="level-item" onclick="copyValue('${id}','sl')"><span class="level-label">S-Loss</span><span class="level-value" id="sl-${id}" style="color:var(--danger)">--</span></div>
                         </div>
-                        <div class="analysis-grid">
-                            <div class="box-logic">
-                                <span class="label-sm">Logic Engine</span>
-                                <div class="stat"><span>SWEEP</span><span id="log-l1-${id}">•</span></div>
-                                <div class="stat"><span>CHoCH</span><span id="log-l2-${id}">•</span></div>
-                                <div class="stat"><span>FVG</span><span id="log-l3-${id}">•</span></div>
-                            </div>
-                            <div class="box-pa">
-                                <span class="label-sm">Structure</span>
-                                <div class="stat"><span>HIGH</span><span id="sh-${id}">--</span></div>
-                                <div class="stat"><span>LOW</span><span id="slw-${id}">--</span></div>
+                        <div class="box-htf">
+                            <span class="label-sm">HTF ANALYSIS (H1)</span>
+                            <div class="htf-main">
+                                <div class="htf-row">
+                                    <span class="htf-label">TREND</span>
+                                    <span class="htf-value" id="htf-trend-${id}">◆ --</span>
+                                </div>
+                                <div class="htf-row">
+                                    <span class="htf-label">MOMENTUM</span>
+                                    <span class="htf-value" id="htf-momentum-${id}">--</span>
+                                </div>
                             </div>
                         </div>
+                        <div id="conn-status-${id}" class="conn-status offline">● CONNECTING...</div>
                     </div>
                 </div>`;
             
-            const ws = new WebSocket(config[id].ws);
-            ws.onmessage = e => {
-                const price = parseFloat(JSON.parse(e.data).c) + config[id].offset;
-                processPrice(id, price);
-            };
-            wsConnections[id] = ws;
+            wsConnections[id] = createWebSocket(id);
         });
 
         document.getElementById('switchLabel').innerText = activePairId.toUpperCase() + 'USD';
@@ -345,6 +531,9 @@
             document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active'));
             document.getElementById(`card-${activePairId}`).classList.add('active');
         };
+        
+        checkConnectionHeartbeat();
+        setInterval(() => updateGlobalConnectionStatus(), 1000);
     }
 
     function processPrice(id, price) {
@@ -356,6 +545,8 @@
             el.innerText = price.toFixed(2);
             el.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
         }
+        
+        analyzeHTF(id, price);
         analyzePrecisionLogic(id, price);
         renderUI(id);
     }
@@ -369,10 +560,6 @@
         const l3 = document.getElementById(`l3-${id}`);
         if(l3) l3.className = s.l3 ? `dot ${s.type === 'buy' ? 'active' : 'active-down'}` : 'dot';
         
-        document.getElementById(`log-l1-${id}`).innerText = s.l1 ? '✔' : '•';
-        document.getElementById(`log-l2-${id}`).innerText = s.l2 ? '✔' : '•';
-        document.getElementById(`log-l3-${id}`).innerText = s.l3 ? '✔' : '•';
-
         const txt = document.getElementById(`signal-text-${id}`);
         if (txt) {
             if (s.cooldown) { txt.innerText = 'RE-SCANNING'; txt.style.color = 'var(--text-dim)'; }
@@ -383,8 +570,38 @@
         document.getElementById(`entry-${id}`).innerText = s.confirmed ? s.entry.toFixed(2) : '--';
         document.getElementById(`tp-${id}`).innerText = s.confirmed ? s.tp.toFixed(2) : '--';
         document.getElementById(`sl-${id}`).innerText = s.confirmed ? s.sl.toFixed(2) : '--';
-        document.getElementById(`sh-${id}`).innerText = s.swingHigh.toFixed(1);
-        document.getElementById(`slw-${id}`).innerText = s.swingLow === Infinity ? '--' : s.swingLow.toFixed(1);
+        
+        // HTF Display
+        const htf = htfData[id];
+        const trendEl = document.getElementById(`htf-trend-${id}`);
+        if (trendEl) {
+            const trendSymbol = getTrendSymbol(htf.trend);
+            let trendClass = 'trend-neutral';
+            if (htf.trend === 'up') trendClass = 'trend-up';
+            else if (htf.trend === 'down') trendClass = 'trend-down';
+            trendEl.className = `htf-value ${trendClass}`;
+            trendEl.innerText = trendSymbol;
+        }
+        
+        const momentumEl = document.getElementById(`htf-momentum-${id}`);
+        if (momentumEl) {
+            const momentumSymbol = getMomentumSymbol(htf.momentum);
+            const momentumClass = htf.momentum >= 0 ? 'momentum-up' : 'momentum-down';
+            momentumEl.className = `htf-value ${momentumClass}`;
+            momentumEl.innerText = `${momentumSymbol} (${htf.momentum > 0 ? '+' : ''}${htf.momentum.toFixed(2)}%)`;
+        }
+        
+        // Connection Status
+        const connEl = document.getElementById(`conn-status-${id}`);
+        if (connEl) {
+            if (connectionStatus[id]) {
+                connEl.className = 'conn-status online';
+                connEl.innerHTML = '● WEBSOCKET CONNECTED';
+            } else {
+                connEl.className = 'conn-status offline';
+                connEl.innerHTML = '○ RECONNECTING...';
+            }
+        }
     }
 
     window.copyValue = (id, type) => {
