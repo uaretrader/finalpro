@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v4.5.1</title>
+    <title>PRECISION TERMINAL v4.5.2</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -276,7 +276,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.5.1</p>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.5.2</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -292,7 +292,7 @@
     <div id="terminals"></div>
 
     <footer>
-        [ SYSTEM_LOG ]: HTF_ANALYSIS_ENABLED (H1) | PERSISTENCE_ACTIVE<br>
+        [ SYSTEM_LOG ]: HTF_ANALYSIS_ENABLED (H1) | PERSISTENCE_ACTIVE | BIAS_OFFSET_ENABLED (±3)<br>
         [ METHOD ]: SWEEP + CHoCH + FVG + HTF_TREND_FILTER
     </footer>
 </div>
@@ -696,15 +696,33 @@
         renderUI(id);
     }
 
+    // ==================== LOCK SIGNAL WITH BIAS OFFSET ±3 ====================
+    // BUY (BULLISH)  → offset -3 poin (Entry, TP, SL lebih rendah 3 poin)
+    // SELL (BEARISH) → offset +3 poin (Entry, TP, SL lebih tinggi 3 poin)
     function lockSignal(id, entry, type) {
         const s = state[id]; 
+        
+        // BIAS OFFSET berdasarkan arah signal
+        // BUY  → minus 3 poin
+        // SELL → plus 3 poin
+        const offset = type === 'buy' ? -3 : +3;
+        const adjustedEntry = entry + offset;
+        
         s.l3 = true; 
         s.confirmed = true; 
         s.type = type; 
-        s.entry = entry;
+        s.entry = adjustedEntry;
+        
         const risk = id === 'xau' ? 8 : entry * 0.0020;
-        s.sl = type === 'buy' ? entry - risk : entry + risk;
-        s.tp = type === 'buy' ? entry + (risk * 1.3) : entry - (risk * 1.5);
+        
+        if (type === 'buy') {
+            s.sl = adjustedEntry - risk;
+            s.tp = adjustedEntry + (risk * 1.3);
+        } else {
+            s.sl = adjustedEntry + risk;
+            s.tp = adjustedEntry - (risk * 1.5);
+        }
+        
         saveState(id);
         renderUI(id);
     }
