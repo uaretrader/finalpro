@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v4.6.0</title>
+    <title>PRECISION TERMINAL v4.7.1</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -224,7 +224,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.6.0</p>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.7.1</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -240,27 +240,30 @@
     <div id="terminals"></div>
 
     <footer>
-        [ SYSTEM_LOG ]: aggTrade STREAM (REAL-TIME) | HTF_THROTTLE_10T | PARTIAL_UPDATE<br>
+        [ SYSTEM_LOG ]: XAU:API_POLLING (2s) | BTC:AGGTRADE_LIVE | HTF_THROTTLE_10T<br>
         [ METHOD ]: SWEEP + CHoCH + FVG + HTF_TREND_FILTER
     </footer>
 </div>
 
 <script>
     // ==================== CONFIGURATION ====================
-    const pairs = [
-        { id: 'xau', name: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@aggTrade', offset: 8.8, threshold: 0.05, trendThresh: 0.8, momThresh: 0.12 },
-        { id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade', offset: 0, threshold: 6, trendThresh: 50, momThresh: 15 }
-    ];
+    const btcConfig = {
+        id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade', 
+        offset: 0, threshold: 6, trendThresh: 50, momThresh: 15, isTicker: false
+    };
 
     // STATE MANAGEMENT
-    let state = {};
+    let state = {
+        xau: null,
+        btc: null
+    };
     let wsStatus = { xau: false, btc: false };
     let wsRetries = { xau: 0, btc: 0 };
     let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
     let wsConnections = {};
     let lastHeartbeat = { xau: Date.now(), btc: Date.now() };
 
-    // HTF DATA (dengan throttle counter)
+    // HTF DATA
     let htfHistory = { xau: [], btc: [] };
     let htfTrend = { xau: 'neutral', btc: 'neutral' };
     let htfMomentum = { xau: 0, btc: 0 };
@@ -303,12 +306,11 @@
         localStorage.setItem(`ura_state_${id}`, JSON.stringify(toSave));
     }
 
-    // ==================== HTF ANALYSIS (THROTTLED = SETIAP 10 TICK) ====================
+    // ==================== HTF ANALYSIS ====================
     function updateHTF(id, price) {
         htfHistory[id].push(price);
         if (htfHistory[id].length > 50) htfHistory[id].shift();
         
-        // Throttle: hitung ulang hanya setiap 10 tick
         htfTickCounter[id]++;
         if (htfTickCounter[id] < 10) return;
         htfTickCounter[id] = 0;
@@ -318,7 +320,6 @@
             const firstPrice = htfHistory[id][0];
             const lastPrice = htfHistory[id][len - 1];
             
-            // Trend
             if (lastPrice > firstPrice * 1.0003) {
                 htfTrend[id] = 'up';
             } else if (lastPrice < firstPrice * 0.9997) {
@@ -327,7 +328,6 @@
                 htfTrend[id] = 'neutral';
             }
             
-            // Momentum
             if (len >= 5) {
                 const oldPrice = htfHistory[id][len - 5];
                 htfMomentum[id] = ((lastPrice - oldPrice) / oldPrice) * 100;
@@ -340,7 +340,6 @@
             htfMomentum[id] = 0;
         }
         
-        // Update HTF UI (partial update)
         updateHTFUI(id);
     }
     
@@ -365,7 +364,12 @@
     // ==================== SIGNAL LOGIC ====================
     function updateSignal(id, price) {
         const s = state[id];
-        const p = pairs.find(pair => pair.id === id);
+        let p;
+        if (id === 'xau') {
+            p = { threshold: 0.05, trendThresh: 0.8, momThresh: 0.12 };
+        } else {
+            p = btcConfig;
+        }
         
         if (s.confirmed) {
             if (s.type === 'buy' && (price >= s.tp || price <= s.sl)) resetSignal(id);
@@ -398,15 +402,12 @@
         
         s.lastPrice = price;
         saveState(id);
-        
-        // Update PA UI (partial)
         updatePAUI(id);
     }
     
     function updateSignalUI(id) {
         const s = state[id];
         
-        // Signal dots
         const l1Dot = document.getElementById(`l1-${id}`);
         if (l1Dot) l1Dot.className = s.l1 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
         
@@ -416,10 +417,9 @@
         const l3Dot = document.getElementById(`l3-${id}`);
         if (l3Dot) l3Dot.className = s.l3 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
         
-        // Signal text
         const signalText = document.getElementById(`signal-text-${id}`);
         if (signalText) {
-            if (!wsStatus[id]) {
+            if (!wsStatus[id] && id === 'btc') {
                 signalText.innerText = 'NO FEED';
                 signalText.style.color = 'var(--danger)';
             } else if (s.confirmed) {
@@ -440,7 +440,6 @@
             }
         }
         
-        // Entry, TP, SL
         const entryEl = document.getElementById(`entry-${id}`);
         if (entryEl) entryEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
         
@@ -453,9 +452,8 @@
     
     function updatePAUI(id) {
         const s = state[id];
-        const p = pairs.find(pair => pair.id === id);
+        let p = (id === 'xau') ? { trendThresh: 0.8, momThresh: 0.12 } : btcConfig;
         
-        // Trend PA
         const trendPaEl = document.getElementById(`trend-${id}`);
         if (trendPaEl) {
             if (s.trendScore > p.trendThresh) {
@@ -470,7 +468,6 @@
             }
         }
         
-        // Momentum PA
         const momPaEl = document.getElementById(`mom-${id}`);
         if (momPaEl && s.lastPrice !== 0) {
             const prevPrice = state[id].lastPrice;
@@ -522,108 +519,232 @@
     function updateWSStatus(id) {
         const el = document.getElementById(`ws-status-${id}`);
         if (el) {
-            el.textContent = wsStatus[id] ? '● CONNECTED' : '○ RECONNECTING...';
-            el.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`;
+            if (id === 'xau') {
+                el.textContent = '● CONNECTED (API)';
+                el.className = 'ws-status connected';
+            } else {
+                el.textContent = wsStatus[id] ? '● CONNECTED' : '○ RECONNECTING...';
+                el.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`;
+            }
         }
     }
 
     function updateGlobalPulse() {
         const pulseEl = document.getElementById('globalPulse');
         if (pulseEl) {
-            pulseEl.className = (wsStatus.xau || wsStatus.btc) ? 'pulse connected' : 'pulse disconnected';
+            pulseEl.className = (wsStatus.btc || true) ? 'pulse connected' : 'pulse disconnected';
+        }
+    }
+
+    // ==================== FETCH XAU PRICE FROM API ====================
+    let lastXAUPrice = 0;
+    function fetchXAUPrice() {
+        fetch('https://api.gold-api.com/price/XAU')
+            .then(response => {
+                if (!response.ok) throw new Error('API error');
+                return response.json();
+            })
+            .then(data => {
+                let price = data.price || data.USD || (data.rates && data.rates.USD);
+                if (price > 0) {
+                    updateXAUPrice(price);
+                }
+            })
+            .catch(() => {
+                // Fallback ke API lain
+                fetch('https://api.exchangerate.host/convert?from=XAU&to=USD&amount=1')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.result && data.result > 0) {
+                            updateXAUPrice(data.result);
+                        }
+                    })
+                    .catch(err => console.error('XAU fetch error:', err));
+            });
+    }
+    
+    function updateXAUPrice(price) {
+        if (price && price > 0 && !isNaN(price)) {
+            lastXAUPrice = price;
+            
+            const priceEl = document.getElementById(`price-xau`);
+            if (priceEl) {
+                const oldPrice = state.xau.lastPrice;
+                priceEl.innerText = price.toFixed(2);
+                if (oldPrice !== 0 && oldPrice !== price) {
+                    priceEl.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
+                    setTimeout(() => { if (priceEl) priceEl.style.color = ""; }, 150);
+                }
+            }
+            
+            updateHTF('xau', price);
+            updateSignal('xau', price);
         }
     }
 
     // ==================== INITIALIZATION ====================
     function init() {
-        pairs.forEach(p => {
-            state[p.id] = loadState(p.id);
-            htfHistory[p.id] = [];
-            
-            // Seed data awal
-            const defaultPrice = p.id === 'xau' ? 4690 : 60000;
-            for (let i = 0; i < 20; i++) {
-                htfHistory[p.id].push(defaultPrice + (i * 0.1));
-            }
-            updateHTF(p.id, defaultPrice + 2);
-        });
+        state.xau = loadState('xau');
+        state.btc = loadState('btc');
+        
+        htfHistory.xau = [];
+        htfHistory.btc = [];
+        
+        for (let i = 0; i < 20; i++) {
+            htfHistory.xau.push(4690 + (i * 0.1));
+            htfHistory.btc.push(60000 + (i * 0.1));
+        }
+        updateHTF('xau', 4692);
+        updateHTF('btc', 60002);
         
         const container = document.getElementById('terminals');
         container.innerHTML = '';
         
-        pairs.forEach(p => {
-            container.innerHTML += `
-                <div class="pair-card ${p.id === activePairId ? 'active' : ''}" id="card-${p.id}">
-                    <div class="card">
-                        <div class="card-top">
-                            <div class="pair-info">
-                                <span class="pair">${p.name}</span>
-                                <span id="ws-status-${p.id}" class="ws-status disconnected">○ RECONNECTING...</span>
-                            </div>
-                            <span class="price" id="price-${p.id}">0.00</span>
+        // Card XAU (tanpa widget tambahan)
+        container.innerHTML += `
+            <div class="pair-card ${activePairId === 'xau' ? 'active' : ''}" id="card-xau">
+                <div class="card">
+                    <div class="card-top">
+                        <div class="pair-info">
+                            <span class="pair">XAUUSD</span>
+                            <span id="ws-status-xau" class="ws-status connected">● CONNECTED (API)</span>
                         </div>
-                        
-                        <div class="signal-bar">
-                            <span>SIGNAL</span>
-                            <div class="signal-dot-group">
-                                <div class="dot" id="l1-${p.id}"></div>
-                                <div class="dot" id="l2-${p.id}"></div>
-                                <div class="dot" id="l3-${p.id}"></div>
-                            </div>
-                            <span id="signal-text-${p.id}">IDLE</span>
+                        <span class="price" id="price-xau">0.00</span>
+                    </div>
+                    
+                    <div class="signal-bar">
+                        <span>SIGNAL</span>
+                        <div class="signal-dot-group">
+                            <div class="dot" id="l1-xau"></div>
+                            <div class="dot" id="l2-xau"></div>
+                            <div class="dot" id="l3-xau"></div>
                         </div>
-                        
-                        <div class="card-level-grid">
-                            <div class="level-item" onclick="copyValue('${p.id}','entry')">
-                                <span class="level-label">Entry</span>
-                                <span class="level-value" id="entry-${p.id}">--</span>
+                        <span id="signal-text-xau">IDLE</span>
+                    </div>
+                    
+                    <div class="card-level-grid">
+                        <div class="level-item" onclick="copyValue('xau','entry')">
+                            <span class="level-label">Entry</span>
+                            <span class="level-value" id="entry-xau">--</span>
+                        </div>
+                        <div class="level-item" onclick="copyValue('xau','tp')">
+                            <span class="level-label">Target</span>
+                            <span class="level-value" id="tp-xau" style="color:var(--success)">--</span>
+                        </div>
+                        <div class="level-item" onclick="copyValue('xau','sl')">
+                            <span class="level-label">S-Loss</span>
+                            <span class="level-value" id="sl-xau" style="color:var(--danger)">--</span>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-grid">
+                        <div class="box-htf">
+                            <div class="label-sm">HTF (H1)</div>
+                            <div class="htf-row">
+                                <div class="htf-label">TREND</div>
+                                <div class="htf-value" id="htf-trend-xau">◆ --</div>
                             </div>
-                            <div class="level-item" onclick="copyValue('${p.id}','tp')">
-                                <span class="level-label">Target</span>
-                                <span class="level-value" id="tp-${p.id}" style="color:var(--success)">--</span>
-                            </div>
-                            <div class="level-item" onclick="copyValue('${p.id}','sl')">
-                                <span class="level-label">S-Loss</span>
-                                <span class="level-value" id="sl-${p.id}" style="color:var(--danger)">--</span>
+                            <div class="htf-row">
+                                <div class="htf-label">MOMENTUM</div>
+                                <div class="htf-value" id="htf-momentum-xau">--</div>
                             </div>
                         </div>
-                        
-                        <div class="analysis-grid">
-                            <div class="box-htf">
-                                <div class="label-sm">HTF (H1)</div>
-                                <div class="htf-row">
-                                    <div class="htf-label">TREND</div>
-                                    <div class="htf-value" id="htf-trend-${p.id}">◆ --</div>
-                                </div>
-                                <div class="htf-row">
-                                    <div class="htf-label">MOMENTUM</div>
-                                    <div class="htf-value" id="htf-momentum-${p.id}">--</div>
-                                </div>
+                        <div class="box-pa">
+                            <div class="label-sm">PRICE ACTION</div>
+                            <div class="pa-row">
+                                <div class="pa-label">TREND</div>
+                                <div class="pa-value" id="trend-xau">SCANNING</div>
                             </div>
-                            <div class="box-pa">
-                                <div class="label-sm">PRICE ACTION</div>
-                                <div class="pa-row">
-                                    <div class="pa-label">TREND</div>
-                                    <div class="pa-value" id="trend-${p.id}">SCANNING</div>
-                                </div>
-                                <div class="pa-row">
-                                    <div class="pa-label">MOMENTUM</div>
-                                    <div class="pa-value" id="mom-${p.id}">--</div>
-                                </div>
+                            <div class="pa-row">
+                                <div class="pa-label">MOMENTUM</div>
+                                <div class="pa-value" id="mom-xau">--</div>
                             </div>
                         </div>
                     </div>
                 </div>
-            `;
-            
-            // Initial render
-            updateSignalUI(p.id);
-            updatePAUI(p.id);
-            updateHTFUI(p.id);
-            
-            connectWebSocket(p.id);
-        });
-
+            </div>
+        `;
+        
+        // Card BTC
+        container.innerHTML += `
+            <div class="pair-card ${activePairId === 'btc' ? 'active' : ''}" id="card-btc">
+                <div class="card">
+                    <div class="card-top">
+                        <div class="pair-info">
+                            <span class="pair">BTCUSD</span>
+                            <span id="ws-status-btc" class="ws-status disconnected">○ RECONNECTING...</span>
+                        </div>
+                        <span class="price" id="price-btc">0.00</span>
+                    </div>
+                    
+                    <div class="signal-bar">
+                        <span>SIGNAL</span>
+                        <div class="signal-dot-group">
+                            <div class="dot" id="l1-btc"></div>
+                            <div class="dot" id="l2-btc"></div>
+                            <div class="dot" id="l3-btc"></div>
+                        </div>
+                        <span id="signal-text-btc">IDLE</span>
+                    </div>
+                    
+                    <div class="card-level-grid">
+                        <div class="level-item" onclick="copyValue('btc','entry')">
+                            <span class="level-label">Entry</span>
+                            <span class="level-value" id="entry-btc">--</span>
+                        </div>
+                        <div class="level-item" onclick="copyValue('btc','tp')">
+                            <span class="level-label">Target</span>
+                            <span class="level-value" id="tp-btc" style="color:var(--success)">--</span>
+                        </div>
+                        <div class="level-item" onclick="copyValue('btc','sl')">
+                            <span class="level-label">S-Loss</span>
+                            <span class="level-value" id="sl-btc" style="color:var(--danger)">--</span>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-grid">
+                        <div class="box-htf">
+                            <div class="label-sm">HTF (H1)</div>
+                            <div class="htf-row">
+                                <div class="htf-label">TREND</div>
+                                <div class="htf-value" id="htf-trend-btc">◆ --</div>
+                            </div>
+                            <div class="htf-row">
+                                <div class="htf-label">MOMENTUM</div>
+                                <div class="htf-value" id="htf-momentum-btc">--</div>
+                            </div>
+                        </div>
+                        <div class="box-pa">
+                            <div class="label-sm">PRICE ACTION</div>
+                            <div class="pa-row">
+                                <div class="pa-label">TREND</div>
+                                <div class="pa-value" id="trend-btc">SCANNING</div>
+                            </div>
+                            <div class="pa-row">
+                                <div class="pa-label">MOMENTUM</div>
+                                <div class="pa-value" id="mom-btc">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        updateSignalUI('xau');
+        updatePAUI('xau');
+        updateHTFUI('xau');
+        updateSignalUI('btc');
+        updatePAUI('btc');
+        updateHTFUI('btc');
+        
+        // Start polling XAU price (setiap 1 detik)
+        fetchXAUPrice();
+        setInterval(fetchXAUPrice, 1000);
+        
+        // Connect WebSocket untuk BTC
+        connectWebSocket();
+        
+        // Switch button
         document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
         document.getElementById('switchPairBtn').onclick = () => {
             activePairId = activePairId === 'xau' ? 'btc' : 'xau';
@@ -637,88 +758,77 @@
         setInterval(() => updateGlobalPulse(), 1000);
     }
 
-    // ==================== WEBSOCKET (aggTrade - REAL TIME) ====================
-    function connectWebSocket(id) {
-        const p = pairs.find(pair => pair.id === id);
-        if (!p) return;
-        
-        if (wsConnections[id]) {
-            try { wsConnections[id].close(); } catch(e) {}
+    // ==================== WEBSOCKET BTC ====================
+    function connectWebSocket() {
+        if (wsConnections.btc) {
+            try { wsConnections.btc.close(); } catch(e) {}
         }
         
         try {
-            const ws = new WebSocket(p.wsUrl);
+            const ws = new WebSocket(btcConfig.wsUrl);
             
             ws.onopen = () => {
-                wsStatus[id] = true;
-                wsRetries[id] = 0;
-                lastHeartbeat[id] = Date.now();
-                updateWSStatus(id);
+                wsStatus.btc = true;
+                wsRetries.btc = 0;
+                lastHeartbeat.btc = Date.now();
+                updateWSStatus('btc');
                 updateGlobalPulse();
+                updateSignalUI('btc');
             };
             
             ws.onclose = () => {
-                wsStatus[id] = false;
-                updateWSStatus(id);
+                wsStatus.btc = false;
+                updateWSStatus('btc');
                 updateGlobalPulse();
-                const delay = Math.min(1000 * Math.pow(2, wsRetries[id]), 30000);
-                wsRetries[id]++;
-                setTimeout(() => connectWebSocket(id), delay);
+                updateSignalUI('btc');
+                const delay = Math.min(1000 * Math.pow(2, wsRetries.btc), 30000);
+                wsRetries.btc++;
+                setTimeout(connectWebSocket, delay);
             };
             
             ws.onerror = () => {
-                wsStatus[id] = false;
-                updateWSStatus(id);
+                wsStatus.btc = false;
+                updateWSStatus('btc');
                 updateGlobalPulse();
+                updateSignalUI('btc');
             };
             
             ws.onmessage = (e) => {
                 try {
                     const data = JSON.parse(e.data);
-                    // aggTrade: ambil harga dari 'p' (price)
-                    const price = parseFloat(data.p) + p.offset;
-                    
-                    if (price && price > 0) {
-                        lastHeartbeat[id] = Date.now();
-                        
-                        if (!wsStatus[id]) {
-                            wsStatus[id] = true;
-                            updateWSStatus(id);
+                    const price = parseFloat(data.p) + btcConfig.offset;
+                    if (price && price > 0 && !isNaN(price)) {
+                        lastHeartbeat.btc = Date.now();
+                        if (!wsStatus.btc) {
+                            wsStatus.btc = true;
+                            updateWSStatus('btc');
                             updateGlobalPulse();
+                            updateSignalUI('btc');
                         }
-                        
-                        // === PARTIAL UPDATE: HANYA UPDATE HARGA ===
-                        const priceEl = document.getElementById(`price-${id}`);
+                        const priceEl = document.getElementById(`price-btc`);
                         if (priceEl) {
-                            const oldPrice = state[id].lastPrice;
+                            const oldPrice = state.btc.lastPrice;
                             priceEl.innerText = price.toFixed(2);
-                            
-                            // Flash effect (hanya warna, tidak re-render)
-                            if (oldPrice !== 0) {
+                            if (oldPrice !== 0 && oldPrice !== price) {
                                 priceEl.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
-                                setTimeout(() => {
-                                    if (priceEl) priceEl.style.color = "";
-                                }, 150);
+                                setTimeout(() => { if (priceEl) priceEl.style.color = ""; }, 150);
                             }
                         }
-                        
-                        // UPDATE HTF (dengan throttle)
-                        updateHTF(id, price);
-                        
-                        // UPDATE SIGNAL
-                        updateSignal(id, price);
+                        updateHTF('btc', price);
+                        updateSignal('btc', price);
                     }
                 } catch(err) {
-                    console.error(`Parse error for ${id}:`, err);
+                    console.error(`Parse error for BTC:`, err);
                 }
             };
             
-            wsConnections[id] = ws;
+            wsConnections.btc = ws;
         } catch(err) {
-            wsStatus[id] = false;
-            updateWSStatus(id);
+            wsStatus.btc = false;
+            updateWSStatus('btc');
             updateGlobalPulse();
-            setTimeout(() => connectWebSocket(id), 5000);
+            updateSignalUI('btc');
+            setTimeout(connectWebSocket, 5000);
         }
     }
 
