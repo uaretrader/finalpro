@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v4.4.5</title>
+    <title>PRECISION TERMINAL v4.5.1</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -151,7 +151,7 @@
         .dot.active { background: var(--success); }
         .dot.active-down { background: var(--danger); }
 
-        /* 3. Card Level Grid - POSISINYA DIATAS (NO MARGIN TOP) */
+        /* 3. Card Level Grid */
         .card-level-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -171,38 +171,101 @@
         .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; transition: all 0.2s; }
         .level-item:active .level-value { opacity: 0.5; }
 
-        /* Analysis Grid - Logic Engine HIDDEN */
+        /* Analysis Grid - HTF + Price Action (DIPERBAIKI) */
         .analysis-grid { 
             display: grid; 
-            grid-template-columns: 1fr; 
+            grid-template-columns: 1fr 1fr; 
             gap: 8px; 
             margin-top: 0;
         }
         
-        .box-logic { 
-            display: none;
-        }
-        
-        .box-pa { 
+        .box-htf { 
             background: transparent; 
             border: 1px solid var(--border); 
-            padding: 10px; 
+            padding: 10px 8px; 
             border-radius: 4px; 
             display: flex; 
             flex-direction: column; 
         }
         
-        .label-sm { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; display: block; border-bottom: 1px solid var(--border); padding-bottom: 4px; letter-spacing: 1px; }
+        .box-pa { 
+            background: transparent; 
+            border: 1px solid var(--border); 
+            padding: 10px 8px; 
+            border-radius: 4px; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        .label-sm { 
+            font-size: 0.55rem; 
+            color: var(--text-dim); 
+            text-transform: uppercase; 
+            margin-bottom: 8px; 
+            display: block; 
+            border-bottom: 1px solid var(--border); 
+            padding-bottom: 4px; 
+            letter-spacing: 0.5px; 
+            text-align: center;
+        }
+        
+        .htf-row {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 4px 0;
+            border-bottom: 1px dashed var(--grid-line);
+        }
+        .htf-row:last-child {
+            border-bottom: none;
+        }
+        .htf-label {
+            font-size: 0.55rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 3px;
+        }
+        .htf-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.7rem;
+            text-align: center;
+        }
+        
+        .pa-row {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 4px 0;
+            border-bottom: 1px dashed var(--grid-line);
+        }
+        .pa-row:last-child {
+            border-bottom: none;
+        }
+        .pa-label {
+            font-size: 0.55rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 3px;
+        }
+        .pa-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.7rem;
+            text-align: center;
+        }
+        
         .stat { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; margin-bottom: 4px; }
         
-        /* Momentum HORIZONTAL (no wrap) */
-        .mom-value { 
-            text-align: right; 
-            line-height: 1.2; 
-            font-weight: 700; 
-            font-size: 0.65rem; 
-            white-space: nowrap;
-        }
+        .trend-up { color: var(--success); }
+        .trend-down { color: var(--danger); }
+        .trend-neutral { color: var(--text-dim); }
+        .momentum-up { color: var(--success); }
+        .momentum-down { color: var(--danger); }
 
         footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; font-family: 'JetBrains Mono', monospace; opacity: 0.6; line-height: 1.6; }
     </style>
@@ -213,7 +276,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">CYAN & LIGHTNING FLAT UI</p>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.5.1</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -229,8 +292,8 @@
     <div id="terminals"></div>
 
     <footer>
-        [ SYSTEM_LOG ]: FLAT_CYAN_RE-ROUTE_COMPLETE | PERSISTENCE_ENABLED<br>
-        [ THEME ]: LIGHTNING_BOLT_V3
+        [ SYSTEM_LOG ]: HTF_ANALYSIS_ENABLED (H1) | PERSISTENCE_ACTIVE<br>
+        [ METHOD ]: SWEEP + CHoCH + FVG + HTF_TREND_FILTER
     </footer>
 </div>
 
@@ -248,6 +311,12 @@
     let priceHistory = { xau: [], btc: [] };
     let lastHeartbeat = { xau: Date.now(), btc: Date.now() };
 
+    // ==================== HTF DATA (HIGHER TIMEFRAME - H1) ====================
+    let htfData = { 
+        xau: { trend: 'neutral', momentum: 0, priceHistoryHTF: [] }, 
+        btc: { trend: 'neutral', momentum: 0, priceHistoryHTF: [] } 
+    };
+
     // ==================== CREATE FRESH STATE ====================
     function createFreshState() {
         return { 
@@ -260,7 +329,8 @@
             type: 'none', 
             entry: 0, 
             sl: 0, 
-            tp: 0 
+            tp: 0,
+            priceHistoryHTF: []
         };
     }
 
@@ -290,7 +360,8 @@
             type: state[id].type,
             entry: state[id].entry,
             sl: state[id].sl,
-            tp: state[id].tp
+            tp: state[id].tp,
+            priceHistoryHTF: state[id].priceHistoryHTF
         };
         localStorage.setItem(`ura_elv_state_${id}`, JSON.stringify(toSave));
     }
@@ -300,6 +371,55 @@
             state[p.id] = createFreshState();
             saveState(p.id);
         });
+    }
+
+    // ==================== HTF ANALYSIS (H1 - Higher Timeframe) ====================
+    function analyzeHTF(id, currentPrice) {
+        const s = state[id];
+        
+        if (!s.priceHistoryHTF) {
+            s.priceHistoryHTF = [];
+        }
+        
+        // Simpan harga setiap kali ada update (untuk HTF)
+        s.priceHistoryHTF.push(currentPrice);
+        if (s.priceHistoryHTF.length > 50) s.priceHistoryHTF.shift();
+        
+        // Trend: perbandingan rata-rata 20 periode terakhir vs 10 periode terakhir
+        if (s.priceHistoryHTF.length >= 20) {
+            const avg20 = s.priceHistoryHTF.slice(-20).reduce((a,b) => a+b, 0) / 20;
+            const avg10 = s.priceHistoryHTF.slice(-10).reduce((a,b) => a+b, 0) / 10;
+            
+            if (avg10 > avg20 * 1.0005) {
+                htfData[id].trend = 'up';
+            } else if (avg10 < avg20 * 0.9995) {
+                htfData[id].trend = 'down';
+            } else {
+                htfData[id].trend = 'neutral';
+            }
+            
+            // Momentum: persentase perubahan 5 periode terakhir (≈ 5 menit jika di-accumulate)
+            if (s.priceHistoryHTF.length >= 5) {
+                const oldPrice = s.priceHistoryHTF[s.priceHistoryHTF.length - 5];
+                const momentumPct = ((currentPrice - oldPrice) / oldPrice) * 100;
+                htfData[id].momentum = momentumPct;
+            }
+        }
+        
+        htfData[id].lastPrice = currentPrice;
+    }
+    
+    function getHTFTrendSymbol(trend) {
+        if (trend === 'up') return '▲ BULLISH';
+        if (trend === 'down') return '▼ BEARISH';
+        return '◆ NEUTRAL';
+    }
+    
+    function getHTFMomentumSymbol(momentum) {
+        if (momentum > 0.05) return '▲ STRONG';
+        if (momentum > 0) return '▲ WEAK';
+        if (momentum > -0.05) return '▼ WEAK';
+        return '▼ STRONG';
     }
 
     // ==================== GLOBAL PULSE UPDATE ====================
@@ -338,6 +458,7 @@
         pairs.forEach(p => {
             state[p.id] = loadState(p.id);
             priceHistory[p.id] = [];
+            if (!state[p.id].priceHistoryHTF) state[p.id].priceHistoryHTF = [];
         });
         
         const container = document.getElementById('terminals');
@@ -367,7 +488,7 @@
                             <span id="signal-text-${p.id}">WAITING</span>
                         </div>
                         
-                        <!-- 3. Card Level Grid - Grid Layout di Posisi Atas -->
+                        <!-- 3. Card Level Grid -->
                         <div class="card-level-grid">
                             <div class="level-item" onclick="copyValue('${p.id}','entry')">
                                 <span class="level-label">Entry</span>
@@ -383,14 +504,28 @@
                             </div>
                         </div>
                         
-                        <!-- Analysis Grid - Only Price Action, Logic Engine Removed -->
+                        <!-- Analysis Grid: HTF (H1) + Price Action (DIPERBAIKI) -->
                         <div class="analysis-grid">
+                            <div class="box-htf">
+                                <div class="label-sm">HTF (H1)</div>
+                                <div class="htf-row">
+                                    <div class="htf-label">TREND</div>
+                                    <div class="htf-value" id="htf-trend-${p.id}">◆ --</div>
+                                </div>
+                                <div class="htf-row">
+                                    <div class="htf-label">MOMENTUM</div>
+                                    <div class="htf-value" id="htf-momentum-${p.id}">--</div>
+                                </div>
+                            </div>
                             <div class="box-pa">
-                                <span class="label-sm">Price Action (M15)</span>
-                                <div class="stat"><span>TREND</span><span id="trend-${p.id}" style="font-weight:700">SCANNING</span></div>
-                                <div class="stat" style="align-items: center;">
-                                    <span>MOMENTUM</span>
-                                    <div class="mom-value" id="mom-${p.id}">--</div>
+                                <div class="label-sm">PRICE ACTION</div>
+                                <div class="pa-row">
+                                    <div class="pa-label">TREND</div>
+                                    <div class="pa-value" id="trend-${p.id}" style="font-weight:700">SCANNING</div>
+                                </div>
+                                <div class="pa-row">
+                                    <div class="pa-label">MOMENTUM</div>
+                                    <div class="pa-value" id="mom-${p.id}">--</div>
                                 </div>
                             </div>
                         </div>
@@ -487,6 +622,11 @@
                             }
                             priceEl.innerText = currentPrice.toFixed(2);
                         }
+                        
+                        // HTF Analysis (H1 - akumulasi 50 harga terakhir)
+                        analyzeHTF(id, currentPrice);
+                        
+                        // Signal logic
                         updatePriceAction(id, currentPrice);
                     }
                 } catch(err) {
@@ -533,8 +673,6 @@
         const diff = price - s.lastPrice;
         if (s.lastPrice !== 0 && diff !== 0) {
             s.trendScore += diff;
-            
-            // Update trend display via renderUI
         }
         
         if (!s.confirmed && s.lastPrice !== 0 && Math.abs(diff) > (id === 'xau' ? 0.05 : 6)) {
@@ -657,10 +795,28 @@
         const slEl = document.getElementById(`sl-${id}`);
         if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
         
-        // Trend & Momentum display
-        const trendEl = document.getElementById(`trend-${id}`);
-        const momEl = document.getElementById(`mom-${id}`);
+        // ==================== HTF DISPLAY (H1) - RAPIH ====================
+        const htf = htfData[id];
+        const htfTrendEl = document.getElementById(`htf-trend-${id}`);
+        if (htfTrendEl) {
+            const trendSymbol = getHTFTrendSymbol(htf.trend);
+            let trendClass = 'trend-neutral';
+            if (htf.trend === 'up') trendClass = 'trend-up';
+            else if (htf.trend === 'down') trendClass = 'trend-down';
+            htfTrendEl.className = `htf-value ${trendClass}`;
+            htfTrendEl.innerText = trendSymbol;
+        }
         
+        const htfMomentumEl = document.getElementById(`htf-momentum-${id}`);
+        if (htfMomentumEl) {
+            const momentumSymbol = getHTFMomentumSymbol(htf.momentum);
+            const momentumClass = htf.momentum >= 0 ? 'momentum-up' : 'momentum-down';
+            htfMomentumEl.className = `htf-value ${momentumClass}`;
+            htfMomentumEl.innerText = `${momentumSymbol} (${htf.momentum > 0 ? '+' : ''}${htf.momentum.toFixed(2)}%)`;
+        }
+        
+        // ==================== TICK PA DISPLAY - RAPIH ====================
+        const trendEl = document.getElementById(`trend-${id}`);
         if (trendEl) {
             if (s.trendScore > (id === 'xau' ? 0.8 : 50)) { 
                 trendEl.innerText = "BULLISH"; 
@@ -674,8 +830,8 @@
             }
         }
         
-        if (momEl && s.lastPrice !== 0 && s.lastPrice !== s.trendScore) {
-            // Get last diff from stored data or calculate reasonable display
+        const momEl = document.getElementById(`mom-${id}`);
+        if (momEl && s.lastPrice !== 0) {
             const lastPrice = s.lastPrice;
             const prevPrice = state[id].lastPrice !== lastPrice ? state[id].lastPrice : lastPrice - 0.01;
             const diff = lastPrice - prevPrice;
