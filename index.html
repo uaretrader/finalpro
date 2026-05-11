@@ -3,29 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>URA PRECISION v18.3 - Persistent Hybrid Engine</title>
+    <title>PRECISION TERMINAL v4.4.5</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
         :root {
-            --bg: #1a1d21;
+            --bg: #1a1d21; 
             --text: #e6e8ea;
             --text-dim: #707a8a;
             --accent: #f0b90b;
-            --success: #00FFFF;
-            --danger: #FF5252;
+            --success: #00FFFF; 
+            --danger: #FF5252; 
             --feed-lightning: #FFEA00;
+            --buy-deep: #1b5e20; 
+            --maroon-faded: #802d2d;
             --border: rgba(255, 255, 255, 0.1);
-            --card-bg: #1a1d21;
-            --warning: #FFB74D;
+            --phase-trending: #00FF88;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            padding: 0 15px 15px 15px;
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Inter', sans-serif; 
+            padding: 15px;
             display: flex;
             justify-content: center;
             min-height: 100vh;
@@ -36,25 +37,23 @@
         header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 0;
+            align-items: center;
+            margin-bottom: 15px;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
-            padding-top: 10px;
-            background: var(--bg);
+            padding-bottom: 12px;
         }
 
         .brand h1 { font-size: 1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
         .sys-status { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; text-align: right; color: var(--text-dim); }
-
-        .pulse {
-            display: inline-block;
-            width: 7px;
-            height: 7px;
-            background: var(--feed-lightning);
-            border-radius: 50%;
-            margin-right: 5px;
-            animation: blink 1.5s infinite;
+        
+        .pulse { 
+            display: inline-block; 
+            width: 7px; 
+            height: 7px; 
+            background: var(--feed-lightning); 
+            border-radius: 50%; 
+            margin-right: 5px; 
+            animation: blink 1.5s infinite; 
         }
         .pulse.connected {
             background: var(--success);
@@ -65,6 +64,16 @@
             animation: blink 0.5s infinite;
         }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .ws-status {
+            font-size: 0.5rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-top: 2px;
+            display: inline-block;
+        }
+        .ws-status.connected { color: var(--phase-trending); }
+        .ws-status.disconnected { color: var(--danger); animation: blink 1s infinite; }
 
         .switch-pair-btn {
             background: transparent;
@@ -89,34 +98,49 @@
             color: var(--accent);
         }
 
+        .pair-card { display: none; }
+        .pair-card.active { display: block; }
+
         .card {
-            background: var(--card-bg);
+            background: var(--bg);
             border: 1px solid var(--border);
-            border-radius: 0;
-            border-top: none;
-            padding: 18px 20px 20px 20px;
-            margin-bottom: 15px;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 12px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
 
-        .card-header-new {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
+        /* 1. Card Pair Label */
+        .card-top { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            margin-bottom: 8px; 
         }
-        .pair-big { font-weight: 800; font-size: 1.1rem; letter-spacing: 1px; color: var(--text); }
-        .price-live { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 700; }
+        .pair-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .pair { font-weight: 800; font-size: 1.1rem; letter-spacing: 1px; color: var(--text); }
+        .price { 
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 1.2rem; 
+            font-weight: 700; 
+            background: transparent;
+            padding: 4px 0;
+            text-align: right;
+        }
 
+        /* 2. Signal Bar */
         .signal-bar {
             display: flex;
             align-items: center;
             justify-content: space-between;
             background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
-            padding: 10px 14px;
+            padding: 8px 12px;
             border-radius: 4px;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.8rem;
             font-weight: 700;
@@ -124,559 +148,559 @@
         }
         .signal-dot-group { display: flex; gap: 12px; align-items: center; }
         .dot { width: 8px; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
-        .dot.active { background: var(--success); box-shadow: 0 0 10px var(--success); }
-        .dot.active-down { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+        .dot.active { background: var(--success); }
+        .dot.active-down { background: var(--danger); }
 
+        /* 3. Card Level Grid - POSISINYA DIATAS (NO MARGIN TOP) */
         .card-level-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 10px;
-            margin-bottom: 14px;
+            margin-bottom: 10px;
+            margin-top: 0;
             background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
-            padding: 12px;
+            padding: 10px;
             border-radius: 4px;
         }
         .level-item { display: flex; flex-direction: column; cursor: pointer; }
+        .level-item:nth-child(1) { align-items: flex-start; text-align: left; }
+        .level-item:nth-child(2) { align-items: center; text-align: center; }
+        .level-item:nth-child(3) { align-items: flex-end; text-align: right; }
         .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
-        .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
+        .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; transition: all 0.2s; }
+        .level-item:active .level-value { opacity: 0.5; }
 
-        .box-htf { 
-            background: transparent; 
-            border: 1px solid var(--border); 
-            padding: 12px; 
-            border-radius: 4px; 
-            margin-bottom: 15px;
+        /* Analysis Grid - Logic Engine HIDDEN */
+        .analysis-grid { 
+            display: grid; 
+            grid-template-columns: 1fr; 
+            gap: 8px; 
+            margin-top: 0;
         }
-        .label-sm { 
-            font-size: 0.6rem; 
-            color: var(--text-dim); 
-            text-transform: uppercase; 
-            margin-bottom: 10px; 
-            display: block; 
-            border-bottom: 1px solid var(--border); 
-            padding-bottom: 4px; 
-        }
-        .htf-main {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .htf-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            padding: 4px 0;
-        }
-        .htf-label {
-            font-size: 0.65rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .htf-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-            font-size: 0.75rem;
-        }
-        .trend-up { color: var(--success); }
-        .trend-down { color: var(--danger); }
-        .trend-neutral { color: var(--text-dim); }
-        .momentum-up { color: var(--success); }
-        .momentum-down { color: var(--danger); }
-
-        .conn-status {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.5rem;
-            margin-top: 8px;
-            padding: 4px 6px;
-            border-radius: 3px;
-            background: rgba(255,255,255,0.03);
-            display: inline-block;
-            width: 100%;
-            text-align: center;
-        }
-        .conn-status.online { color: var(--success); }
-        .conn-status.offline { color: var(--danger); }
-
-        footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; font-family: 'JetBrains Mono', monospace; opacity: 0.6; }
-        .pair-card { display: none; }
-        .pair-card.active { display: block; }
-
-        .hidden {
+        
+        .box-logic { 
             display: none;
         }
+        
+        .box-pa { 
+            background: transparent; 
+            border: 1px solid var(--border); 
+            padding: 10px; 
+            border-radius: 4px; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        .label-sm { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; display: block; border-bottom: 1px solid var(--border); padding-bottom: 4px; letter-spacing: 1px; }
+        .stat { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; margin-bottom: 4px; }
+        
+        /* Momentum HORIZONTAL (no wrap) */
+        .mom-value { 
+            text-align: right; 
+            line-height: 1.2; 
+            font-weight: 700; 
+            font-size: 0.65rem; 
+            white-space: nowrap;
+        }
+
+        footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; font-family: 'JetBrains Mono', monospace; opacity: 0.6; line-height: 1.6; }
     </style>
 </head>
 <body>
+
 <div class="container">
     <header>
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <div class="brand">
-                <h1>uradvisor</h1>
-                <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION ENGINE v18.3</p>
+        <div class="brand">
+            <h1>uradvisor</h1>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">CYAN & LIGHTNING FLAT UI</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="sys-status">
+                <div><span class="pulse" id="globalPulse"></span>LIVE</div>
+                <div id="clock">00:00:00 UTC</div>
             </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div class="sys-status">
-                    <div><span class="pulse" id="globalPulse"></span>LIVE</div>
-                    <div id="clock">00:00:00 UTC</div>
-                </div>
-                <button id="switchPairBtn" class="switch-pair-btn">
-                    <span id="switchLabel">XAUUSD</span>
-                </button>
-            </div>
+            <button id="switchPairBtn" class="switch-pair-btn">
+                <span id="switchLabel">XAUUSD</span>
+            </button>
         </div>
     </header>
 
     <div id="terminals"></div>
 
     <footer>
-        [ SYSTEM_LOG ]: AUTO_RESCAN_ACTIVE | HTF_ANALYSIS_ENABLED<br>
-        [ METHOD ]: SWEEP + CHOCH + FVG_PRECISION + HTF_TREND
+        [ SYSTEM_LOG ]: FLAT_CYAN_RE-ROUTE_COMPLETE | PERSISTENCE_ENABLED<br>
+        [ THEME ]: LIGHTNING_BOLT_V3
     </footer>
 </div>
 
 <script>
-    // ==================== CONFIGURATION ====================
-    const config = {
-        xau: { sl: 7, rr: 1.5, lookback: 25, ws: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 4.4, symbol: 'PAXGUSD' },
-        btc: { sl: 150, rr: 1.5, lookback: 40, ws: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0.0, symbol: 'BTCUSDT' }
-    };
+    const pairs = [
+        { id: 'xau', name: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 3 },
+        { id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0 }
+    ];
 
-    let engineState = { xau: null, btc: null };
-    let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
+    let state = {};
+    let wsStatus = { xau: false, btc: false };
+    let wsRetries = { xau: 0, btc: 0 };
+    let activePairId = localStorage.getItem('ura_elv_active_pair') || 'xau';
     let wsConnections = {};
-    let connectionStatus = { xau: false, btc: false };
+    let priceHistory = { xau: [], btc: [] };
     let lastHeartbeat = { xau: Date.now(), btc: Date.now() };
-    let reconnectAttempts = { xau: 0, btc: 0 };
-    let htfData = { xau: { trend: 'neutral', momentum: 0, lastPrice: 0 }, btc: { trend: 'neutral', momentum: 0, lastPrice: 0 } };
 
+    // ==================== CREATE FRESH STATE ====================
     function createFreshState() {
-        return {
-            priceHistory: [],
-            swingHigh: 0,
-            swingLow: Infinity,
-            structureValid: false,  // NEW: apakah struktur sudah valid
-            l1: false, l2: false, l3: false,
-            type: 'none',
-            entry: 0, sl: 0, tp: 0,
-            confirmed: false,
-            cooldown: false,
-            lastPrice: 0,
-            lastResetBar: 0         // NEW: untuk tracking reset periodik
+        return { 
+            lastPrice: 0, 
+            trendScore: 0, 
+            l1: false, 
+            l2: false, 
+            l3: false, 
+            confirmed: false, 
+            type: 'none', 
+            entry: 0, 
+            sl: 0, 
+            tp: 0 
         };
     }
 
-    // Persistence: Load Signal State
-    function loadStates() {
-        ['xau', 'btc'].forEach(id => {
-            const saved = localStorage.getItem(`ura_state_${id}`);
-            engineState[id] = saved ? JSON.parse(saved) : createFreshState();
-        });
+    // ==================== PERSISTENCE (LOCALSTORAGE) ====================
+    function loadState(id) {
+        const saved = localStorage.getItem(`ura_elv_state_${id}`);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                return parsed;
+            } catch(e) {
+                console.error(`Failed to parse state for ${id}:`, e);
+                return createFreshState();
+            }
+        }
+        return createFreshState();
     }
 
     function saveState(id) {
-        localStorage.setItem(`ura_state_${id}`, JSON.stringify(engineState[id]));
-    }
-
-    // ==================== HTF TREND & MOMENTUM ANALYSIS (SEDERHANA) ====================
-    function analyzeHTF(id, currentPrice) {
-        const s = engineState[id];
-        
-        if (!s.priceHistoryHTF) {
-            s.priceHistoryHTF = [];
-        }
-        s.priceHistoryHTF.push(currentPrice);
-        if (s.priceHistoryHTF.length > 30) s.priceHistoryHTF.shift();
-        
-        // Trend sederhana: bandingkan harga saat ini dengan rata2 20 periode sebelumnya
-        if (s.priceHistoryHTF.length >= 20) {
-            const avg20 = s.priceHistoryHTF.slice(-20).reduce((a,b) => a+b, 0) / 20;
-            const avg10 = s.priceHistoryHTF.slice(-10).reduce((a,b) => a+b, 0) / 10;
-            
-            if (avg10 > avg20 * 1.001) {
-                htfData[id].trend = 'up';
-            } else if (avg10 < avg20 * 0.999) {
-                htfData[id].trend = 'down';
-            } else {
-                htfData[id].trend = 'neutral';
-            }
-            
-            // Momentum: perubahan 5 periode terakhir
-            if (s.priceHistoryHTF.length >= 5) {
-                const oldPrice = s.priceHistoryHTF[s.priceHistoryHTF.length - 5];
-                const momentumPct = ((currentPrice - oldPrice) / oldPrice) * 100;
-                htfData[id].momentum = momentumPct;
-            }
-        }
-        
-        htfData[id].lastPrice = currentPrice;
-    }
-    
-    function getTrendSymbol(trend) {
-        if (trend === 'up') return '▲ BULLISH';
-        if (trend === 'down') return '▼ BEARISH';
-        return '◆ NEUTRAL';
-    }
-    
-    function getMomentumSymbol(momentum) {
-        if (momentum > 0.1) return '▲ STRONG';
-        if (momentum > 0) return '▲ WEAK';
-        if (momentum > -0.1) return '▼ WEAK';
-        return '▼ STRONG';
-    }
-
-    // ==================== CORE ALGORITHM (FIXED) ====================
-    function analyzePrecisionLogic(id, price) {
-        const s = engineState[id];
-        const conf = config[id];
-        
-        s.priceHistory.push(price);
-        if (s.priceHistory.length > 100) s.priceHistory.shift();
-
-        // AUTO RESET JIKA SL/TP HIT
-        if (s.confirmed) {
-            const hitTP = (s.type === 'buy' && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
-            const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
-            if (hitTP || hitSL) { 
-                resetSignal(id); 
-                return; 
-            }
-            return; 
-        }
-
-        if (s.cooldown) return;
-
-        // ========== STRUCTURE DETECTION (NATURAL SWING HIGH/LOW) ==========
-        // Update swing high/low secara natural (tidak di-reset otomatis)
-        if (price > s.swingHigh) {
-            s.swingHigh = price;
-            s.structureValid = true;
-            saveState(id);
-        }
-        if (price < s.swingLow) {
-            s.swingLow = price;
-            s.structureValid = true;
-            saveState(id);
-        }
-
-        // Inisialisasi awal: jika swingLow masih Infinity, set ke harga saat ini
-        if (s.swingHigh === 0 && s.swingLow === Infinity) {
-            s.swingHigh = price;
-            s.swingLow = price;
-            s.structureValid = true;
-            saveState(id);
-        }
-
-        // ========== RESET PERIODIK STRUKTUR (HANYA JIKA TIDAK ADA SINYAL) ==========
-        // Reset swing setiap N bar untuk menghindari struktur yang terlalu tua (stale)
-        if (!s.l1 && !s.l2 && !s.l3 && !s.confirmed) {
-            const currentBar = s.priceHistory.length;
-            if (s.lastResetBar === 0) s.lastResetBar = currentBar;
-            
-            if (currentBar - s.lastResetBar >= conf.lookback) {
-                // Reset struktur ke harga saat ini
-                s.swingHigh = price;
-                s.swingLow = price;
-                s.lastResetBar = currentBar;
-                s.structureValid = true;
-                saveState(id);
-            }
-        }
-
-        // ========== L1: SWEEP DETECTION ==========
-        if (!s.l1 && s.structureValid) {
-            // Sell signal: price menembus swing high + buffer
-            if (price > s.swingHigh + (conf.sl * 0.15)) { 
-                s.l1 = true; 
-                s.type = 'sell'; 
-                saveState(id);
-            }
-            // Buy signal: price menembus swing low - buffer
-            else if (price < s.swingLow - (conf.sl * 0.15)) { 
-                s.l1 = true; 
-                s.type = 'buy'; 
-                saveState(id);
-            }
-        }
-        
-        // ========== L2: CHoCH (Change of Character) ==========
-        if (s.l1 && !s.l2) {
-            const recoveryThreshold = conf.sl * 0.25;
-            if (s.type === 'sell' && price < s.swingHigh - recoveryThreshold) { 
-                s.l2 = true; 
-                saveState(id);
-            }
-            else if (s.type === 'buy' && price > s.swingLow + recoveryThreshold) { 
-                s.l2 = true; 
-                saveState(id);
-            }
-        }
-        
-        // ========== L3: FVG (Fair Value Gap) ==========
-        if (s.l2 && !s.l3) {
-            const p = s.priceHistory;
-            if (p.length >= 4) {
-                const gap = Math.abs(p[p.length-1] - p[p.length-3]);
-                if (gap > (conf.sl * 0.12)) {
-                    s.l3 = true;
-                    lockSignal(id, price);
-                }
-            }
-        }
-    }
-
-    function lockSignal(id, entry) {
-        const s = engineState[id];
-        const conf = config[id];
-        s.confirmed = true;
-        s.entry = entry;
-        s.sl = s.type === 'buy' ? entry - conf.sl : entry + conf.sl;
-        s.tp = s.type === 'buy' ? entry + (conf.sl * conf.rr) : entry - (conf.sl * conf.rr);
-        saveState(id);
-    }
-
-    function resetSignal(id) {
-        const s = engineState[id];
-        const history = s.priceHistory;
-        const htfHistory = s.priceHistoryHTF;
-        const lastPrice = s.lastPrice;
-        
-        // Reset semua state ke fresh
-        Object.assign(s, createFreshState());
-        s.priceHistory = history;
-        s.priceHistoryHTF = htfHistory || [];
-        s.lastPrice = lastPrice;
-        
-        // Inisialisasi swing dengan harga terakhir
-        if (lastPrice > 0) {
-            s.swingHigh = lastPrice;
-            s.swingLow = lastPrice;
-            s.structureValid = true;
-        }
-        
-        s.cooldown = true;
-        s.lastResetBar = s.priceHistory.length;
-        saveState(id);
-        renderUI(id);
-        
-        setTimeout(() => { 
-            s.cooldown = false; 
-            saveState(id);
-            renderUI(id); 
-        }, 10000);
-    }
-
-    // ==================== WEBSOCKET WITH RECONNECT ====================
-    function createWebSocket(id) {
-        const ws = new WebSocket(config[id].ws);
-        
-        ws.onopen = () => {
-            console.log(`${id} WebSocket connected`);
-            connectionStatus[id] = true;
-            reconnectAttempts[id] = 0;
-            lastHeartbeat[id] = Date.now();
-            updateGlobalConnectionStatus();
-            renderUI(id);
+        const toSave = {
+            lastPrice: state[id].lastPrice,
+            trendScore: state[id].trendScore,
+            l1: state[id].l1,
+            l2: state[id].l2,
+            l3: state[id].l3,
+            confirmed: state[id].confirmed,
+            type: state[id].type,
+            entry: state[id].entry,
+            sl: state[id].sl,
+            tp: state[id].tp
         };
-        
-        ws.onmessage = (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                const price = parseFloat(data.c) + config[id].offset;
-                lastHeartbeat[id] = Date.now();
-                processPrice(id, price);
-            } catch (err) {
-                console.error(`${id} parse error:`, err);
-            }
-        };
-        
-        ws.onerror = (err) => {
-            console.error(`${id} WebSocket error:`, err);
-            connectionStatus[id] = false;
-            updateGlobalConnectionStatus();
-            renderUI(id);
-        };
-        
-        ws.onclose = () => {
-            console.log(`${id} WebSocket closed, reconnecting...`);
-            connectionStatus[id] = false;
-            updateGlobalConnectionStatus();
-            renderUI(id);
-            
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts[id]), 30000);
-            reconnectAttempts[id]++;
-            setTimeout(() => {
-                if (wsConnections[id]) {
-                    wsConnections[id] = createWebSocket(id);
-                }
-            }, delay);
-        };
-        
-        return ws;
+        localStorage.setItem(`ura_elv_state_${id}`, JSON.stringify(toSave));
     }
-    
-    function updateGlobalConnectionStatus() {
-        const anyConnected = connectionStatus.xau || connectionStatus.btc;
+
+    function resetAllStates() {
+        pairs.forEach(p => {
+            state[p.id] = createFreshState();
+            saveState(p.id);
+        });
+    }
+
+    // ==================== GLOBAL PULSE UPDATE ====================
+    function updateGlobalPulse() {
         const pulseEl = document.getElementById('globalPulse');
-        if (pulseEl) {
-            pulseEl.className = anyConnected ? 'pulse connected' : 'pulse disconnected';
+        if (!pulseEl) return;
+        
+        const anyConnected = wsStatus.xau || wsStatus.btc;
+        if (anyConnected) {
+            pulseEl.className = 'pulse connected';
+        } else {
+            pulseEl.className = 'pulse disconnected';
         }
     }
-    
-    function checkConnectionHeartbeat() {
+
+    // ==================== HEARTBEAT CHECK ====================
+    function checkHeartbeat() {
         setInterval(() => {
-            ['xau', 'btc'].forEach(id => {
-                if (connectionStatus[id] && Date.now() - lastHeartbeat[id] > 10000) {
-                    connectionStatus[id] = false;
-                    updateGlobalConnectionStatus();
-                    renderUI(id);
-                    if (wsConnections[id]) {
-                        try { wsConnections[id].close(); } catch(e) {}
-                        wsConnections[id] = createWebSocket(id);
+            pairs.forEach(p => {
+                if (wsStatus[p.id] && Date.now() - lastHeartbeat[p.id] > 10000) {
+                    console.log(`Heartbeat timeout for ${p.id}, reconnecting...`);
+                    wsStatus[p.id] = false;
+                    updateGlobalPulse();
+                    if (wsConnections[p.id]) {
+                        try { wsConnections[p.id].close(); } catch(e) {}
+                        wsConnections[p.id] = connectWebSocket(p.id);
                     }
                 }
             });
         }, 5000);
     }
 
-    // ==================== UI ENGINE ====================
+    // ==================== INITIALIZATION WITH PERSISTENCE ====================
     function init() {
-        loadStates();
+        // Load states from localStorage
+        pairs.forEach(p => {
+            state[p.id] = loadState(p.id);
+            priceHistory[p.id] = [];
+        });
+        
         const container = document.getElementById('terminals');
-        ['xau', 'btc'].forEach(id => {
+        container.innerHTML = '';
+        
+        pairs.forEach(p => {
             container.innerHTML += `
-                <div class="pair-card ${id === activePairId ? 'active' : ''}" id="card-${id}">
+                <div class="pair-card ${p.id === activePairId ? 'active' : ''}" id="card-${p.id}">
                     <div class="card">
-                        <div class="card-header-new">
-                            <span class="pair-big">${id.toUpperCase()}USD</span>
-                            <span class="price-live" id="price-${id}">0.00</span>
+                        <!-- 1. Card Pair Label dengan Status Koneksi -->
+                        <div class="card-top">
+                            <div class="pair-info">
+                                <span class="pair">${p.name}</span>
+                                <span id="ws-status-${p.id}" class="ws-status disconnected">○ RECONNECTING...</span>
+                            </div>
+                            <span class="price" id="price-${p.id}">0.00</span>
                         </div>
+                        
+                        <!-- 2. Signal Bar -->
                         <div class="signal-bar">
                             <span>SIGNAL</span>
                             <div class="signal-dot-group">
-                                <div class="dot" id="l1-${id}"></div>
-                                <div class="dot" id="l2-${id}"></div>
-                                <div class="dot" id="l3-${id}"></div>
+                                <div class="dot" id="l1-${p.id}"></div>
+                                <div class="dot" id="l2-${p.id}"></div>
+                                <div class="dot" id="l3-${p.id}"></div>
                             </div>
-                            <span id="signal-text-${id}">WAITING</span>
+                            <span id="signal-text-${p.id}">WAITING</span>
                         </div>
+                        
+                        <!-- 3. Card Level Grid - Grid Layout di Posisi Atas -->
                         <div class="card-level-grid">
-                            <div class="level-item" onclick="copyValue('${id}','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-${id}">--</span></div>
-                            <div class="level-item" onclick="copyValue('${id}','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-${id}" style="color:var(--success)">--</span></div>
-                            <div class="level-item" onclick="copyValue('${id}','sl')"><span class="level-label">S-Loss</span><span class="level-value" id="sl-${id}" style="color:var(--danger)">--</span></div>
+                            <div class="level-item" onclick="copyValue('${p.id}','entry')">
+                                <span class="level-label">Entry</span>
+                                <span class="level-value" id="entry-${p.id}">--</span>
+                            </div>
+                            <div class="level-item" onclick="copyValue('${p.id}','tp')">
+                                <span class="level-label">Target</span>
+                                <span class="level-value" id="tp-${p.id}" style="color:var(--success)">--</span>
+                            </div>
+                            <div class="level-item" onclick="copyValue('${p.id}','sl')">
+                                <span class="level-label">S-Loss</span>
+                                <span class="level-value" id="sl-${p.id}" style="color:var(--danger)">--</span>
+                            </div>
                         </div>
-                        <div class="box-htf">
-                            <span class="label-sm">HTF ANALYSIS (H1)</span>
-                            <div class="htf-main">
-                                <div class="htf-row">
-                                    <span class="htf-label">TREND</span>
-                                    <span class="htf-value" id="htf-trend-${id}">◆ --</span>
-                                </div>
-                                <div class="htf-row">
-                                    <span class="htf-label">MOMENTUM</span>
-                                    <span class="htf-value" id="htf-momentum-${id}">--</span>
+                        
+                        <!-- Analysis Grid - Only Price Action, Logic Engine Removed -->
+                        <div class="analysis-grid">
+                            <div class="box-pa">
+                                <span class="label-sm">Price Action (M15)</span>
+                                <div class="stat"><span>TREND</span><span id="trend-${p.id}" style="font-weight:700">SCANNING</span></div>
+                                <div class="stat" style="align-items: center;">
+                                    <span>MOMENTUM</span>
+                                    <div class="mom-value" id="mom-${p.id}">--</div>
                                 </div>
                             </div>
                         </div>
-                        <div id="conn-status-${id}" class="conn-status offline">● CONNECTING...</div>
                     </div>
-                </div>`;
+                </div>
+            `;
             
-            wsConnections[id] = createWebSocket(id);
+            // Render UI dari state yang sudah dimuat
+            renderUI(p.id);
+            
+            // Connect WebSocket
+            wsConnections[p.id] = connectWebSocket(p.id);
         });
 
-        document.getElementById('switchLabel').innerText = activePairId.toUpperCase() + 'USD';
+        // Switch button
+        document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
         document.getElementById('switchPairBtn').onclick = () => {
             activePairId = activePairId === 'xau' ? 'btc' : 'xau';
-            localStorage.setItem('ura_active_pair', activePairId);
-            document.getElementById('switchLabel').innerText = activePairId.toUpperCase() + 'USD';
+            localStorage.setItem('ura_elv_active_pair', activePairId);
+            document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
             document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active'));
             document.getElementById(`card-${activePairId}`).classList.add('active');
         };
         
-        checkConnectionHeartbeat();
-        setInterval(() => updateGlobalConnectionStatus(), 1000);
+        // Initialize pulse
+        updateGlobalPulse();
+        
+        // Start heartbeat checker
+        checkHeartbeat();
+        
+        // Periodic pulse update
+        setInterval(() => updateGlobalPulse(), 1000);
     }
 
-    function processPrice(id, price) {
-        const s = engineState[id];
-        const oldPrice = s.lastPrice;
-        s.lastPrice = price;
-        const el = document.getElementById(`price-${id}`);
-        if(el) {
-            el.innerText = price.toFixed(2);
-            el.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
+    function connectWebSocket(id) {
+        const p = pairs.find(pair => pair.id === id);
+        if (!p) return;
+        
+        // Close existing connection if any
+        if (wsConnections[id]) {
+            try { wsConnections[id].close(); } catch(e) {}
         }
         
-        analyzeHTF(id, price);
-        analyzePrecisionLogic(id, price);
+        try {
+            const ws = new WebSocket(p.wsUrl);
+            
+            ws.onopen = () => {
+                console.log(`✅ Connected to ${id}`);
+                wsStatus[id] = true;
+                wsRetries[id] = 0;
+                lastHeartbeat[id] = Date.now();
+                updateWSStatus(id);
+                updateGlobalPulse();
+            };
+            
+            ws.onclose = () => {
+                console.log(`❌ Connection lost for ${id}, retrying...`);
+                wsStatus[id] = false;
+                updateWSStatus(id);
+                updateGlobalPulse();
+                const delay = Math.min(1000 * Math.pow(2, wsRetries[id]), 30000);
+                wsRetries[id]++;
+                setTimeout(() => {
+                    wsConnections[id] = connectWebSocket(id);
+                }, delay);
+            };
+            
+            ws.onerror = (error) => {
+                console.error(`WebSocket error for ${id}:`, error);
+                wsStatus[id] = false;
+                updateWSStatus(id);
+                updateGlobalPulse();
+            };
+            
+            ws.onmessage = (e) => {
+                try {
+                    const currentPrice = parseFloat(JSON.parse(e.data).c) + p.offset;
+                    if (currentPrice > 0) {
+                        // Update heartbeat
+                        lastHeartbeat[id] = Date.now();
+                        
+                        // Update status if was disconnected
+                        if (!wsStatus[id]) {
+                            wsStatus[id] = true;
+                            updateWSStatus(id);
+                            updateGlobalPulse();
+                        }
+                        
+                        const priceEl = document.getElementById(`price-${id}`);
+                        if (priceEl) {
+                            const oldPrice = state[id].lastPrice;
+                            if (oldPrice !== 0) {
+                                priceEl.style.color = currentPrice >= oldPrice ? "var(--success)" : "var(--danger)";
+                            }
+                            priceEl.innerText = currentPrice.toFixed(2);
+                        }
+                        updatePriceAction(id, currentPrice);
+                    }
+                } catch(err) {
+                    console.error(`Parse error for ${id}:`, err);
+                }
+            };
+            
+            return ws;
+        } catch(err) {
+            console.error(`Connection error for ${id}:`, err);
+            wsStatus[id] = false;
+            updateWSStatus(id);
+            updateGlobalPulse();
+            setTimeout(() => {
+                wsConnections[id] = connectWebSocket(id);
+            }, 5000);
+            return null;
+        }
+    }
+
+    function updateWSStatus(id) {
+        const statusEl = document.getElementById(`ws-status-${id}`);
+        if (statusEl) {
+            statusEl.textContent = wsStatus[id] ? '● CONNECTED' : '○ RECONNECTING...';
+            statusEl.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`;
+        }
+    }
+
+    function updatePriceAction(id, price) {
+        const s = state[id];
+        
+        // Ignore price updates if disconnected
+        if (!wsStatus[id] && price === s.lastPrice) return;
+        
+        if (s.confirmed) {
+            if (s.type === 'buy' && (price >= s.tp || price <= s.sl)) resetSignal(id);
+            else if (s.type === 'sell' && (price <= s.tp || price >= s.sl)) resetSignal(id);
+            s.lastPrice = price; 
+            saveState(id);
+            renderUI(id);
+            return; 
+        }
+        
+        const diff = price - s.lastPrice;
+        if (s.lastPrice !== 0 && diff !== 0) {
+            s.trendScore += diff;
+            
+            // Update trend display via renderUI
+        }
+        
+        if (!s.confirmed && s.lastPrice !== 0 && Math.abs(diff) > (id === 'xau' ? 0.05 : 6)) {
+            const direction = diff > 0 ? 'buy' : 'sell';
+            if (!s.l1) { 
+                s.l1 = true; 
+                s.type = direction; 
+                saveState(id);
+            } 
+            else if (!s.l2) { 
+                s.l2 = true; 
+                saveState(id);
+            } 
+            else { 
+                lockSignal(id, price, direction); 
+            }
+        }
+        
+        s.lastPrice = price; 
+        saveState(id);
+        renderUI(id);
+    }
+
+    function lockSignal(id, entry, type) {
+        const s = state[id]; 
+        s.l3 = true; 
+        s.confirmed = true; 
+        s.type = type; 
+        s.entry = entry;
+        const risk = id === 'xau' ? 7 : entry * 0.0020;
+        s.sl = type === 'buy' ? entry - risk : entry + risk;
+        s.tp = type === 'buy' ? entry + (risk * 1.5) : entry - (risk * 1.5);
+        saveState(id);
+        renderUI(id);
+    }
+
+    function resetSignal(id) {
+        const s = state[id];
+        s.l1 = false; 
+        s.l2 = false; 
+        s.l3 = false; 
+        s.confirmed = false; 
+        s.type = 'none';
+        s.entry = 0; 
+        s.sl = 0; 
+        s.tp = 0;
+        s.trendScore = 0;
+        saveState(id);
         renderUI(id);
     }
 
     function renderUI(id) {
-        const s = engineState[id];
-        const l1 = document.getElementById(`l1-${id}`);
-        if(l1) l1.className = s.l1 ? `dot ${s.type === 'buy' ? 'active' : 'active-down'}` : 'dot';
-        const l2 = document.getElementById(`l2-${id}`);
-        if(l2) l2.className = s.l2 ? `dot ${s.type === 'buy' ? 'active' : 'active-down'}` : 'dot';
-        const l3 = document.getElementById(`l3-${id}`);
-        if(l3) l3.className = s.l3 ? `dot ${s.type === 'buy' ? 'active' : 'active-down'}` : 'dot';
+        const s = state[id];
         
-        const txt = document.getElementById(`signal-text-${id}`);
-        if (txt) {
-            if (s.cooldown) { txt.innerText = 'RE-SCANNING'; txt.style.color = 'var(--text-dim)'; }
-            else if (s.confirmed) { txt.innerText = s.type.toUpperCase(); txt.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
-            else { txt.innerText = 'SCANNING...'; txt.style.color = 'var(--accent)'; }
-        }
-
-        document.getElementById(`entry-${id}`).innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-        document.getElementById(`tp-${id}`).innerText = s.confirmed ? s.tp.toFixed(2) : '--';
-        document.getElementById(`sl-${id}`).innerText = s.confirmed ? s.sl.toFixed(2) : '--';
-        
-        // HTF Display
-        const htf = htfData[id];
-        const trendEl = document.getElementById(`htf-trend-${id}`);
-        if (trendEl) {
-            const trendSymbol = getTrendSymbol(htf.trend);
-            let trendClass = 'trend-neutral';
-            if (htf.trend === 'up') trendClass = 'trend-up';
-            else if (htf.trend === 'down') trendClass = 'trend-down';
-            trendEl.className = `htf-value ${trendClass}`;
-            trendEl.innerText = trendSymbol;
+        // Price display update if element exists
+        const priceEl = document.getElementById(`price-${id}`);
+        if (priceEl && s.lastPrice !== 0) {
+            priceEl.innerText = s.lastPrice.toFixed(2);
         }
         
-        const momentumEl = document.getElementById(`htf-momentum-${id}`);
-        if (momentumEl) {
-            const momentumSymbol = getMomentumSymbol(htf.momentum);
-            const momentumClass = htf.momentum >= 0 ? 'momentum-up' : 'momentum-down';
-            momentumEl.className = `htf-value ${momentumClass}`;
-            momentumEl.innerText = `${momentumSymbol} (${htf.momentum > 0 ? '+' : ''}${htf.momentum.toFixed(2)}%)`;
-        }
-        
-        // Connection Status
-        const connEl = document.getElementById(`conn-status-${id}`);
-        if (connEl) {
-            if (connectionStatus[id]) {
-                connEl.className = 'conn-status online';
-                connEl.innerHTML = '● WEBSOCKET CONNECTED';
+        // Signal dots in signal bar
+        const l1Dot = document.getElementById(`l1-${id}`);
+        if (l1Dot) {
+            if (s.l1) {
+                l1Dot.className = s.type === 'sell' ? "dot active-down" : "dot active";
             } else {
-                connEl.className = 'conn-status offline';
-                connEl.innerHTML = '○ RECONNECTING...';
+                l1Dot.className = "dot";
             }
+        }
+        
+        const l2Dot = document.getElementById(`l2-${id}`);
+        if (l2Dot) {
+            if (s.l2) {
+                l2Dot.className = s.type === 'sell' ? "dot active-down" : "dot active";
+            } else {
+                l2Dot.className = "dot";
+            }
+        }
+        
+        const l3Dot = document.getElementById(`l3-${id}`);
+        if (l3Dot) {
+            if (s.l3) {
+                l3Dot.className = s.type === 'sell' ? "dot active-down" : "dot active";
+            } else {
+                l3Dot.className = "dot";
+            }
+        }
+        
+        // Signal text
+        const signalText = document.getElementById(`signal-text-${id}`);
+        if (signalText) {
+            if (!wsStatus[id]) {
+                signalText.innerText = 'NO FEED';
+                signalText.style.color = 'var(--danger)';
+            } else if (s.confirmed) {
+                signalText.innerText = s.type.toUpperCase();
+                signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)';
+            } else if (s.l3) {
+                signalText.innerText = 'FVG';
+                signalText.style.color = 'var(--accent)';
+            } else if (s.l2) {
+                signalText.innerText = 'CHoCH';
+                signalText.style.color = 'var(--accent)';
+            } else if (s.l1) {
+                signalText.innerText = 'SWEEP';
+                signalText.style.color = 'var(--feed-lightning)';
+            } else {
+                signalText.innerText = 'IDLE';
+                signalText.style.color = 'var(--text-dim)';
+            }
+        }
+        
+        // Card levels
+        const entryEl = document.getElementById(`entry-${id}`);
+        if (entryEl) entryEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
+        
+        const tpEl = document.getElementById(`tp-${id}`);
+        if (tpEl) tpEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
+        
+        const slEl = document.getElementById(`sl-${id}`);
+        if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+        
+        // Trend & Momentum display
+        const trendEl = document.getElementById(`trend-${id}`);
+        const momEl = document.getElementById(`mom-${id}`);
+        
+        if (trendEl) {
+            if (s.trendScore > (id === 'xau' ? 0.8 : 50)) { 
+                trendEl.innerText = "BULLISH"; 
+                trendEl.style.color = "var(--success)"; 
+            } else if (s.trendScore < (id === 'xau' ? -0.8 : -50)) { 
+                trendEl.innerText = "BEARISH"; 
+                trendEl.style.color = "var(--danger)"; 
+            } else {
+                trendEl.innerText = "NEUTRAL";
+                trendEl.style.color = "var(--text-dim)";
+            }
+        }
+        
+        if (momEl && s.lastPrice !== 0 && s.lastPrice !== s.trendScore) {
+            // Get last diff from stored data or calculate reasonable display
+            const lastPrice = s.lastPrice;
+            const prevPrice = state[id].lastPrice !== lastPrice ? state[id].lastPrice : lastPrice - 0.01;
+            const diff = lastPrice - prevPrice;
+            const absDiff = Math.abs(diff);
+            const threshold = id === 'xau' ? 0.12 : 15;
+            const direction = diff > 0 ? "UPWARD" : "DOWNWARD";
+            const strength = absDiff > threshold ? "STRONG " : "";
+            momEl.innerHTML = strength + direction;
+            momEl.style.color = diff > 0 ? "var(--success)" : "var(--danger)";
         }
     }
 
     window.copyValue = (id, type) => {
         const val = document.getElementById(`${type}-${id}`).innerText;
-        if (val !== '--') navigator.clipboard.writeText(val);
+        if (val !== '--') {
+            navigator.clipboard.writeText(val);
+            if (navigator.vibrate) navigator.vibrate(50);
+        }
     };
 
-    setInterval(() => {
+    setInterval(() => { 
         const clk = document.getElementById('clock');
-        if(clk) clk.innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC";
+        if (clk) clk.innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC"; 
     }, 1000);
-
+    
     init();
 </script>
 </body>
