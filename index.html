@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v4.5.3</title>
+    <title>PRECISION TERMINAL v4.5.5</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -15,8 +15,6 @@
             --success: #00FFFF; 
             --danger: #FF5252; 
             --feed-lightning: #FFEA00;
-            --buy-deep: #1b5e20; 
-            --maroon-faded: #802d2d;
             --border: rgba(255, 255, 255, 0.1);
             --phase-trending: #00FF88;
         }
@@ -154,7 +152,6 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 10px;
             margin-bottom: 10px;
-            margin-top: 0;
             background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
             padding: 10px;
@@ -165,34 +162,20 @@
         .level-item:nth-child(2) { align-items: center; text-align: center; }
         .level-item:nth-child(3) { align-items: flex-end; text-align: right; }
         .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
-        .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; transition: all 0.2s; }
-        .level-item:active .level-value { opacity: 0.5; }
+        .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
 
         .analysis-grid { 
             display: grid; 
             grid-template-columns: 1fr 1fr; 
             gap: 8px; 
-            margin-top: 0;
         }
         
-        .box-htf { 
+        .box-htf, .box-pa { 
             background: transparent; 
             border: 1px solid var(--border); 
             padding: 10px 8px; 
             border-radius: 4px; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center;
-        }
-        
-        .box-pa { 
-            background: transparent; 
-            border: 1px solid var(--border); 
-            padding: 10px 8px; 
-            border-radius: 4px; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center;
+            text-align: center;
         }
         
         .label-sm { 
@@ -200,69 +183,32 @@
             color: var(--text-dim); 
             text-transform: uppercase; 
             margin-bottom: 8px; 
-            display: block; 
-            border-bottom: 1px solid var(--border); 
             padding-bottom: 4px; 
-            letter-spacing: 0.5px; 
-            text-align: center;
-            width: 100%;
+            border-bottom: 1px solid var(--border);
         }
         
-        .htf-row {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        .htf-row, .pa-row {
             margin-bottom: 8px;
-            padding: 4px 0;
-            border-bottom: 1px dashed var(--grid-line);
-            width: 100%;
         }
-        .htf-row:last-child {
-            border-bottom: none;
+        .htf-row:last-child, .pa-row:last-child {
+            margin-bottom: 0;
         }
-        .htf-label {
+        
+        .htf-label, .pa-label {
             font-size: 0.55rem;
             color: var(--text-dim);
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 3px;
-            text-align: center;
-        }
-        .htf-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-            font-size: 0.7rem;
-            text-align: center;
         }
         
-        .pa-row {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 8px;
-            padding: 4px 0;
-            border-bottom: 1px dashed var(--grid-line);
-            width: 100%;
-        }
-        .pa-row:last-child {
-            border-bottom: none;
-        }
-        .pa-label {
-            font-size: 0.55rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 3px;
-            text-align: center;
-        }
-        .pa-value {
+        .htf-value, .pa-value {
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
             font-size: 0.7rem;
-            text-align: center;
+            margin-top: 2px;
         }
 
-        footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; font-family: 'JetBrains Mono', monospace; opacity: 0.6; line-height: 1.6; }
+        footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; opacity: 0.6; }
         
         .trend-up { color: var(--success); }
         .trend-down { color: var(--danger); }
@@ -277,7 +223,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.5.3</p>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.5.5</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -300,45 +246,40 @@
 
 <script>
     const pairs = [
-        { id: 'xau', name: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 2.9 },
-        { id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0 }
+        { id: 'xau', name: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 2.9, threshold: 0.05, trendThresh: 0.8, momThresh: 0.12 },
+        { id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0, threshold: 6, trendThresh: 50, momThresh: 15 }
     ];
 
     let state = {};
     let wsStatus = { xau: false, btc: false };
     let wsRetries = { xau: 0, btc: 0 };
-    let activePairId = localStorage.getItem('ura_elv_active_pair') || 'xau';
+    let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
     let wsConnections = {};
     let priceHistory = { xau: [], btc: [] };
     let lastHeartbeat = { xau: Date.now(), btc: Date.now() };
 
-    let htfData = { 
-        xau: { trend: 'neutral', momentum: 0, priceHistoryHTF: [] }, 
-        btc: { trend: 'neutral', momentum: 0, priceHistoryHTF: [] } 
+    // HTF Data - diisi data awal agar tidak kosong
+    let htfHistory = { 
+        xau: [], 
+        btc: [] 
     };
+    let htfTrend = { xau: 'neutral', btc: 'neutral' };
+    let htfMomentum = { xau: 0, btc: 0 };
 
     function createFreshState() {
         return { 
-            lastPrice: 0, 
-            trendScore: 0, 
-            l1: false, 
-            l2: false, 
-            l3: false, 
-            confirmed: false, 
-            type: 'none', 
-            entry: 0, 
-            sl: 0, 
-            tp: 0,
-            priceHistoryHTF: []
+            lastPrice: 0, trendScore: 0, 
+            l1: false, l2: false, l3: false, 
+            confirmed: false, type: 'none', 
+            entry: 0, sl: 0, tp: 0
         };
     }
 
     function loadState(id) {
-        const saved = localStorage.getItem(`ura_elv_state_${id}`);
+        const saved = localStorage.getItem(`ura_state_${id}`);
         if (saved) {
             try {
-                const parsed = JSON.parse(saved);
-                return parsed;
+                return JSON.parse(saved);
             } catch(e) {
                 return createFreshState();
             }
@@ -350,93 +291,270 @@
         const toSave = {
             lastPrice: state[id].lastPrice,
             trendScore: state[id].trendScore,
-            l1: state[id].l1,
-            l2: state[id].l2,
-            l3: state[id].l3,
+            l1: state[id].l1, l2: state[id].l2, l3: state[id].l3,
             confirmed: state[id].confirmed,
             type: state[id].type,
             entry: state[id].entry,
             sl: state[id].sl,
-            tp: state[id].tp,
-            priceHistoryHTF: state[id].priceHistoryHTF
+            tp: state[id].tp
         };
-        localStorage.setItem(`ura_elv_state_${id}`, JSON.stringify(toSave));
+        localStorage.setItem(`ura_state_${id}`, JSON.stringify(toSave));
     }
 
-    function analyzeHTF(id, currentPrice) {
-        const s = state[id];
+    // ==================== HTF ANALYSIS (UPDATE SETIAP TICK) ====================
+    function updateHTF(id, price) {
+        // Simpan history
+        htfHistory[id].push(price);
         
-        if (!s.priceHistoryHTF) s.priceHistoryHTF = [];
-        
-        s.priceHistoryHTF.push(currentPrice);
-        if (s.priceHistoryHTF.length > 50) s.priceHistoryHTF.shift();
-        
-        if (s.priceHistoryHTF.length >= 20) {
-            const avg20 = s.priceHistoryHTF.slice(-20).reduce((a,b) => a+b, 0) / 20;
-            const avg10 = s.priceHistoryHTF.slice(-10).reduce((a,b) => a+b, 0) / 10;
-            
-            if (avg10 > avg20 * 1.0005) {
-                htfData[id].trend = 'up';
-            } else if (avg10 < avg20 * 0.9995) {
-                htfData[id].trend = 'down';
-            } else {
-                htfData[id].trend = 'neutral';
-            }
-            
-            if (s.priceHistoryHTF.length >= 5) {
-                const oldPrice = s.priceHistoryHTF[s.priceHistoryHTF.length - 5];
-                const momentumPct = ((currentPrice - oldPrice) / oldPrice) * 100;
-                htfData[id].momentum = momentumPct;
-            }
-        } else {
-            // Fallback: jika data belum cukup, tetap tampilkan NEUTRAL
-            htfData[id].trend = 'neutral';
-            htfData[id].momentum = 0;
+        // Selalu batasi maksimal 50 data
+        if (htfHistory[id].length > 50) {
+            htfHistory[id].shift();
         }
         
-        htfData[id].lastPrice = currentPrice;
+        // HITUNG TREND & MOMENTUM (tetap dihitung walau data belum 20)
+        if (htfHistory[id].length >= 2) {
+            // Ambil data terakhir (minimal 2 data untuk perhitungan sederhana)
+            const len = htfHistory[id].length;
+            const lastPrice = htfHistory[id][len - 1];
+            const firstPrice = htfHistory[id][0];
+            
+            // Trend sederhana: bandingkan harga pertama dan terakhir
+            if (lastPrice > firstPrice * 1.0003) {
+                htfTrend[id] = 'up';
+            } else if (lastPrice < firstPrice * 0.9997) {
+                htfTrend[id] = 'down';
+            } else {
+                htfTrend[id] = 'neutral';
+            }
+            
+            // Momentum: perubahan 5 tick terakhir atau semua data jika kurang
+            if (len >= 5) {
+                const oldPrice = htfHistory[id][len - 5];
+                htfMomentum[id] = ((lastPrice - oldPrice) / oldPrice) * 100;
+            } else if (len >= 2) {
+                const oldPrice = htfHistory[id][0];
+                htfMomentum[id] = ((lastPrice - oldPrice) / oldPrice) * 100;
+            }
+        } else {
+            htfTrend[id] = 'neutral';
+            htfMomentum[id] = 0;
+        }
+        
+        // Debug di console (bisa dihapus setelah testing)
+        console.log(`${id} HTF - History: ${htfHistory[id].length}, Trend: ${htfTrend[id]}, Momentum: ${htfMomentum[id].toFixed(4)}%`);
     }
-    
-    function getHTFTrendSymbol(trend) {
+
+    function getTrendSymbol(trend) {
         if (trend === 'up') return '▲ BULLISH';
         if (trend === 'down') return '▼ BEARISH';
         return '◆ NEUTRAL';
     }
-    
-    function getHTFMomentumSymbol(momentum) {
+
+    function getMomentumText(momentum) {
         if (momentum > 0.05) return '▲ STRONG';
         if (momentum > 0) return '▲ WEAK';
         if (momentum > -0.05) return '▼ WEAK';
         return '▼ STRONG';
     }
 
-    function updateGlobalPulse() {
-        const pulseEl = document.getElementById('globalPulse');
-        if (!pulseEl) return;
-        const anyConnected = wsStatus.xau || wsStatus.btc;
-        pulseEl.className = anyConnected ? 'pulse connected' : 'pulse disconnected';
+    // ==================== SIGNAL LOGIC ====================
+    function updateSignal(id, price) {
+        const s = state[id];
+        const p = pairs.find(pair => pair.id === id);
+        
+        if (s.confirmed) {
+            if (s.type === 'buy' && (price >= s.tp || price <= s.sl)) resetSignal(id);
+            else if (s.type === 'sell' && (price <= s.tp || price >= s.sl)) resetSignal(id);
+            return;
+        }
+        
+        const diff = price - s.lastPrice;
+        if (s.lastPrice !== 0 && diff !== 0) {
+            s.trendScore += diff;
+        }
+        
+        if (!s.confirmed && s.lastPrice !== 0 && Math.abs(diff) > p.threshold) {
+            const direction = diff > 0 ? 'buy' : 'sell';
+            if (!s.l1) { 
+                s.l1 = true; 
+                s.type = direction; 
+                saveState(id);
+            } 
+            else if (!s.l2) { 
+                s.l2 = true; 
+                saveState(id);
+            } 
+            else { 
+                lockSignal(id, price, direction); 
+            }
+        }
+        
+        s.lastPrice = price;
+        saveState(id);
     }
 
-    function checkHeartbeat() {
-        setInterval(() => {
-            pairs.forEach(p => {
-                if (wsStatus[p.id] && Date.now() - lastHeartbeat[p.id] > 10000) {
-                    wsStatus[p.id] = false;
-                    updateGlobalPulse();
-                    if (wsConnections[p.id]) {
-                        try { wsConnections[p.id].close(); } catch(e) {}
-                        wsConnections[p.id] = connectWebSocket(p.id);
-                    }
-                }
-            });
-        }, 5000);
+    function lockSignal(id, entry, type) {
+        const s = state[id];
+        const offset = type === 'buy' ? -3 : +3;
+        const adjustedEntry = entry + offset;
+        
+        s.l3 = true;
+        s.confirmed = true;
+        s.type = type;
+        s.entry = adjustedEntry;
+        
+        const risk = id === 'xau' ? 8 : entry * 0.0020;
+        
+        if (type === 'buy') {
+            s.sl = adjustedEntry - risk;
+            s.tp = adjustedEntry + (risk * 1.3);
+        } else {
+            s.sl = adjustedEntry + risk;
+            s.tp = adjustedEntry - (risk * 1.5);
+        }
+        
+        saveState(id);
+    }
+
+    function resetSignal(id) {
+        const s = state[id];
+        s.l1 = false; s.l2 = false; s.l3 = false;
+        s.confirmed = false; s.type = 'none';
+        s.entry = 0; s.sl = 0; s.tp = 0;
+        s.trendScore = 0;
+        saveState(id);
+    }
+
+    // ==================== RENDER UI (UPDATE SEMUA ELEMEN) ====================
+    function renderAll(id) {
+        const s = state[id];
+        const p = pairs.find(pair => pair.id === id);
+        if (!p) return;
+        
+        // Price
+        const priceEl = document.getElementById(`price-${id}`);
+        if (priceEl && s.lastPrice) {
+            priceEl.innerText = s.lastPrice.toFixed(2);
+        }
+        
+        // Signal dots
+        const l1Dot = document.getElementById(`l1-${id}`);
+        if (l1Dot) l1Dot.className = s.l1 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
+        
+        const l2Dot = document.getElementById(`l2-${id}`);
+        if (l2Dot) l2Dot.className = s.l2 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
+        
+        const l3Dot = document.getElementById(`l3-${id}`);
+        if (l3Dot) l3Dot.className = s.l3 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
+        
+        // Signal text
+        const signalText = document.getElementById(`signal-text-${id}`);
+        if (signalText) {
+            if (!wsStatus[id]) {
+                signalText.innerText = 'NO FEED';
+                signalText.style.color = 'var(--danger)';
+            } else if (s.confirmed) {
+                signalText.innerText = s.type.toUpperCase();
+                signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)';
+            } else if (s.l3) {
+                signalText.innerText = 'FVG';
+                signalText.style.color = 'var(--accent)';
+            } else if (s.l2) {
+                signalText.innerText = 'CHoCH';
+                signalText.style.color = 'var(--accent)';
+            } else if (s.l1) {
+                signalText.innerText = 'SWEEP';
+                signalText.style.color = 'var(--feed-lightning)';
+            } else {
+                signalText.innerText = 'IDLE';
+                signalText.style.color = 'var(--text-dim)';
+            }
+        }
+        
+        // Entry, TP, SL
+        const entryEl = document.getElementById(`entry-${id}`);
+        if (entryEl) entryEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
+        
+        const tpEl = document.getElementById(`tp-${id}`);
+        if (tpEl) tpEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
+        
+        const slEl = document.getElementById(`sl-${id}`);
+        if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+        
+        // ==================== HTF PANEL ====================
+        const htfTrendEl = document.getElementById(`htf-trend-${id}`);
+        if (htfTrendEl) {
+            const trendSym = getTrendSymbol(htfTrend[id]);
+            let trendClass = 'trend-neutral';
+            if (htfTrend[id] === 'up') trendClass = 'trend-up';
+            else if (htfTrend[id] === 'down') trendClass = 'trend-down';
+            htfTrendEl.className = `htf-value ${trendClass}`;
+            htfTrendEl.innerText = trendSym;
+        }
+        
+        const htfMomentumEl = document.getElementById(`htf-momentum-${id}`);
+        if (htfMomentumEl) {
+            const momText = getMomentumText(htfMomentum[id]);
+            const momClass = htfMomentum[id] >= 0 ? 'momentum-up' : 'momentum-down';
+            htfMomentumEl.className = `htf-value ${momClass}`;
+            htfMomentumEl.innerText = `${momText} (${htfMomentum[id] > 0 ? '+' : ''}${htfMomentum[id].toFixed(2)}%)`;
+        }
+        
+        // ==================== PRICE ACTION PANEL ====================
+        const trendPaEl = document.getElementById(`trend-${id}`);
+        if (trendPaEl) {
+            if (s.trendScore > p.trendThresh) {
+                trendPaEl.innerText = "BULLISH";
+                trendPaEl.style.color = "var(--success)";
+            } else if (s.trendScore < -p.trendThresh) {
+                trendPaEl.innerText = "BEARISH";
+                trendPaEl.style.color = "var(--danger)";
+            } else {
+                trendPaEl.innerText = "NEUTRAL";
+                trendPaEl.style.color = "var(--text-dim)";
+            }
+        }
+        
+        const momPaEl = document.getElementById(`mom-${id}`);
+        if (momPaEl && s.lastPrice !== 0) {
+            const prevPrice = state[id].lastPrice;
+            const diff = s.lastPrice - prevPrice;
+            const absDiff = Math.abs(diff);
+            const direction = diff > 0 ? "UPWARD" : "DOWNWARD";
+            const strength = absDiff > p.momThresh ? "STRONG " : "";
+            momPaEl.innerHTML = strength + direction;
+            momPaEl.style.color = diff > 0 ? "var(--success)" : "var(--danger)";
+        }
+    }
+
+    function updateWSStatus(id) {
+        const el = document.getElementById(`ws-status-${id}`);
+        if (el) {
+            el.textContent = wsStatus[id] ? '● CONNECTED' : '○ RECONNECTING...';
+            el.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`;
+        }
+    }
+
+    function updateGlobalPulse() {
+        const pulseEl = document.getElementById('globalPulse');
+        if (pulseEl) {
+            pulseEl.className = (wsStatus.xau || wsStatus.btc) ? 'pulse connected' : 'pulse disconnected';
+        }
     }
 
     function init() {
         pairs.forEach(p => {
             state[p.id] = loadState(p.id);
             priceHistory[p.id] = [];
-            if (!state[p.id].priceHistoryHTF) state[p.id].priceHistoryHTF = [];
+            htfHistory[p.id] = [];
+            
+            // Isi data awal dengan harga default 4690 untuk XAU, 60000 untuk BTC
+            const defaultPrice = p.id === 'xau' ? 4690 : 60000;
+            for (let i = 0; i < 20; i++) {
+                htfHistory[p.id].push(defaultPrice + (i * 0.1));
+            }
+            // Hitung HTF dari data awal
+            updateHTF(p.id, defaultPrice + 2);
         });
         
         const container = document.getElementById('terminals');
@@ -461,7 +579,7 @@
                                 <div class="dot" id="l2-${p.id}"></div>
                                 <div class="dot" id="l3-${p.id}"></div>
                             </div>
-                            <span id="signal-text-${p.id}">WAITING</span>
+                            <span id="signal-text-${p.id}">IDLE</span>
                         </div>
                         
                         <div class="card-level-grid">
@@ -495,7 +613,7 @@
                                 <div class="label-sm">PRICE ACTION</div>
                                 <div class="pa-row">
                                     <div class="pa-label">TREND</div>
-                                    <div class="pa-value" id="trend-${p.id}" style="font-weight:700">SCANNING</div>
+                                    <div class="pa-value" id="trend-${p.id}">SCANNING</div>
                                 </div>
                                 <div class="pa-row">
                                     <div class="pa-label">MOMENTUM</div>
@@ -507,22 +625,24 @@
                 </div>
             `;
             
-            renderUI(p.id);
-            wsConnections[p.id] = connectWebSocket(p.id);
+            renderAll(p.id);
+            connectWebSocket(p.id);
         });
 
         document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
         document.getElementById('switchPairBtn').onclick = () => {
             activePairId = activePairId === 'xau' ? 'btc' : 'xau';
-            localStorage.setItem('ura_elv_active_pair', activePairId);
+            localStorage.setItem('ura_active_pair', activePairId);
             document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
             document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active'));
             document.getElementById(`card-${activePairId}`).classList.add('active');
         };
         
         updateGlobalPulse();
-        checkHeartbeat();
         setInterval(() => updateGlobalPulse(), 1000);
+        
+        // Log untuk debugging
+        console.log('Initialization complete. HTF history seeded with 20 data points.');
     }
 
     function connectWebSocket(id) {
@@ -550,10 +670,10 @@
                 updateGlobalPulse();
                 const delay = Math.min(1000 * Math.pow(2, wsRetries[id]), 30000);
                 wsRetries[id]++;
-                setTimeout(() => { wsConnections[id] = connectWebSocket(id); }, delay);
+                setTimeout(() => connectWebSocket(id), delay);
             };
             
-            ws.onerror = (error) => {
+            ws.onerror = () => {
                 wsStatus[id] = false;
                 updateWSStatus(id);
                 updateGlobalPulse();
@@ -561,8 +681,9 @@
             
             ws.onmessage = (e) => {
                 try {
-                    const currentPrice = parseFloat(JSON.parse(e.data).c) + p.offset;
-                    if (currentPrice > 0) {
+                    const data = JSON.parse(e.data);
+                    const price = parseFloat(data.c) + p.offset;
+                    if (price > 0) {
                         lastHeartbeat[id] = Date.now();
                         
                         if (!wsStatus[id]) {
@@ -571,220 +692,37 @@
                             updateGlobalPulse();
                         }
                         
+                        // Update price display dengan warna flash
                         const priceEl = document.getElementById(`price-${id}`);
                         if (priceEl) {
                             const oldPrice = state[id].lastPrice;
                             if (oldPrice !== 0) {
-                                priceEl.style.color = currentPrice >= oldPrice ? "var(--success)" : "var(--danger)";
+                                priceEl.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
+                                setTimeout(() => { priceEl.style.color = ""; }, 300);
                             }
-                            priceEl.innerText = currentPrice.toFixed(2);
+                            priceEl.innerText = price.toFixed(2);
                         }
                         
-                        analyzeHTF(id, currentPrice);
-                        updatePriceAction(id, currentPrice);
+                        // UPDATE HTF (Higher Timeframe)
+                        updateHTF(id, price);
                         
-                        // FORCE RENDER ULANG SETIAP UPDATE
-                        renderUI(id);
+                        // UPDATE SIGNAL
+                        updateSignal(id, price);
+                        
+                        // RENDER ULANG SEMUA UI
+                        renderAll(id);
                     }
                 } catch(err) {
                     console.error(`Parse error for ${id}:`, err);
                 }
             };
             
-            return ws;
+            wsConnections[id] = ws;
         } catch(err) {
             wsStatus[id] = false;
             updateWSStatus(id);
             updateGlobalPulse();
-            setTimeout(() => { wsConnections[id] = connectWebSocket(id); }, 5000);
-            return null;
-        }
-    }
-
-    function updateWSStatus(id) {
-        const statusEl = document.getElementById(`ws-status-${id}`);
-        if (statusEl) {
-            statusEl.textContent = wsStatus[id] ? '● CONNECTED' : '○ RECONNECTING...';
-            statusEl.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`;
-        }
-    }
-
-    function updatePriceAction(id, price) {
-        const s = state[id];
-        
-        if (!wsStatus[id] && price === s.lastPrice) return;
-        
-        if (s.confirmed) {
-            if (s.type === 'buy' && (price >= s.tp || price <= s.sl)) resetSignal(id);
-            else if (s.type === 'sell' && (price <= s.tp || price >= s.sl)) resetSignal(id);
-            s.lastPrice = price; 
-            saveState(id);
-            return; 
-        }
-        
-        const diff = price - s.lastPrice;
-        if (s.lastPrice !== 0 && diff !== 0) {
-            s.trendScore += diff;
-        }
-        
-        if (!s.confirmed && s.lastPrice !== 0 && Math.abs(diff) > (id === 'xau' ? 0.05 : 6)) {
-            const direction = diff > 0 ? 'buy' : 'sell';
-            if (!s.l1) { 
-                s.l1 = true; 
-                s.type = direction; 
-                saveState(id);
-            } 
-            else if (!s.l2) { 
-                s.l2 = true; 
-                saveState(id);
-            } 
-            else { 
-                lockSignal(id, price, direction); 
-            }
-        }
-        
-        s.lastPrice = price; 
-        saveState(id);
-    }
-
-    function lockSignal(id, entry, type) {
-        const s = state[id]; 
-        const offset = type === 'buy' ? -3 : +3;
-        const adjustedEntry = entry + offset;
-        
-        s.l3 = true; 
-        s.confirmed = true; 
-        s.type = type; 
-        s.entry = adjustedEntry;
-        
-        const risk = id === 'xau' ? 8 : entry * 0.0020;
-        
-        if (type === 'buy') {
-            s.sl = adjustedEntry - risk;
-            s.tp = adjustedEntry + (risk * 1.3);
-        } else {
-            s.sl = adjustedEntry + risk;
-            s.tp = adjustedEntry - (risk * 1.5);
-        }
-        
-        saveState(id);
-        renderUI(id);
-    }
-
-    function resetSignal(id) {
-        const s = state[id];
-        s.l1 = false; 
-        s.l2 = false; 
-        s.l3 = false; 
-        s.confirmed = false; 
-        s.type = 'none';
-        s.entry = 0; 
-        s.sl = 0; 
-        s.tp = 0;
-        s.trendScore = 0;
-        saveState(id);
-        renderUI(id);
-    }
-
-    function renderUI(id) {
-        const s = state[id];
-        
-        // Update price display
-        const priceEl = document.getElementById(`price-${id}`);
-        if (priceEl && s.lastPrice !== 0) {
-            priceEl.innerText = s.lastPrice.toFixed(2);
-        }
-        
-        // Update signal dots
-        const l1Dot = document.getElementById(`l1-${id}`);
-        if (l1Dot) l1Dot.className = s.l1 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
-        
-        const l2Dot = document.getElementById(`l2-${id}`);
-        if (l2Dot) l2Dot.className = s.l2 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
-        
-        const l3Dot = document.getElementById(`l3-${id}`);
-        if (l3Dot) l3Dot.className = s.l3 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
-        
-        // Update signal text
-        const signalText = document.getElementById(`signal-text-${id}`);
-        if (signalText) {
-            if (!wsStatus[id]) {
-                signalText.innerText = 'NO FEED';
-                signalText.style.color = 'var(--danger)';
-            } else if (s.confirmed) {
-                signalText.innerText = s.type.toUpperCase();
-                signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)';
-            } else if (s.l3) {
-                signalText.innerText = 'FVG';
-                signalText.style.color = 'var(--accent)';
-            } else if (s.l2) {
-                signalText.innerText = 'CHoCH';
-                signalText.style.color = 'var(--accent)';
-            } else if (s.l1) {
-                signalText.innerText = 'SWEEP';
-                signalText.style.color = 'var(--feed-lightning)';
-            } else {
-                signalText.innerText = 'IDLE';
-                signalText.style.color = 'var(--text-dim)';
-            }
-        }
-        
-        // Update card levels
-        const entryEl = document.getElementById(`entry-${id}`);
-        if (entryEl) entryEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-        
-        const tpEl = document.getElementById(`tp-${id}`);
-        if (tpEl) tpEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
-        
-        const slEl = document.getElementById(`sl-${id}`);
-        if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
-        
-        // UPDATE HTF PANEL
-        const htf = htfData[id];
-        const htfTrendEl = document.getElementById(`htf-trend-${id}`);
-        if (htfTrendEl) {
-            const trendSymbol = getHTFTrendSymbol(htf.trend);
-            let trendClass = 'trend-neutral';
-            if (htf.trend === 'up') trendClass = 'trend-up';
-            else if (htf.trend === 'down') trendClass = 'trend-down';
-            htfTrendEl.className = `htf-value ${trendClass}`;
-            htfTrendEl.innerText = trendSymbol;
-        }
-        
-        const htfMomentumEl = document.getElementById(`htf-momentum-${id}`);
-        if (htfMomentumEl) {
-            const momentumSymbol = getHTFMomentumSymbol(htf.momentum);
-            const momentumClass = htf.momentum >= 0 ? 'momentum-up' : 'momentum-down';
-            htfMomentumEl.className = `htf-value ${momentumClass}`;
-            htfMomentumEl.innerText = `${momentumSymbol} (${htf.momentum > 0 ? '+' : ''}${htf.momentum.toFixed(2)}%)`;
-        }
-        
-        // UPDATE PRICE ACTION PANEL
-        const trendEl = document.getElementById(`trend-${id}`);
-        if (trendEl) {
-            if (s.trendScore > (id === 'xau' ? 0.8 : 50)) { 
-                trendEl.innerText = "BULLISH"; 
-                trendEl.style.color = "var(--success)"; 
-            } else if (s.trendScore < (id === 'xau' ? -0.8 : -50)) { 
-                trendEl.innerText = "BEARISH"; 
-                trendEl.style.color = "var(--danger)"; 
-            } else {
-                trendEl.innerText = "NEUTRAL";
-                trendEl.style.color = "var(--text-dim)";
-            }
-        }
-        
-        const momEl = document.getElementById(`mom-${id}`);
-        if (momEl && s.lastPrice !== 0) {
-            const lastPrice = s.lastPrice;
-            const prevPrice = state[id].lastPrice !== lastPrice ? state[id].lastPrice : lastPrice - 0.01;
-            const diff = lastPrice - prevPrice;
-            const absDiff = Math.abs(diff);
-            const threshold = id === 'xau' ? 0.12 : 15;
-            const direction = diff > 0 ? "UPWARD" : "DOWNWARD";
-            const strength = absDiff > threshold ? "STRONG " : "";
-            momEl.innerHTML = strength + direction;
-            momEl.style.color = diff > 0 ? "var(--success)" : "var(--danger)";
+            setTimeout(() => connectWebSocket(id), 5000);
         }
     }
 
@@ -796,9 +734,9 @@
         }
     };
 
-    setInterval(() => { 
+    setInterval(() => {
         const clk = document.getElementById('clock');
-        if (clk) clk.innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC"; 
+        if (clk) clk.innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC";
     }, 1000);
     
     init();
