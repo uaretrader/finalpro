@@ -256,12 +256,14 @@
             priceHistory: [],
             swingHigh: 0,
             swingLow: Infinity,
+            structureValid: false,  // NEW: apakah struktur sudah valid
             l1: false, l2: false, l3: false,
             type: 'none',
             entry: 0, sl: 0, tp: 0,
             confirmed: false,
             cooldown: false,
-            lastPrice: 0
+            lastPrice: 0,
+            lastResetBar: 0         // NEW: untuk tracking reset periodik
         };
     }
 
@@ -324,7 +326,7 @@
         return '▼ STRONG';
     }
 
-    // ==================== CORE ALGORITHM ====================
+    // ==================== CORE ALGORITHM (FIXED) ====================
     function analyzePrecisionLogic(id, price) {
         const s = engineState[id];
         const conf = config[id];
@@ -345,35 +347,82 @@
 
         if (s.cooldown) return;
 
-        // SCANNING LOGIC (SWEEP + CHOCH + FVG)
-        if (!s.l1) {
-            if (s.swingHigh !== 0 && price > s.swingHigh + (conf.sl * 0.1)) { s.l1 = true; s.type = 'sell'; saveState(id); }
-            else if (s.swingLow !== Infinity && price < s.swingLow - (conf.sl * 0.1)) { s.l1 = true; s.type = 'buy'; saveState(id); }
+        // ========== STRUCTURE DETECTION (NATURAL SWING HIGH/LOW) ==========
+        // Update swing high/low secara natural (tidak di-reset otomatis)
+        if (price > s.swingHigh) {
+            s.swingHigh = price;
+            s.structureValid = true;
+            saveState(id);
         }
-        
-        if (s.l1 && !s.l2) {
-            const recoveryThreshold = conf.sl * 0.2;
-            if (s.type === 'sell' && price < s.swingHigh - recoveryThreshold) { s.l2 = true; saveState(id); }
-            if (s.type === 'buy' && price > s.swingLow + recoveryThreshold) { s.l2 = true; saveState(id); }
+        if (price < s.swingLow) {
+            s.swingLow = price;
+            s.structureValid = true;
+            saveState(id);
         }
-        
-        if (s.l2 && !s.l3) {
-            const p = s.priceHistory;
-            const gap = Math.abs(p[p.length-1] - (p[p.length-4] || p[0]));
-            if (gap > (conf.sl * 0.15)) {
-                s.l3 = true;
-                lockSignal(id, price);
+
+        // Inisialisasi awal: jika swingLow masih Infinity, set ke harga saat ini
+        if (s.swingHigh === 0 && s.swingLow === Infinity) {
+            s.swingHigh = price;
+            s.swingLow = price;
+            s.structureValid = true;
+            saveState(id);
+        }
+
+        // ========== RESET PERIODIK STRUKTUR (HANYA JIKA TIDAK ADA SINYAL) ==========
+        // Reset swing setiap N bar untuk menghindari struktur yang terlalu tua (stale)
+        if (!s.l1 && !s.l2 && !s.l3 && !s.confirmed) {
+            const currentBar = s.priceHistory.length;
+            if (s.lastResetBar === 0) s.lastResetBar = currentBar;
+            
+            if (currentBar - s.lastResetBar >= conf.lookback) {
+                // Reset struktur ke harga saat ini
+                s.swingHigh = price;
+                s.swingLow = price;
+                s.lastResetBar = currentBar;
+                s.structureValid = true;
+                saveState(id);
             }
         }
 
-        // STRUCTURE CHANGE DETECTOR
-        if (price > s.swingHigh) s.swingHigh = price;
-        if (price < s.swingLow) s.swingLow = price;
-
-        if (s.priceHistory.length % conf.lookback === 0) {
-            s.swingHigh = price; 
-            s.swingLow = price;
-            saveState(id);
+        // ========== L1: SWEEP DETECTION ==========
+        if (!s.l1 && s.structureValid) {
+            // Sell signal: price menembus swing high + buffer
+            if (price > s.swingHigh + (conf.sl * 0.15)) { 
+                s.l1 = true; 
+                s.type = 'sell'; 
+                saveState(id);
+            }
+            // Buy signal: price menembus swing low - buffer
+            else if (price < s.swingLow - (conf.sl * 0.15)) { 
+                s.l1 = true; 
+                s.type = 'buy'; 
+                saveState(id);
+            }
+        }
+        
+        // ========== L2: CHoCH (Change of Character) ==========
+        if (s.l1 && !s.l2) {
+            const recoveryThreshold = conf.sl * 0.25;
+            if (s.type === 'sell' && price < s.swingHigh - recoveryThreshold) { 
+                s.l2 = true; 
+                saveState(id);
+            }
+            else if (s.type === 'buy' && price > s.swingLow + recoveryThreshold) { 
+                s.l2 = true; 
+                saveState(id);
+            }
+        }
+        
+        // ========== L3: FVG (Fair Value Gap) ==========
+        if (s.l2 && !s.l3) {
+            const p = s.priceHistory;
+            if (p.length >= 4) {
+                const gap = Math.abs(p[p.length-1] - p[p.length-3]);
+                if (gap > (conf.sl * 0.12)) {
+                    s.l3 = true;
+                    lockSignal(id, price);
+                }
+            }
         }
     }
 
@@ -391,12 +440,26 @@
         const s = engineState[id];
         const history = s.priceHistory;
         const htfHistory = s.priceHistoryHTF;
+        const lastPrice = s.lastPrice;
+        
+        // Reset semua state ke fresh
         Object.assign(s, createFreshState());
         s.priceHistory = history;
         s.priceHistoryHTF = htfHistory || [];
+        s.lastPrice = lastPrice;
+        
+        // Inisialisasi swing dengan harga terakhir
+        if (lastPrice > 0) {
+            s.swingHigh = lastPrice;
+            s.swingLow = lastPrice;
+            s.structureValid = true;
+        }
+        
         s.cooldown = true;
+        s.lastResetBar = s.priceHistory.length;
         saveState(id);
         renderUI(id);
+        
         setTimeout(() => { 
             s.cooldown = false; 
             saveState(id);
