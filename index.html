@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v4.7.1</title>
+    <title>PRECISION TERMINAL v4.8.0</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -224,7 +224,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.7.1</p>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.8.0</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -240,7 +240,7 @@
     <div id="terminals"></div>
 
     <footer>
-        [ SYSTEM_LOG ]: XAU:API_POLLING (1.5s) | BTC:AGGTRADE_LIVE | HTF_THROTTLE_10T<br>
+        [ SYSTEM_LOG ]: HTF:MA20/MA10 (H1) | PA:EMA_SMOOTHED | THROTTLE_5T<br>
         [ METHOD ]: SWEEP + CHoCH + FVG + HTF_TREND_FILTER
     </footer>
 </div>
@@ -249,7 +249,7 @@
     // ==================== CONFIGURATION ====================
     const btcConfig = {
         id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade', 
-        offset: 0, threshold: 6, trendThresh: 50, momThresh: 15, isTicker: false
+        offset: 0, threshold: 6, trendThresh: 50, momThresh: 10, isTicker: false
     };
 
     // STATE MANAGEMENT
@@ -257,17 +257,22 @@
         xau: null,
         btc: null
     };
-    let wsStatus = { xau: false, btc: false };
+    let wsStatus = { xau: true, btc: false }; // XAU default connected (API)
     let wsRetries = { xau: 0, btc: 0 };
     let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
     let wsConnections = {};
     let lastHeartbeat = { xau: Date.now(), btc: Date.now() };
 
-    // HTF DATA
+    // HTF DATA (Higher Timeframe - MA20 vs MA10, update setiap 5 tick)
     let htfHistory = { xau: [], btc: [] };
     let htfTrend = { xau: 'neutral', btc: 'neutral' };
     let htfMomentum = { xau: 0, btc: 0 };
     let htfTickCounter = { xau: 0, btc: 0 };
+    let lastHTFUpdate = { xau: 0, btc: 0 };
+
+    // PA DATA (Price Action - EMA Smoothed)
+    let paEma = { xau: 0, btc: 0 };
+    let paEmaAlpha = 0.2; // Smoothing factor
 
     // ==================== CREATE FRESH STATE ====================
     function createFreshState() {
@@ -306,34 +311,38 @@
         localStorage.setItem(`ura_state_${id}`, JSON.stringify(toSave));
     }
 
-    // ==================== HTF ANALYSIS ====================
+    // ==================== HTF ANALYSIS (MA20 vs MA10 - PRESISI MAKRO) ====================
     function updateHTF(id, price) {
         htfHistory[id].push(price);
         if (htfHistory[id].length > 50) htfHistory[id].shift();
         
+        // Update setiap 5 tick (≈5-10 detik) agar lebih presisi
         htfTickCounter[id]++;
-        if (htfTickCounter[id] < 10) return;
+        if (htfTickCounter[id] < 5) return;
         htfTickCounter[id] = 0;
+        lastHTFUpdate[id] = Date.now();
         
         const len = htfHistory[id].length;
-        if (len >= 2) {
-            const firstPrice = htfHistory[id][0];
-            const lastPrice = htfHistory[id][len - 1];
+        if (len >= 20) {
+            // MA20 (trend panjang) vs MA10 (trend pendek) dalam H1
+            const ma20 = htfHistory[id].slice(-20).reduce((a,b) => a+b, 0) / 20;
+            const ma10 = htfHistory[id].slice(-10).reduce((a,b) => a+b, 0) / 10;
             
-            if (lastPrice > firstPrice * 1.0003) {
+            // Threshold 0.05% untuk menghindari noise
+            const maRatio = (ma10 - ma20) / ma20 * 100;
+            
+            if (maRatio > 0.03) {
                 htfTrend[id] = 'up';
-            } else if (lastPrice < firstPrice * 0.9997) {
+            } else if (maRatio < -0.03) {
                 htfTrend[id] = 'down';
             } else {
                 htfTrend[id] = 'neutral';
             }
             
-            if (len >= 5) {
-                const oldPrice = htfHistory[id][len - 5];
-                htfMomentum[id] = ((lastPrice - oldPrice) / oldPrice) * 100;
-            } else if (len >= 2) {
-                const oldPrice = htfHistory[id][0];
-                htfMomentum[id] = ((lastPrice - oldPrice) / oldPrice) * 100;
+            // Momentum: persentase perubahan 10 tick terakhir (lebih stabil)
+            if (len >= 10) {
+                const oldPrice = htfHistory[id][len - 10];
+                htfMomentum[id] = ((price - oldPrice) / oldPrice) * 100;
             }
         } else {
             htfTrend[id] = 'neutral';
@@ -354,22 +363,73 @@
         
         const htfMomentumEl = document.getElementById(`htf-momentum-${id}`);
         if (htfMomentumEl) {
-            let momText = htfMomentum[id] > 0.05 ? '▲ STRONG' : (htfMomentum[id] > 0 ? '▲ WEAK' : (htfMomentum[id] > -0.05 ? '▼ WEAK' : '▼ STRONG'));
+            let momText = htfMomentum[id] > 0.1 ? '▲ STRONG' : (htfMomentum[id] > 0 ? '▲ WEAK' : (htfMomentum[id] > -0.1 ? '▼ WEAK' : '▼ STRONG'));
             let momClass = htfMomentum[id] >= 0 ? 'momentum-up' : 'momentum-down';
             htfMomentumEl.className = `htf-value ${momClass}`;
             htfMomentumEl.innerText = `${momText} (${htfMomentum[id] > 0 ? '+' : ''}${htfMomentum[id].toFixed(2)}%)`;
         }
     }
 
+    // ==================== PRICE ACTION (EMA SMOOTHED - AKURAT PENDEK) ====================
+    function updatePA(id, price) {
+        const s = state[id];
+        
+        // Update EMA smoothing
+        if (paEma[id] === 0) {
+            paEma[id] = price;
+        } else {
+            paEma[id] = (price * paEmaAlpha) + (paEma[id] * (1 - paEmaAlpha));
+        }
+        
+        // Trend Score dengan EMA (lebih halus)
+        if (s.lastPrice !== 0) {
+            const emaDiff = paEma[id] - s.lastPrice;
+            s.trendScore += emaDiff * 0.5; // Damped untuk menghindari overshoot
+        }
+        
+        // Batasi trendScore agar tidak ekstrim
+        const maxTrend = id === 'xau' ? 5 : 500;
+        if (s.trendScore > maxTrend) s.trendScore = maxTrend;
+        if (s.trendScore < -maxTrend) s.trendScore = -maxTrend;
+        
+        updatePAUI(id);
+    }
+    
+    function updatePAUI(id) {
+        const s = state[id];
+        let p = (id === 'xau') ? { trendThresh: 0.8, momThresh: 0.08 } : btcConfig;
+        
+        const trendPaEl = document.getElementById(`trend-${id}`);
+        if (trendPaEl) {
+            if (s.trendScore > p.trendThresh) {
+                trendPaEl.innerText = "BULLISH";
+                trendPaEl.style.color = "var(--success)";
+            } else if (s.trendScore < -p.trendThresh) {
+                trendPaEl.innerText = "BEARISH";
+                trendPaEl.style.color = "var(--danger)";
+            } else {
+                trendPaEl.innerText = "NEUTRAL";
+                trendPaEl.style.color = "var(--text-dim)";
+            }
+        }
+        
+        const momPaEl = document.getElementById(`mom-${id}`);
+        if (momPaEl && s.lastPrice !== 0) {
+            const prevPrice = state[id].lastPrice;
+            const diff = s.lastPrice - prevPrice;
+            const absDiff = Math.abs(diff);
+            const direction = diff > 0 ? "UPWARD" : "DOWNWARD";
+            // Threshold lebih ketat untuk akurasi
+            const strength = absDiff > p.momThresh ? "STRONG " : "";
+            momPaEl.innerHTML = strength + direction;
+            momPaEl.style.color = diff > 0 ? "var(--success)" : "var(--danger)";
+        }
+    }
+
     // ==================== SIGNAL LOGIC ====================
     function updateSignal(id, price) {
         const s = state[id];
-        let p;
-        if (id === 'xau') {
-            p = { threshold: 0.05, trendThresh: 0.8, momThresh: 0.12 };
-        } else {
-            p = btcConfig;
-        }
+        let p = (id === 'xau') ? { threshold: 0.05, trendThresh: 0.8, momThresh: 0.08 } : btcConfig;
         
         if (s.confirmed) {
             if (s.type === 'buy' && (price >= s.tp || price <= s.sl)) resetSignal(id);
@@ -378,9 +438,9 @@
         }
         
         const diff = price - s.lastPrice;
-        if (s.lastPrice !== 0 && diff !== 0) {
-            s.trendScore += diff;
-        }
+        
+        // Update PA (EMA Smoothing)
+        updatePA(id, price);
         
         if (!s.confirmed && s.lastPrice !== 0 && Math.abs(diff) > p.threshold) {
             const direction = diff > 0 ? 'buy' : 'sell';
@@ -402,7 +462,6 @@
         
         s.lastPrice = price;
         saveState(id);
-        updatePAUI(id);
     }
     
     function updateSignalUI(id) {
@@ -449,36 +508,6 @@
         const slEl = document.getElementById(`sl-${id}`);
         if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
     }
-    
-    function updatePAUI(id) {
-        const s = state[id];
-        let p = (id === 'xau') ? { trendThresh: 0.8, momThresh: 0.12 } : btcConfig;
-        
-        const trendPaEl = document.getElementById(`trend-${id}`);
-        if (trendPaEl) {
-            if (s.trendScore > p.trendThresh) {
-                trendPaEl.innerText = "BULLISH";
-                trendPaEl.style.color = "var(--success)";
-            } else if (s.trendScore < -p.trendThresh) {
-                trendPaEl.innerText = "BEARISH";
-                trendPaEl.style.color = "var(--danger)";
-            } else {
-                trendPaEl.innerText = "NEUTRAL";
-                trendPaEl.style.color = "var(--text-dim)";
-            }
-        }
-        
-        const momPaEl = document.getElementById(`mom-${id}`);
-        if (momPaEl && s.lastPrice !== 0) {
-            const prevPrice = state[id].lastPrice;
-            const diff = s.lastPrice - prevPrice;
-            const absDiff = Math.abs(diff);
-            const direction = diff > 0 ? "UPWARD" : "DOWNWARD";
-            const strength = absDiff > p.momThresh ? "STRONG " : "";
-            momPaEl.innerHTML = strength + direction;
-            momPaEl.style.color = diff > 0 ? "var(--success)" : "var(--danger)";
-        }
-    }
 
     function lockSignal(id, entry, type) {
         const s = state[id];
@@ -502,6 +531,7 @@
         
         saveState(id);
         updateSignalUI(id);
+        updatePAUI(id);
     }
 
     function resetSignal(id) {
@@ -536,7 +566,7 @@
         }
     }
 
-    // ==================== FETCH XAU PRICE FROM API ====================
+    // ==================== FETCH XAU PRICE ====================
     let lastXAUPrice = 0;
     function fetchXAUPrice() {
         fetch('https://api.gold-api.com/price/XAU')
@@ -551,7 +581,6 @@
                 }
             })
             .catch(() => {
-                // Fallback ke API lain
                 fetch('https://api.exchangerate.host/convert?from=XAU&to=USD&amount=1')
                     .then(res => res.json())
                     .then(data => {
@@ -577,6 +606,7 @@
                 }
             }
             
+            // Update HTF dan Signal
             updateHTF('xau', price);
             updateSignal('xau', price);
         }
@@ -587,20 +617,20 @@
         state.xau = loadState('xau');
         state.btc = loadState('btc');
         
+        // Seed data untuk HTF
         htfHistory.xau = [];
         htfHistory.btc = [];
-        
-        for (let i = 0; i < 20; i++) {
-            htfHistory.xau.push(4690 + (i * 0.1));
-            htfHistory.btc.push(60000 + (i * 0.1));
+        for (let i = 0; i < 30; i++) {
+            htfHistory.xau.push(4690 + (i * 0.2));
+            htfHistory.btc.push(60000 + (i * 2));
         }
-        updateHTF('xau', 4692);
-        updateHTF('btc', 60002);
+        updateHTF('xau', 4695);
+        updateHTF('btc', 60030);
         
         const container = document.getElementById('terminals');
         container.innerHTML = '';
         
-        // Card XAU (tanpa widget tambahan)
+        // Card XAU
         container.innerHTML += `
             <div class="pair-card ${activePairId === 'xau' ? 'active' : ''}" id="card-xau">
                 <div class="card">
@@ -737,14 +767,11 @@
         updatePAUI('btc');
         updateHTFUI('btc');
         
-        // Start polling XAU price (setiap 1 detik)
         fetchXAUPrice();
-        setInterval(fetchXAUPrice, 1500);
+        setInterval(fetchXAUPrice, 2000);
         
-        // Connect WebSocket untuk BTC
-        connectWebSocket();
+        connectWebSocketBTC();
         
-        // Switch button
         document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
         document.getElementById('switchPairBtn').onclick = () => {
             activePairId = activePairId === 'xau' ? 'btc' : 'xau';
@@ -759,7 +786,7 @@
     }
 
     // ==================== WEBSOCKET BTC ====================
-    function connectWebSocket() {
+    function connectWebSocketBTC() {
         if (wsConnections.btc) {
             try { wsConnections.btc.close(); } catch(e) {}
         }
@@ -783,7 +810,7 @@
                 updateSignalUI('btc');
                 const delay = Math.min(1000 * Math.pow(2, wsRetries.btc), 30000);
                 wsRetries.btc++;
-                setTimeout(connectWebSocket, delay);
+                setTimeout(connectWebSocketBTC, delay);
             };
             
             ws.onerror = () => {
@@ -828,7 +855,7 @@
             updateWSStatus('btc');
             updateGlobalPulse();
             updateSignalUI('btc');
-            setTimeout(connectWebSocket, 5000);
+            setTimeout(connectWebSocketBTC, 5000);
         }
     }
 
