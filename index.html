@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v4.5.5</title>
+    <title>PRECISION TERMINAL v4.6.0</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -126,6 +126,7 @@
             background: transparent;
             padding: 4px 0;
             text-align: right;
+            transition: color 0.1s ease;
         }
 
         .signal-bar {
@@ -223,7 +224,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.5.5</p>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v4.6.0</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -239,33 +240,33 @@
     <div id="terminals"></div>
 
     <footer>
-        [ SYSTEM_LOG ]: HTF_ANALYSIS_ENABLED (H1) | PERSISTENCE_ACTIVE | BIAS_OFFSET_ENABLED (±3)<br>
+        [ SYSTEM_LOG ]: aggTrade STREAM (REAL-TIME) | HTF_THROTTLE_10T | PARTIAL_UPDATE<br>
         [ METHOD ]: SWEEP + CHoCH + FVG + HTF_TREND_FILTER
     </footer>
 </div>
 
 <script>
+    // ==================== CONFIGURATION ====================
     const pairs = [
-        { id: 'xau', name: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 3, threshold: 0.05, trendThresh: 0.8, momThresh: 0.12 },
-        { id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0, threshold: 6, trendThresh: 50, momThresh: 15 }
+        { id: 'xau', name: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@aggTrade', offset: 8.8, threshold: 0.05, trendThresh: 0.8, momThresh: 0.12 },
+        { id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade', offset: 0, threshold: 6, trendThresh: 50, momThresh: 15 }
     ];
 
+    // STATE MANAGEMENT
     let state = {};
     let wsStatus = { xau: false, btc: false };
     let wsRetries = { xau: 0, btc: 0 };
     let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
     let wsConnections = {};
-    let priceHistory = { xau: [], btc: [] };
     let lastHeartbeat = { xau: Date.now(), btc: Date.now() };
 
-    // HTF Data - diisi data awal agar tidak kosong
-    let htfHistory = { 
-        xau: [], 
-        btc: [] 
-    };
+    // HTF DATA (dengan throttle counter)
+    let htfHistory = { xau: [], btc: [] };
     let htfTrend = { xau: 'neutral', btc: 'neutral' };
     let htfMomentum = { xau: 0, btc: 0 };
+    let htfTickCounter = { xau: 0, btc: 0 };
 
+    // ==================== CREATE FRESH STATE ====================
     function createFreshState() {
         return { 
             lastPrice: 0, trendScore: 0, 
@@ -275,6 +276,7 @@
         };
     }
 
+    // ==================== PERSISTENCE ====================
     function loadState(id) {
         const saved = localStorage.getItem(`ura_state_${id}`);
         if (saved) {
@@ -301,24 +303,22 @@
         localStorage.setItem(`ura_state_${id}`, JSON.stringify(toSave));
     }
 
-    // ==================== HTF ANALYSIS (UPDATE SETIAP TICK) ====================
+    // ==================== HTF ANALYSIS (THROTTLED = SETIAP 10 TICK) ====================
     function updateHTF(id, price) {
-        // Simpan history
         htfHistory[id].push(price);
+        if (htfHistory[id].length > 50) htfHistory[id].shift();
         
-        // Selalu batasi maksimal 50 data
-        if (htfHistory[id].length > 50) {
-            htfHistory[id].shift();
-        }
+        // Throttle: hitung ulang hanya setiap 10 tick
+        htfTickCounter[id]++;
+        if (htfTickCounter[id] < 10) return;
+        htfTickCounter[id] = 0;
         
-        // HITUNG TREND & MOMENTUM (tetap dihitung walau data belum 20)
-        if (htfHistory[id].length >= 2) {
-            // Ambil data terakhir (minimal 2 data untuk perhitungan sederhana)
-            const len = htfHistory[id].length;
-            const lastPrice = htfHistory[id][len - 1];
+        const len = htfHistory[id].length;
+        if (len >= 2) {
             const firstPrice = htfHistory[id][0];
+            const lastPrice = htfHistory[id][len - 1];
             
-            // Trend sederhana: bandingkan harga pertama dan terakhir
+            // Trend
             if (lastPrice > firstPrice * 1.0003) {
                 htfTrend[id] = 'up';
             } else if (lastPrice < firstPrice * 0.9997) {
@@ -327,7 +327,7 @@
                 htfTrend[id] = 'neutral';
             }
             
-            // Momentum: perubahan 5 tick terakhir atau semua data jika kurang
+            // Momentum
             if (len >= 5) {
                 const oldPrice = htfHistory[id][len - 5];
                 htfMomentum[id] = ((lastPrice - oldPrice) / oldPrice) * 100;
@@ -340,21 +340,26 @@
             htfMomentum[id] = 0;
         }
         
-        // Debug di console (bisa dihapus setelah testing)
-        console.log(`${id} HTF - History: ${htfHistory[id].length}, Trend: ${htfTrend[id]}, Momentum: ${htfMomentum[id].toFixed(4)}%`);
+        // Update HTF UI (partial update)
+        updateHTFUI(id);
     }
-
-    function getTrendSymbol(trend) {
-        if (trend === 'up') return '▲ BULLISH';
-        if (trend === 'down') return '▼ BEARISH';
-        return '◆ NEUTRAL';
-    }
-
-    function getMomentumText(momentum) {
-        if (momentum > 0.05) return '▲ STRONG';
-        if (momentum > 0) return '▲ WEAK';
-        if (momentum > -0.05) return '▼ WEAK';
-        return '▼ STRONG';
+    
+    function updateHTFUI(id) {
+        const htfTrendEl = document.getElementById(`htf-trend-${id}`);
+        if (htfTrendEl) {
+            let trendSym = htfTrend[id] === 'up' ? '▲ BULLISH' : (htfTrend[id] === 'down' ? '▼ BEARISH' : '◆ NEUTRAL');
+            let trendClass = htfTrend[id] === 'up' ? 'trend-up' : (htfTrend[id] === 'down' ? 'trend-down' : 'trend-neutral');
+            htfTrendEl.className = `htf-value ${trendClass}`;
+            htfTrendEl.innerText = trendSym;
+        }
+        
+        const htfMomentumEl = document.getElementById(`htf-momentum-${id}`);
+        if (htfMomentumEl) {
+            let momText = htfMomentum[id] > 0.05 ? '▲ STRONG' : (htfMomentum[id] > 0 ? '▲ WEAK' : (htfMomentum[id] > -0.05 ? '▼ WEAK' : '▼ STRONG'));
+            let momClass = htfMomentum[id] >= 0 ? 'momentum-up' : 'momentum-down';
+            htfMomentumEl.className = `htf-value ${momClass}`;
+            htfMomentumEl.innerText = `${momText} (${htfMomentum[id] > 0 ? '+' : ''}${htfMomentum[id].toFixed(2)}%)`;
+        }
     }
 
     // ==================== SIGNAL LOGIC ====================
@@ -379,10 +384,12 @@
                 s.l1 = true; 
                 s.type = direction; 
                 saveState(id);
+                updateSignalUI(id);
             } 
             else if (!s.l2) { 
                 s.l2 = true; 
                 saveState(id);
+                updateSignalUI(id);
             } 
             else { 
                 lockSignal(id, price, direction); 
@@ -391,51 +398,13 @@
         
         s.lastPrice = price;
         saveState(id);
+        
+        // Update PA UI (partial)
+        updatePAUI(id);
     }
-
-    function lockSignal(id, entry, type) {
+    
+    function updateSignalUI(id) {
         const s = state[id];
-        const offset = type === 'buy' ? -3 : +3;
-        const adjustedEntry = entry + offset;
-        
-        s.l3 = true;
-        s.confirmed = true;
-        s.type = type;
-        s.entry = adjustedEntry;
-        
-        const risk = id === 'xau' ? 8 : entry * 0.0020;
-        
-        if (type === 'buy') {
-            s.sl = adjustedEntry - risk;
-            s.tp = adjustedEntry + (risk * 1.3);
-        } else {
-            s.sl = adjustedEntry + risk;
-            s.tp = adjustedEntry - (risk * 1.5);
-        }
-        
-        saveState(id);
-    }
-
-    function resetSignal(id) {
-        const s = state[id];
-        s.l1 = false; s.l2 = false; s.l3 = false;
-        s.confirmed = false; s.type = 'none';
-        s.entry = 0; s.sl = 0; s.tp = 0;
-        s.trendScore = 0;
-        saveState(id);
-    }
-
-    // ==================== RENDER UI (UPDATE SEMUA ELEMEN) ====================
-    function renderAll(id) {
-        const s = state[id];
-        const p = pairs.find(pair => pair.id === id);
-        if (!p) return;
-        
-        // Price
-        const priceEl = document.getElementById(`price-${id}`);
-        if (priceEl && s.lastPrice) {
-            priceEl.innerText = s.lastPrice.toFixed(2);
-        }
         
         // Signal dots
         const l1Dot = document.getElementById(`l1-${id}`);
@@ -480,27 +449,13 @@
         
         const slEl = document.getElementById(`sl-${id}`);
         if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+    }
+    
+    function updatePAUI(id) {
+        const s = state[id];
+        const p = pairs.find(pair => pair.id === id);
         
-        // ==================== HTF PANEL ====================
-        const htfTrendEl = document.getElementById(`htf-trend-${id}`);
-        if (htfTrendEl) {
-            const trendSym = getTrendSymbol(htfTrend[id]);
-            let trendClass = 'trend-neutral';
-            if (htfTrend[id] === 'up') trendClass = 'trend-up';
-            else if (htfTrend[id] === 'down') trendClass = 'trend-down';
-            htfTrendEl.className = `htf-value ${trendClass}`;
-            htfTrendEl.innerText = trendSym;
-        }
-        
-        const htfMomentumEl = document.getElementById(`htf-momentum-${id}`);
-        if (htfMomentumEl) {
-            const momText = getMomentumText(htfMomentum[id]);
-            const momClass = htfMomentum[id] >= 0 ? 'momentum-up' : 'momentum-down';
-            htfMomentumEl.className = `htf-value ${momClass}`;
-            htfMomentumEl.innerText = `${momText} (${htfMomentum[id] > 0 ? '+' : ''}${htfMomentum[id].toFixed(2)}%)`;
-        }
-        
-        // ==================== PRICE ACTION PANEL ====================
+        // Trend PA
         const trendPaEl = document.getElementById(`trend-${id}`);
         if (trendPaEl) {
             if (s.trendScore > p.trendThresh) {
@@ -515,6 +470,7 @@
             }
         }
         
+        // Momentum PA
         const momPaEl = document.getElementById(`mom-${id}`);
         if (momPaEl && s.lastPrice !== 0) {
             const prevPrice = state[id].lastPrice;
@@ -527,6 +483,42 @@
         }
     }
 
+    function lockSignal(id, entry, type) {
+        const s = state[id];
+        const offset = type === 'buy' ? -3 : +3;
+        const adjustedEntry = entry + offset;
+        
+        s.l3 = true;
+        s.confirmed = true;
+        s.type = type;
+        s.entry = adjustedEntry;
+        
+        const risk = id === 'xau' ? 8 : entry * 0.0020;
+        
+        if (type === 'buy') {
+            s.sl = adjustedEntry - risk;
+            s.tp = adjustedEntry + (risk * 1.3);
+        } else {
+            s.sl = adjustedEntry + risk;
+            s.tp = adjustedEntry - (risk * 1.5);
+        }
+        
+        saveState(id);
+        updateSignalUI(id);
+    }
+
+    function resetSignal(id) {
+        const s = state[id];
+        s.l1 = false; s.l2 = false; s.l3 = false;
+        s.confirmed = false; s.type = 'none';
+        s.entry = 0; s.sl = 0; s.tp = 0;
+        s.trendScore = 0;
+        saveState(id);
+        updateSignalUI(id);
+        updatePAUI(id);
+    }
+
+    // ==================== UI HELPERS ====================
     function updateWSStatus(id) {
         const el = document.getElementById(`ws-status-${id}`);
         if (el) {
@@ -542,18 +534,17 @@
         }
     }
 
+    // ==================== INITIALIZATION ====================
     function init() {
         pairs.forEach(p => {
             state[p.id] = loadState(p.id);
-            priceHistory[p.id] = [];
             htfHistory[p.id] = [];
             
-            // Isi data awal dengan harga default 4690 untuk XAU, 60000 untuk BTC
+            // Seed data awal
             const defaultPrice = p.id === 'xau' ? 4690 : 60000;
             for (let i = 0; i < 20; i++) {
                 htfHistory[p.id].push(defaultPrice + (i * 0.1));
             }
-            // Hitung HTF dari data awal
             updateHTF(p.id, defaultPrice + 2);
         });
         
@@ -625,7 +616,11 @@
                 </div>
             `;
             
-            renderAll(p.id);
+            // Initial render
+            updateSignalUI(p.id);
+            updatePAUI(p.id);
+            updateHTFUI(p.id);
+            
             connectWebSocket(p.id);
         });
 
@@ -640,11 +635,9 @@
         
         updateGlobalPulse();
         setInterval(() => updateGlobalPulse(), 1000);
-        
-        // Log untuk debugging
-        console.log('Initialization complete. HTF history seeded with 20 data points.');
     }
 
+    // ==================== WEBSOCKET (aggTrade - REAL TIME) ====================
     function connectWebSocket(id) {
         const p = pairs.find(pair => pair.id === id);
         if (!p) return;
@@ -682,8 +675,10 @@
             ws.onmessage = (e) => {
                 try {
                     const data = JSON.parse(e.data);
-                    const price = parseFloat(data.c) + p.offset;
-                    if (price > 0) {
+                    // aggTrade: ambil harga dari 'p' (price)
+                    const price = parseFloat(data.p) + p.offset;
+                    
+                    if (price && price > 0) {
                         lastHeartbeat[id] = Date.now();
                         
                         if (!wsStatus[id]) {
@@ -692,25 +687,26 @@
                             updateGlobalPulse();
                         }
                         
-                        // Update price display dengan warna flash
+                        // === PARTIAL UPDATE: HANYA UPDATE HARGA ===
                         const priceEl = document.getElementById(`price-${id}`);
                         if (priceEl) {
                             const oldPrice = state[id].lastPrice;
+                            priceEl.innerText = price.toFixed(2);
+                            
+                            // Flash effect (hanya warna, tidak re-render)
                             if (oldPrice !== 0) {
                                 priceEl.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
-                                setTimeout(() => { priceEl.style.color = ""; }, 300);
+                                setTimeout(() => {
+                                    if (priceEl) priceEl.style.color = "";
+                                }, 150);
                             }
-                            priceEl.innerText = price.toFixed(2);
                         }
                         
-                        // UPDATE HTF (Higher Timeframe)
+                        // UPDATE HTF (dengan throttle)
                         updateHTF(id, price);
                         
                         // UPDATE SIGNAL
                         updateSignal(id, price);
-                        
-                        // RENDER ULANG SEMUA UI
-                        renderAll(id);
                     }
                 } catch(err) {
                     console.error(`Parse error for ${id}:`, err);
