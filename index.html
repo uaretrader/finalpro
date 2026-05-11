@@ -702,9 +702,9 @@
         s.confirmed = true; 
         s.type = type; 
         s.entry = entry;
-        const risk = id === 'xau' ? 7 : entry * 0.0020;
+        const risk = id === 'xau' ? 8 : entry * 0.0020;
         s.sl = type === 'buy' ? entry - risk : entry + risk;
-        s.tp = type === 'buy' ? entry + (risk * 1.5) : entry - (risk * 1.5);
+        s.tp = type === 'buy' ? entry + (risk * 1.3) : entry - (risk * 1.5);
         saveState(id);
         renderUI(id);
     }
