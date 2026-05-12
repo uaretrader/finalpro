@@ -84,26 +84,6 @@
             gap: 10px;
         }
 
-        .clock-blk {
-            font-size: 8px;
-            color: var(--text-dim);
-            text-align: right;
-            line-height: 1.3;
-        }
-        .clock-blk .feed-status {
-            color: var(--feed);
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 4px;
-        }
-        .clock-blk .time {
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--text-bright);
-        }
-
         /* Live Pulse Dot */
         .live-pulse {
             display: inline-block;
@@ -373,13 +353,9 @@
             <span class="version">v6.0</span>
         </div>
         <div class="header-right">
-            <div class="clock-blk">
-                <div class="feed-status">
-                    <span id="livePulse" class="live-pulse"></span>
-                    <span>LIVE</span>
-                </div>
-                <div class="time" id="clock">--:--:--</div>
-                <div>UTC</div>
+            <div class="feed-status" style="display: flex; align-items: center; gap: 6px; font-size: 8px; font-weight: 500; color: var(--feed); background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 2px; border-left: 2px solid var(--feed);">
+                <span id="livePulse" class="live-pulse"></span>
+                <span>LIVE FEED</span>
             </div>
             <button id="switchPairBtn" class="switch-pair-btn">
                 <span id="switchLabel">XAU</span>
@@ -402,7 +378,7 @@
                 name: 'XAUUSD',
                 symbol: 'XAU',
                 wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker',
-                offset: 9,
+                offset: 8.9,
                 risk: 8,          // Stop loss risk in points
                 rr: 1.3,          // Risk-to-Reward ratio
                 threshold: 0.05,  // Signal trigger threshold
@@ -891,11 +867,6 @@
             if (navigator.vibrate) navigator.vibrate(50);
         }
     };
-
-    setInterval(() => {
-        const clk = document.getElementById('clock');
-        if (clk) clk.innerText = new Date().toISOString().split('T')[1].split('.')[0];
-    }, 1000);
     
     init();
 </script>
