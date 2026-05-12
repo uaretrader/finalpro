@@ -415,7 +415,7 @@
                 wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker',
                 offset: 5,
                 risk: 0.0020,     // Stop loss risk (percentage of entry)
-                rr: 1.3,
+                rr: 1.4,
                 threshold: 6,
                 trendThreshold: 50,
                 momThreshold: 15
@@ -563,7 +563,7 @@
     function lockSignal(id, entry, type) {
         const s = state[id];
         const p = CONFIG.pairs[id];
-        const offset = type === 'buy' ? -3 : +3;
+        const offset = type === 'buy' ? -2 : +2;
         const adjustedEntry = entry + offset;
         
         s.l3 = true;
