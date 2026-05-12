@@ -8,27 +8,28 @@
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
         :root {
-            --bg: #0a0b0d;
-            --bg-panel: #0d0e10;
-            --text: #d4d6d9;
-            --text-bright: #f0f2f5;
-            --text-dim: #5a6070;
-            --accent: #f5a623;
-            --success: #00d4aa;
-            --danger: #ff4d6a;
-            --warning: #ffb84d;
-            --info: #3b82f6;
-            --feed: #f5a623;
-            --buy-bg: #0d2818;
-            --sell-bg: #280d0d;
-            --border: rgba(255, 255, 255, 0.06);
-            --border-bright: rgba(255, 255, 255, 0.12);
-            --grid-line: rgba(255, 255, 255, 0.03);
-            --header-bg: #0d0e10;
-            --terminal-green: #00d4aa;
-            --terminal-red: #ff4d6a;
-            --terminal-orange: #f5a623;
-            --terminal-blue: #3b82f6;
+            /* Black Rose Elegant Theme */
+            --bg: #0a080c;
+            --bg-panel: #0d0a12;
+            --text: #d4cddc;
+            --text-bright: #f0eaf8;
+            --text-dim: #8a7a9a;
+            --accent: #e8b4d8;
+            --success: #c084fc;
+            --danger: #f472b6;
+            --warning: #fbbf24;
+            --info: #818cf8;
+            --feed: #e8b4d8;
+            --buy-bg: #0d1a18;
+            --sell-bg: #1a0d12;
+            --border: rgba(232, 180, 216, 0.08);
+            --border-bright: rgba(232, 180, 216, 0.2);
+            --grid-line: rgba(232, 180, 216, 0.05);
+            --header-bg: #0a080c;
+            --terminal-green: #c084fc;
+            --terminal-red: #f472b6;
+            --terminal-orange: #fbbf24;
+            --terminal-blue: #818cf8;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -95,7 +96,7 @@
         }
         .live-pulse.connected {
             background: var(--terminal-green);
-            box-shadow: 0 0 6px rgba(0, 212, 170, 0.6);
+            box-shadow: 0 0 6px rgba(192, 132, 252, 0.6);
         }
         @keyframes pulseBlink {
             0%, 100% { opacity: 1; transform: scale(1); }
@@ -118,7 +119,7 @@
         }
         .switch-pair-btn:hover {
             border-color: var(--accent);
-            background: rgba(245, 166, 35, 0.1);
+            background: rgba(232, 180, 216, 0.1);
         }
 
         /* Card */
@@ -140,7 +141,7 @@
             align-items: center;
             padding: 8px 12px;
             border-bottom: 1px solid var(--grid-line);
-            background: rgba(255,255,255,0.01);
+            background: rgba(232, 180, 216, 0.01);
         }
 
         .pair-info {
@@ -209,16 +210,16 @@
             width: 3px;
             height: 3px;
             border-radius: 1px;
-            background: rgba(255,255,255,0.1);
+            background: rgba(232, 180, 216, 0.15);
             transition: all 0.3s ease;
         }
         .fusion-dot.active-buy {
             background: var(--terminal-green);
-            box-shadow: 0 0 6px rgba(0, 212, 170, 0.4);
+            box-shadow: 0 0 6px rgba(192, 132, 252, 0.4);
         }
         .fusion-dot.active-sell {
             background: var(--terminal-red);
-            box-shadow: 0 0 6px rgba(255, 77, 106, 0.4);
+            box-shadow: 0 0 6px rgba(244, 114, 182, 0.4);
         }
         .fusion-dot.pulse {
             animation: fusionPulse 0.8s ease-in-out infinite;
@@ -260,10 +261,10 @@
             text-align: center;
         }
         .level-box:hover {
-            background: rgba(255,255,255,0.02);
+            background: rgba(232, 180, 216, 0.02);
         }
         .level-box:active {
-            background: rgba(255,255,255,0.04);
+            background: rgba(232, 180, 216, 0.04);
         }
 
         .level-box .lbl {
@@ -329,7 +330,7 @@
             vertical-align: middle;
         }
         .mini-dot.on { background: var(--terminal-green); }
-        .mini-dot.off { background: rgba(255,255,255,0.08); }
+        .mini-dot.off { background: rgba(232, 180, 216, 0.1); }
 
         /* Footer */
         footer {
