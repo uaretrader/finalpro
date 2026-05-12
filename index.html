@@ -563,7 +563,7 @@
     function lockSignal(id, entry, type) {
         const s = state[id];
         const p = CONFIG.pairs[id];
-        const offset = type === 'buy' ? -2 : +2;
+        const offset = type === 'buy' ? 0 : 0;
         const adjustedEntry = entry + offset;
         
         s.l3 = true;
