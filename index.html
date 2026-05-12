@@ -378,7 +378,7 @@
                 name: 'XAUUSD',
                 symbol: 'XAU',
                 wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker',
-                offset: 8.9,
+                offset: 6.5,
                 risk: 8,          // Stop loss risk in points
                 rr: 1.3,          // Risk-to-Reward ratio
                 threshold: 0.05,  // Signal trigger threshold
@@ -857,7 +857,7 @@
         };
         
         updateGlobalLivePulse();
-        setInterval(() => updateGlobalLivePulse(), 888);
+        setInterval(() => updateGlobalLivePulse(), 1000);
     }
 
     window.copyValue = (id, type) => {
