@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>BLOOMBERG FUSION v7.0</title>
+    <title>URA FUSION v8.1 | HTF-Integrated Precision Signal (Optimized Frequency)</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
         :root {
-            /* Black Silver Elegant Theme */
             --bg: #0a0a0c;
             --bg-panel: #0f0f12;
+            --bg-card: #0d0d11;
             --text: #c0c0c8;
             --text-bright: #e8e8ee;
             --text-dim: #8a8a96;
@@ -19,21 +19,16 @@
             --danger: #c8c8d0;
             --warning: #d4d4dc;
             --info: #9898a0;
-            --feed: #b8b8c0;
-            --buy-bg: #0d0d11;
-            --sell-bg: #111115;
+            --terminal-green: #00e5a0;
+            --terminal-red: #ff4466;
+            --terminal-orange: #ffaa44;
+            --terminal-blue: #44aaff;
             --border: rgba(176, 176, 184, 0.06);
             --border-bright: rgba(176, 176, 184, 0.18);
             --grid-line: rgba(176, 176, 184, 0.04);
-            --header-bg: #0a0a0c;
-            --terminal-green: #b8b8c0;
-            --terminal-red: #ff4444;
-            --terminal-orange: #d0d0d8;
-            --terminal-blue: #909098;
-            --htf-bullish: #b8b8c0;
-            --htf-bearish: #c8c8d0;
-            --htf-neutral: #808088;
-            --htf-weak: #a0a0a8;
+            --quality-high: #00e5a0;
+            --quality-med: #ffaa44;
+            --quality-low: #ff4466;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -48,252 +43,327 @@
             min-height: 100vh;
             font-size: 11px;
             letter-spacing: 0.02em;
-            -webkit-font-smoothing: antialiased;
         }
 
-        .container { max-width: 480px; width: 100%; }
+        .container { max-width: 500px; width: 100%; }
 
+        /* HEADER - tanpa efek highlight */
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--header-bg);
+            background: var(--bg-panel);
             border: 1px solid var(--border);
             border-bottom: 2px solid var(--accent);
             padding: 8px 12px;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
 
-        .brand { display: flex; align-items: baseline; gap: 8px; }
-        .brand h1 { 
-            font-size: 14px; font-weight: 700; color: var(--text-bright); 
-            text-transform: uppercase; letter-spacing: 2px;
-        }
+        .brand { display: flex; align-items: baseline; gap: 8px; pointer-events: none; }
+        .brand h1 { font-size: 14px; font-weight: 800; color: var(--text-bright); letter-spacing: 2px; }
         .brand .version { font-size: 8px; color: var(--text-dim); letter-spacing: 1px; }
 
-        .header-right { display: flex; align-items: center; gap: 10px; }
+        .header-right { display: flex; align-items: center; gap: 10px; pointer-events: none; }
+        .header-right button { pointer-events: auto; }
 
         .live-pulse {
             display: inline-block; width: 6px; height: 6px;
             background: var(--terminal-red); border-radius: 50%;
             animation: pulseBlink 1.5s infinite;
         }
-        .live-pulse.connected { background: var(--terminal-green); box-shadow: 0 0 6px rgba(160, 160, 168, 0.6); }
+        .live-pulse.connected { background: var(--terminal-green); box-shadow: 0 0 6px rgba(0,229,160,0.6); }
         @keyframes pulseBlink {
             0%, 100% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.4; transform: scale(0.8); }
         }
 
         .switch-pair-btn {
-            background: var(--bg-panel); border: 1px solid var(--border-bright);
+            background: var(--bg-card); border: 1px solid var(--border-bright);
             color: var(--accent); font-family: 'JetBrains Mono', monospace;
             font-size: 13px; font-weight: 700; padding: 5px 14px;
             cursor: pointer; transition: all 0.15s ease;
             text-transform: uppercase; letter-spacing: 1.5px;
+            pointer-events: auto;
         }
         .switch-pair-btn:hover { border-color: var(--accent); background: rgba(176, 176, 184, 0.08); }
 
+        /* CARD */
         .pair-card { display: none; }
         .pair-card.active { display: block; }
 
         .card {
-            background: var(--bg-panel); border: 1px solid var(--border);
-            border-top: none; padding: 0; margin-bottom: 4px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            margin-bottom: 6px;
+            border-radius: 0px;
         }
 
         .price-header {
-            display: grid; grid-template-columns: auto 1fr; align-items: center;
-            padding: 8px 12px; border-bottom: 1px solid var(--grid-line);
-            background: rgba(176, 176, 184, 0.008);
+            display: grid; grid-template-columns: auto 1fr;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--grid-line);
+            background: rgba(0,0,0,0.2);
         }
 
-        .pair-info { display: flex; flex-direction: column; gap: 1px; }
-        .pair-name { font-size: 15px; font-weight: 700; color: var(--text-bright); letter-spacing: 1.5px; text-transform: uppercase; }
-        .ws-status { font-size: 8px; font-weight: 500; letter-spacing: 0.5px; }
+        .pair-info { display: flex; flex-direction: column; gap: 2px; }
+        .pair-name { font-size: 15px; font-weight: 800; color: var(--text-bright); letter-spacing: 1.5px; }
+        .ws-status { font-size: 8px; font-weight: 600; letter-spacing: 0.5px; }
         .ws-status.connected { color: var(--terminal-green); }
         .ws-status.disconnected { color: var(--terminal-red); animation: blink 1s infinite; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 
         .price-display { text-align: right; }
-        .price-value { font-size: 18px; font-weight: 700; letter-spacing: 1px; line-height: 1; }
-        .price-change { font-size: 8px; color: var(--text-dim); margin-top: 2px; }
+        .price-value { font-size: 20px; font-weight: 800; letter-spacing: 1px; line-height: 1; }
+        .price-change { font-size: 8px; margin-top: 2px; }
 
+        /* SIGNAL FUSION BAR */
         .signal-fusion-bar {
-            display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-            padding: 6px 12px; border-bottom: 1px solid var(--grid-line);
-            background: rgba(0,0,0,0.2); gap: 10px;
+            display: grid; grid-template-columns: 1fr auto 1fr;
+            align-items: center; padding: 8px 12px;
+            border-bottom: 1px solid var(--grid-line);
+            background: rgba(0,0,0,0.15);
+            gap: 10px;
         }
-
-        .signal-label { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); text-align: left; }
+        .signal-label { font-size: 12px; font-weight: 700; letter-spacing: 2px; color: var(--text-dim); }
         .signal-fusion-center { display: flex; align-items: center; gap: 6px; justify-content: center; }
         .fusion-dot {
-            width: 3px; height: 3px; border-radius: 1px;
-            background: rgba(176, 176, 184, 0.12); transition: all 0.3s ease;
+            width: 4px; height: 4px; border-radius: 1px;
+            background: rgba(176,176,184,0.2);
+            transition: all 0.2s ease;
         }
-        .fusion-dot.active-buy { background: var(--terminal-green); box-shadow: 0 0 6px rgba(160, 160, 168, 0.4); }
-        .fusion-dot.active-sell { background: var(--terminal-red); box-shadow: 0 0 6px rgba(192, 192, 200, 0.4); }
-        .fusion-dot.pulse { animation: fusionPulse 0.8s ease-in-out infinite; }
+        .fusion-dot.active-buy { background: var(--terminal-green); box-shadow: 0 0 6px rgba(0,229,160,0.5); }
+        .fusion-dot.active-sell { background: var(--terminal-red); box-shadow: 0 0 6px rgba(255,68,102,0.5); }
+        .fusion-dot.pulse { animation: fusionPulse 0.8s infinite; }
         @keyframes fusionPulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
+            0%,100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.8); opacity: 0.6; }
         }
+        .fusion-line { width: 40px; height: 1px; background: var(--border-bright); }
+        .signal-status-text { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; text-align: right; }
 
-        .fusion-line { width: 45px; height: 1px; background: var(--border-bright); }
-        .signal-status-text { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; text-align: right; color: var(--text-dim); }
-
+        /* LEVELS */
         .levels-fusion {
             display: grid; grid-template-columns: repeat(3, 1fr);
-            gap: 1px; background: var(--border); border-bottom: 1px solid var(--border);
+            gap: 1px; background: var(--border);
         }
-
         .level-box {
             background: var(--bg-panel); padding: 8px 10px;
-            cursor: pointer; transition: background 0.15s ease; text-align: center;
+            cursor: pointer; text-align: center; transition: background 0.1s;
         }
-        .level-box:hover { background: rgba(176, 176, 184, 0.015); }
-        .level-box:active { background: rgba(176, 176, 184, 0.03); }
-        .level-box .lbl { font-size: 7px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 3px; }
-        .level-box .val { font-size: 14px; font-weight: 800; letter-spacing: 0.5px; }
+        .level-box:hover { background: rgba(176,176,184,0.02); }
+        .level-box .lbl { font-size: 7px; letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 3px; }
+        .level-box .val { font-size: 14px; font-weight: 800; }
         .level-box.entry .val { color: var(--text-bright); }
         .level-box.target .val { color: var(--terminal-green); }
         .level-box.stop .val { color: var(--terminal-red); }
 
+        /* ANALYSIS ROW - LOGIC ENGINE diperkecil, HTF diperpanjang */
         .analysis-row {
-            display: grid; grid-template-columns: 1fr 1fr;
-            gap: 1px; background: var(--border);
+            display: grid; 
+            grid-template-columns: 0.7fr 1.3fr;  /* logic engine 0.7, HTF 1.3 */
+            gap: 1px; 
+            background: var(--border);
         }
-
         .analysis-panel { background: var(--bg-panel); padding: 8px 10px; }
         .panel-title {
-            font-size: 7px; text-transform: uppercase; letter-spacing: 1.5px;
-            color: var(--text-dim); margin-bottom: 6px; padding-bottom: 4px;
-            border-bottom: 1px solid var(--grid-line);
+            font-size: 7px; letter-spacing: 1.5px; color: var(--text-dim);
+            margin-bottom: 6px; padding-bottom: 3px; border-bottom: 1px solid var(--grid-line);
         }
-
         .metric-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; font-size: 8px; }
         .metric-label { color: var(--text-dim); letter-spacing: 0.5px; }
-        .metric-value { font-weight: 500; }
+        .metric-value { font-weight: 600; }
 
-        .mini-dot { display: inline-block; width: 5px; height: 5px; border-radius: 1px; margin-right: 3px; vertical-align: middle; }
+        .mini-dot { display: inline-block; width: 5px; height: 5px; margin-right: 4px; border-radius: 1px; vertical-align: middle; }
         .mini-dot.on { background: var(--terminal-green); }
-        .mini-dot.off { background: rgba(176, 176, 184, 0.08); }
+        .mini-dot.off { background: rgba(176,176,184,0.1); }
 
-        /* HTF Context Styling */
-        .htf-struct-bull { color: var(--htf-bullish); }
-        .htf-struct-bear { color: var(--htf-bearish); }
-        .htf-struct-neutral { color: var(--htf-neutral); }
-        .htf-struct-weak { color: var(--htf-weak); }
+        /* HTF STYLES */
+        .htf-struct-bull { color: var(--terminal-green); }
+        .htf-struct-bear { color: var(--terminal-red); }
+        .htf-struct-neutral { color: var(--text-dim); }
 
-        .price-action-phase {
+        .phase-tag {
             font-size: 6px; padding: 1px 5px; border-radius: 2px;
-            margin-left: 4px; text-transform: uppercase; letter-spacing: 1px; vertical-align: middle;
+            display: inline-block; text-transform: uppercase; letter-spacing: 1px;
         }
-        .phase-trending { background: rgba(176, 176, 184, 0.1); color: var(--htf-bullish); border: 0.5px solid rgba(176, 176, 184, 0.25); }
-        .phase-ranging { background: rgba(160, 160, 168, 0.08); color: var(--htf-weak); border: 0.5px solid rgba(160, 160, 168, 0.18); }
-        .phase-expansion { background: rgba(192, 192, 200, 0.1); color: var(--htf-bearish); border: 0.5px solid rgba(192, 192, 200, 0.22); }
-        .phase-lowvol { background: rgba(144, 144, 152, 0.08); color: var(--info); border: 0.5px solid rgba(144, 144, 152, 0.18); }
+        .phase-trending { background: rgba(0,229,160,0.12); color: var(--terminal-green); border: 0.5px solid rgba(0,229,160,0.3); }
+        .phase-ranging { background: rgba(176,176,184,0.08); color: var(--text-dim); border: 0.5px solid rgba(176,176,184,0.2); }
+        .phase-expansion { background: rgba(255,68,102,0.1); color: var(--terminal-red); border: 0.5px solid rgba(255,68,102,0.2); }
+        .phase-lowvol { background: rgba(68,170,255,0.08); color: var(--terminal-blue); border: 0.5px solid rgba(68,170,255,0.2); }
 
-        .confidence-bar-inline {
-            width: 100%; height: 2px; background: rgba(176, 176, 184, 0.06);
-            border-radius: 1px; margin-top: 1px; overflow: hidden;
+        .confidence-bar {
+            width: 100%; height: 2px; background: rgba(176,176,184,0.08);
+            border-radius: 1px; margin: 4px 0; overflow: hidden;
         }
-        .confidence-fill-inline { height: 100%; transition: width 0.5s ease; border-radius: 1px; }
+        .confidence-fill { height: 100%; transition: width 0.3s ease; }
+
+        .signal-quality-panel {
+            margin-top: 6px; padding: 4px 8px;
+            background: rgba(0,0,0,0.25); border-top: 1px solid var(--grid-line);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .quality-badge {
+            font-size: 7px; font-weight: 800; padding: 2px 6px;
+            background: rgba(0,0,0,0.4); border-radius: 2px;
+        }
+        .quality-high { color: var(--terminal-green); border-left: 2px solid var(--terminal-green); }
+        .quality-med { color: var(--terminal-orange); border-left: 2px solid var(--terminal-orange); }
+        .quality-low { color: var(--terminal-red); border-left: 2px solid var(--terminal-red); }
+        .reject-reason { font-size: 6px; color: var(--terminal-red); font-family: monospace; }
 
         footer {
             text-align: center; font-size: 7px; color: var(--text-dim);
-            padding: 6px; opacity: 0.5; letter-spacing: 1px; text-transform: uppercase;
+            padding: 8px; opacity: 0.6; letter-spacing: 1px;
+        }
+
+        /* TOAST NOTIFICATION */
+        .toast-message {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-panel);
+            border: 1px solid var(--terminal-green);
+            color: var(--terminal-green);
+            padding: 8px 16px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            border-radius: 4px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .toast-message.show {
+            opacity: 1;
         }
     </style>
 </head>
 <body>
-
 <div class="container">
-    <header>
-        <div class="brand">
-            <h1>URA</h1>
-            <span class="version">v7.0</span>
-        </div>
+    <header id="mainHeader">
+        <div class="brand"><h1>URA</h1><span class="version">v8.1</span></div>
         <div class="header-right">
-            <div class="feed-status" style="display: flex; align-items: center; gap: 6px; font-size: 8px; font-weight: 500; color: var(--feed); background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 2px; border-left: 2px solid var(--feed);">
-                <span id="livePulse" class="live-pulse"></span>
-                <span>LIVE FEED</span>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 8px; background: rgba(0,0,0,0.3); padding: 4px 8px;">
+                <span id="livePulse" class="live-pulse"></span><span>LIVE</span>
             </div>
-            <button id="switchPairBtn" class="switch-pair-btn">
-                <span id="switchLabel">XAU</span>
-            </button>
+            <button id="switchPairBtn" class="switch-pair-btn"><span id="switchLabel">XAU</span></button>
         </div>
     </header>
-
     <div id="terminals"></div>
-
-    <footer>
-        BLOOMBERG FUSION TERMINAL | SMC PRECISION ENGINE | BINANCE FEED | HTF v7.0
-    </footer>
+    <footer>URA FUSION v8.1 | SMART MONEY + HTF CONFIRMATION | FREQ OPTIMIZED | REAL-TIME ALIGNMENT</footer>
 </div>
 
+<div id="toastMsg" class="toast-message">✓ ALL RESET</div>
+
 <script>
-    // ==================== KONFIGURASI (UNCHANGED) ====================
+    // ==================== KONFIGURASI OPTIMASI FREKUENSI ====================
     const CONFIG = {
         pairs: {
-            xau: {
-                name: 'XAUUSD', symbol: 'XAU',
-                wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker',
-                offset: 5.65, risk: 8, rr: 1.5, threshold: 0.05
-            },
-            btc: {
-                name: 'BTCUSD', symbol: 'BTC',
-                wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker',
-                offset: 5, risk: 0.0030, rr: 1.5, threshold: 6
+            xau: { name: 'XAUUSD', symbol: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 7.6, risk: 15, rr: 2, threshold: 0.07 },
+            btc: { name: 'BTCUSD', symbol: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: -23, risk: 0.0050, rr: 2, threshold: 18 }
+        },
+        defaultPair: 'xau',
+        htf: {
+            ticksPerCandle: 5,
+            pivotLookback: 1,
+            momentumLookback: 6,
+            rangeLookback: 8,
+            minCandlesForStructure: 12,
+            minCandlesForMomentum: 8,
+            minCandlesForATR: 10,
+            confidenceThreshold: {
+                minToAllow: 35,
+                high: 70,
+                medium: 45
             }
         },
-        defaultPair: 'xau'
+        signal: {
+            minTrendScoreTrigger: 0.03,
+            l2ConfirmationThreshold: 1.2,
+            resetCooldownMs: 8000,
+            forceAlignProbability: 0.65
+        }
     };
 
-    // ==================== STATE MANAGEMENT (UNCHANGED) ====================
+    // ==================== STATE ====================
     let state = { xau: null, btc: null };
     let wsStatus = { xau: false, btc: false };
     let wsRetries = { xau: 0, btc: 0 };
     let activePairId = null;
     let wsConnections = {};
     let priceHistory = { xau: [], btc: [] };
+    let lastSignalResetTime = { xau: 0, btc: 0 };
 
-    // ==================== OPTIMIZED HTF DIRECTION ENGINE v7.0 ====================
-    const HTF_TICK_PER_CANDLE = 8;
-    const HTF_PIVOT_LOOKBACK = 2;
-    const HTF_MOMENTUM_LOOKBACK = 4;
-    const HTF_RANGE_LOOKBACK = 10;
+    // HTF Data Storage
+    let htfData = { xau: null, btc: null };
 
-    let htfData = {
-        xau: {
-            ohlcCandles: [],
-            currentCandle: null,
-            tickCounter: 0,
-            swings: [],
-            pivotHighs: [],
-            pivotLows: [],
-            structure: 'NEUTRAL',
-            momentum: 'STABLE',
-            momentumStrength: 'NONE',
-            phase: 'RANGE',
-            atr: 0,
-            confidence: 0
-        },
-        btc: {
-            ohlcCandles: [],
-            currentCandle: null,
-            tickCounter: 0,
-            swings: [],
-            pivotHighs: [],
-            pivotLows: [],
-            structure: 'NEUTRAL',
-            momentum: 'STABLE',
-            momentumStrength: 'NONE',
-            phase: 'RANGE',
-            atr: 0,
-            confidence: 0
-        }
-    };
+    // ==================== TRIPLE TAP RESET (tanpa efek highlight visual) ====================
+    let tapCount = 0;
+    let tapTimeout = null;
+    
+    function setupTripleTapReset() {
+        const header = document.getElementById('mainHeader');
+        if (!header) return;
+        
+        header.addEventListener('click', () => {
+            tapCount++;
+            
+            if (tapTimeout) clearTimeout(tapTimeout);
+            
+            if (tapCount === 3) {
+                resetAllData();
+                tapCount = 0;
+            } else {
+                tapTimeout = setTimeout(() => {
+                    tapCount = 0;
+                }, 500);
+            }
+        });
+    }
+    
+    function resetAllData() {
+        Object.keys(CONFIG.pairs).forEach(id => {
+            const currentPrice = state[id]?.lastPrice || 0;
+            state[id] = createFreshState();
+            state[id].lastPrice = currentPrice;
+            state[id].prevPrice = currentPrice;
+            
+            initHTFData(id);
+            lastSignalResetTime[id] = Date.now();
+            priceHistory[id] = [];
+            
+            renderUI(id);
+            renderHTFContext(id);
+        });
+        
+        saveState();
+        
+        const toast = document.getElementById('toastMsg');
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 2000);
+        
+        if(navigator.vibrate) navigator.vibrate(50);
+        
+        console.log('[URA] All data reset via triple tap');
+    }
 
+    // ==================== FRESH STATE ====================
+    function createFreshState() {
+        return {
+            lastPrice: 0, prevPrice: 0, trendScore: 0,
+            l1: false, l2: false, l3: false, confirmed: false, type: 'none',
+            entry: 0, sl: 0, tp: 0,
+            htfConfidence: 0, htfReason: null, lastReject: null,
+            signalTimestamp: 0
+        };
+    }
+
+    // ==================== HTF INIT ====================
     function initHTFData(id) {
         htfData[id] = {
             ohlcCandles: [],
@@ -305,755 +375,449 @@
             structure: 'NEUTRAL',
             momentum: 'STABLE',
             momentumStrength: 'NONE',
+            momentumConfidence: 0,
             phase: 'RANGE',
             atr: 0,
-            confidence: 0
+            atrPercent: 0,
+            atrReliability: 'NONE',
+            confidence: 0,
+            confidenceStatus: 'INVALID',
+            lastStructureBreak: 0,
+            lastUpdate: 0
         };
     }
 
-    // ==================== 1. OPTIMIZED CANDLE ENGINE (Pseudo OHLC H1) ====================
+    // ==================== 1. CANDLE BUILDER ====================
     function buildOHLCCandle(id, price) {
         const data = htfData[id];
+        if (!data) return;
         data.tickCounter++;
-
-        // Inisialisasi candle baru
-        if (!data.currentCandle || data.tickCounter >= HTF_TICK_PER_CANDLE) {
-            // Close candle sebelumnya
-            if (data.currentCandle) {
+        if (!data.currentCandle || data.tickCounter >= CONFIG.htf.ticksPerCandle) {
+            if (data.currentCandle && data.currentCandle.closed === false) {
                 data.currentCandle.closed = true;
                 data.ohlcCandles.push(data.currentCandle);
-                if (data.ohlcCandles.length > 100) data.ohlcCandles.shift();
+                if (data.ohlcCandles.length > 80) data.ohlcCandles.shift();
             }
-
-            // Reset counter dan buka candle baru
             data.tickCounter = 0;
             data.currentCandle = {
-                open: price,
-                high: price,
-                low: price,
-                close: price,
-                closed: false,
-                body: 0,
-                range: 0,
-                isBullish: true,
-                upperWick: 0,
-                lowerWick: 0
+                open: price, high: price, low: price, close: price, closed: false,
+                body: 0, range: 0, isBullish: true, upperWick: 0, lowerWick: 0
             };
         } else {
-            // Update candle yang sedang berjalan
             data.currentCandle.high = Math.max(data.currentCandle.high, price);
             data.currentCandle.low = Math.min(data.currentCandle.low, price);
             data.currentCandle.close = price;
             data.currentCandle.range = data.currentCandle.high - data.currentCandle.low;
             data.currentCandle.body = Math.abs(data.currentCandle.close - data.currentCandle.open);
             data.currentCandle.isBullish = data.currentCandle.close >= data.currentCandle.open;
-            data.currentCandle.upperWick = data.currentCandle.isBullish ? 
-                data.currentCandle.high - data.currentCandle.close : 
-                data.currentCandle.high - data.currentCandle.open;
-            data.currentCandle.lowerWick = data.currentCandle.isBullish ? 
-                data.currentCandle.open - data.currentCandle.low : 
-                data.currentCandle.close - data.currentCandle.low;
+            data.currentCandle.upperWick = data.currentCandle.isBullish ? data.currentCandle.high - data.currentCandle.close : data.currentCandle.high - data.currentCandle.open;
+            data.currentCandle.lowerWick = data.currentCandle.isBullish ? data.currentCandle.open - data.currentCandle.low : data.currentCandle.close - data.currentCandle.low;
         }
+        data.lastUpdate = Date.now();
     }
 
-    // ==================== 2. OPTIMIZED STRUCTURE ENGINE (Pivot Fractal) ====================
-    function detectPivotFractals(id) {
+    // ==================== ATR ADAPTIF ====================
+    function calculateAdaptiveATR(id) {
         const data = htfData[id];
         const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < HTF_PIVOT_LOOKBACK * 2 + 1) return;
-
-        // Clear previous pivots
-        data.pivotHighs = [];
-        data.pivotLows = [];
-
-        // Deteksi Pivot High & Low berbasis fractal
-        for (let i = HTF_PIVOT_LOOKBACK; i < candles.length - HTF_PIVOT_LOOKBACK; i++) {
-            const current = candles[i];
-            let isPivotHigh = true;
-            let isPivotLow = true;
-
-            // Check left and right candles
-            for (let j = 1; j <= HTF_PIVOT_LOOKBACK; j++) {
-                if (candles[i - j].high >= current.high) isPivotHigh = false;
-                if (candles[i + j].high >= current.high) isPivotHigh = false;
-                if (candles[i - j].low <= current.low) isPivotLow = false;
-                if (candles[i + j].low <= current.low) isPivotLow = false;
-            }
-
-            if (isPivotHigh) {
-                data.pivotHighs.push({ index: i, price: current.high, candle: current });
-            }
-            if (isPivotLow) {
-                data.pivotLows.push({ index: i, price: current.low, candle: current });
-            }
+        if (candles.length < 4) { data.atr = 0.15; data.atrReliability = 'NONE'; return; }
+        const period = Math.min(10, candles.length);
+        let totalTR = 0;
+        for (let i = 1; i < candles.length; i++) {
+            const tr = Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - candles[i-1].close), Math.abs(candles[i].low - candles[i-1].close));
+            totalTR += tr;
         }
+        data.atr = totalTR / (candles.length-1);
+        data.atrReliability = candles.length >= 20 ? 'HIGH' : 'MEDIUM';
+        const latestPrice = candles[candles.length-1]?.close || data.currentCandle?.close || 100;
+        data.atrPercent = (data.atr / latestPrice) * 100;
+    }
 
-        // Kompresi swing points dari pivot
+    // ==================== PIVOT & STRUCTURE ====================
+    function detectPivotsAndStructure(id) {
+        const data = htfData[id];
+        const candles = data.ohlcCandles.filter(c => c.closed);
+        if (candles.length < CONFIG.htf.minCandlesForStructure) return;
+        
+        data.pivotHighs = []; data.pivotLows = [];
+        const lookback = CONFIG.htf.pivotLookback;
+        for (let i = lookback; i < candles.length - lookback; i++) {
+            let isHigh=true, isLow=true;
+            for (let j=1;j<=lookback;j++) {
+                if(candles[i-j].high >= candles[i].high) isHigh=false;
+                if(candles[i+j].high >= candles[i].high) isHigh=false;
+                if(candles[i-j].low <= candles[i].low) isLow=false;
+                if(candles[i+j].low <= candles[i].low) isLow=false;
+            }
+            if(isHigh) data.pivotHighs.push({index:i, price:candles[i].high});
+            if(isLow) data.pivotLows.push({index:i, price:candles[i].low});
+        }
+        
+        const all = [...data.pivotHighs.map(p=>({val:p.price,type:'H'})), ...data.pivotLows.map(p=>({val:p.price,type:'L'}))];
+        all.sort((a,b)=>a.val - b.val);
         data.swings = [];
-        const allPivots = [...data.pivotHighs.map(p => ({ ...p, type: 'H' })), 
-                          ...data.pivotLows.map(p => ({ ...p, type: 'L' }))];
-        allPivots.sort((a, b) => a.index - b.index);
-
-        // Filter alternating swings
-        let lastType = null;
-        allPivots.forEach(pivot => {
-            if (pivot.type !== lastType) {
-                data.swings.push({ val: pivot.price, type: pivot.type, index: pivot.index });
-                lastType = pivot.type;
-            }
-        });
-
-        // Deteksi Structure (HH/HL atau LH/LL)
-        detectStructure(id);
+        let lastType=null;
+        all.forEach(p=>{ if(p.type!==lastType) { data.swings.push(p); lastType=p.type; } });
+        
+        const swings = data.swings.slice(-6);
+        const highs = swings.filter(s=>s.type==='H').map(s=>s.val);
+        const lows = swings.filter(s=>s.type==='L').map(s=>s.val);
+        if(highs.length>=2 && lows.length>=2){
+            const isHH = highs[highs.length-1] > highs[highs.length-2];
+            const isHL = lows[lows.length-1] > lows[lows.length-2];
+            const isLH = highs[highs.length-1] < highs[highs.length-2];
+            const isLL = lows[lows.length-1] < lows[lows.length-2];
+            if(isHH && isHL) data.structure = 'BULLISH';
+            else if(isLH && isLL) data.structure = 'BEARISH';
+            else data.structure = 'RANGE';
+        } else data.structure = 'TRANSITIONAL';
     }
 
-    function detectStructure(id) {
+    // ==================== MOMENTUM ====================
+    function detectAccurateMomentum(id) {
         const data = htfData[id];
-        const swings = data.swings;
-        if (swings.length < 4) return;
-
-        // Ambil 4 swing terakhir untuk analisis
-        const recentSwings = swings.slice(-4);
-        const highs = recentSwings.filter(s => s.type === 'H').map(s => s.val);
-        const lows = recentSwings.filter(s => s.type === 'L').map(s => s.val);
-
-        if (highs.length >= 2 && lows.length >= 2) {
-            const last2Highs = highs.slice(-2);
-            const last2Lows = lows.slice(-2);
-
-            const isHH = last2Highs[1] > last2Highs[0];
-            const isHL = last2Lows[1] > last2Lows[0];
-            const isLH = last2Highs[1] < last2Highs[0];
-            const isLL = last2Lows[1] < last2Lows[0];
-
-            if (isHH && isHL) {
-                data.structure = 'BULLISH';
-            } else if (isLH && isLL) {
-                data.structure = 'BEARISH';
-            } else if ((isHH && !isHL) || (!isLH && isLL) || (!isHH && !isHL && !isLH && !isLL)) {
-                data.structure = 'RANGE';
-            } else {
-                data.structure = 'TRANSITIONAL';
-            }
+        const candles = data.ohlcCandles.filter(c=>c.closed);
+        if(candles.length < CONFIG.htf.minCandlesForMomentum) {
+            data.momentum='INSUFFICIENT'; data.momentumStrength='NONE'; data.momentumConfidence=20;
+            return;
         }
+        const recent = candles.slice(-6);
+        const atr = data.atr > 0 ? data.atr : 0.2;
+        const threshold = Math.max(atr * 0.55, 0.04);
+        let buyPressure=0, sellPressure=0, valid=0;
+        for(let c of recent){
+            const bodyRatio = c.body / (c.range||0.0001);
+            const isDisplace = c.range > threshold;
+            const isBodyDom = bodyRatio > 0.55;
+            const isBullReject = c.lowerWick > c.body*0.6;
+            const isBearReject = c.upperWick > c.body*0.6;
+            if(c.isBullish && (isDisplace || isBodyDom) && !isBullReject){ buyPressure+= (1+bodyRatio); valid++; }
+            else if(!c.isBullish && (isDisplace || isBodyDom) && !isBearReject){ sellPressure+= (1+bodyRatio); valid++; }
+        }
+        const total = buyPressure+sellPressure;
+        if(valid>=3 && total>0){
+            const buyPct = buyPressure/total;
+            if(buyPct>0.65){ data.momentum='IMPULSIVE_UP'; data.momentumStrength='STRONG'; data.momentumConfidence=Math.min(100,buyPct*100); }
+            else if(sellPressure/total>0.65){ data.momentum='IMPULSIVE_DOWN'; data.momentumStrength='STRONG'; data.momentumConfidence=Math.min(100,(sellPressure/total)*100); }
+            else if(buyPct>0.55){ data.momentum='BULLISH'; data.momentumStrength='MODERATE'; data.momentumConfidence=58; }
+            else if(sellPressure/total>0.55){ data.momentum='BEARISH'; data.momentumStrength='MODERATE'; data.momentumConfidence=58; }
+            else { data.momentum='CONGESTION'; data.momentumStrength='WEAK'; data.momentumConfidence=35; }
+        } else { data.momentum='STABLE'; data.momentumStrength='WEAK'; data.momentumConfidence=25; }
     }
 
-    // ==================== 3. OPTIMIZED MOMENTUM ENGINE (Displacement Analysis) ====================
-    function detectMomentum(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < HTF_MOMENTUM_LOOKBACK) return;
-
-        const recentCandles = candles.slice(-HTF_MOMENTUM_LOOKBACK);
-        let bullishDisplacement = 0;
-        let bearishDisplacement = 0;
-        let totalBodyDominance = 0;
-
-        recentCandles.forEach(candle => {
-            const bodyRatio = candle.body / (candle.range || 0.0001);
-            const isDisplacement = candle.range > (data.atr * 0.7); // Menggunakan ATR adaptive
-            const isBodyDominant = bodyRatio > 0.55;
-            const upperWickRatio = candle.upperWick / (candle.range || 0.0001);
-            const lowerWickRatio = candle.lowerWick / (candle.range || 0.0001);
-
-            totalBodyDominance += bodyRatio;
-
-            if (candle.isBullish && isBodyDominant && isDisplacement && upperWickRatio < 0.25) {
-                bullishDisplacement++;
-            } else if (!candle.isBullish && isBodyDominant && isDisplacement && lowerWickRatio < 0.25) {
-                bearishDisplacement++;
-            }
-        });
-
-        // Tentukan momentum dan strength
-        const avgBodyDominance = totalBodyDominance / HTF_MOMENTUM_LOOKBACK;
-
-        if (bullishDisplacement >= 3) {
-            data.momentum = 'IMPULSIVE_UP';
-            data.momentumStrength = 'STRONG';
-        } else if (bearishDisplacement >= 3) {
-            data.momentum = 'IMPULSIVE_DOWN';
-            data.momentumStrength = 'STRONG';
-        } else if (bullishDisplacement >= 2 && avgBodyDominance > 0.6) {
-            data.momentum = 'IMPULSIVE_UP';
-            data.momentumStrength = 'MODERATE';
-        } else if (bearishDisplacement >= 2 && avgBodyDominance > 0.6) {
-            data.momentum = 'IMPULSIVE_DOWN';
-            data.momentumStrength = 'MODERATE';
-        } else if (bullishDisplacement >= 1) {
-            data.momentum = 'BULLISH';
-            data.momentumStrength = 'WEAK';
-        } else if (bearishDisplacement >= 1) {
-            data.momentum = 'BEARISH';
-            data.momentumStrength = 'WEAK';
-        } else {
-            data.momentum = 'STABLE';
-            data.momentumStrength = 'NONE';
-        }
-    }
-
-    // ==================== 4. OPTIMIZED MARKET PHASE ENGINE ====================
     function detectMarketPhase(id) {
         const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < HTF_RANGE_LOOKBACK) return;
-
-        const recentCandles = candles.slice(-HTF_RANGE_LOOKBACK);
-        
-        // Hitung candle overlap
-        let overlapCount = 0;
-        let expansionCount = 0;
-        const ranges = [];
-
-        for (let i = 1; i < recentCandles.length; i++) {
-            const prev = recentCandles[i - 1];
-            const curr = recentCandles[i];
-            
-            // Overlap detection
-            const prevMid = (prev.high + prev.low) / 2;
-            const currMid = (curr.high + curr.low) / 2;
-            const midDistance = Math.abs(currMid - prevMid);
-            
-            if (midDistance < (data.atr * 0.4)) {
-                overlapCount++;
-            }
-            
-            // Expansion detection
-            if (curr.range > (data.atr * 1.2)) {
-                expansionCount++;
-            }
-            
-            ranges.push(curr.range);
+        const candles = data.ohlcCandles.filter(c=>c.closed);
+        if(candles.length<8) return;
+        const recent = candles.slice(-8);
+        let expand=0;
+        for(let i=1;i<recent.length;i++){
+            if(recent[i].range > (data.atr*1.1)) expand++;
         }
-
-        const avgRange = ranges.reduce((a, b) => a + b, 0) / ranges.length;
-        const rangeVolatility = Math.max(...ranges) - Math.min(...ranges);
-
-        // Market phase determination
-        const isTrending = data.structure === 'BULLISH' || data.structure === 'BEARISH';
-        const hasMomentum = data.momentumStrength === 'STRONG' || data.momentumStrength === 'MODERATE';
-        const lowOverlap = overlapCount <= 3;
-
-        if (isTrending && hasMomentum && lowOverlap && expansionCount >= 2) {
-            data.phase = 'TRENDING';
-        } else if (expansionCount >= 3 && rangeVolatility > (data.atr * 0.5)) {
-            data.phase = 'EXPANSION';
-        } else if (overlapCount >= 6 && avgRange < (data.atr * 0.7)) {
-            data.phase = 'LOW_VOLATILITY';
-        } else {
-            data.phase = 'RANGE';
-        }
+        const isTrend = (data.structure==='BULLISH'||data.structure==='BEARISH');
+        if(isTrend && expand>=2) data.phase='TRENDING';
+        else if(expand>=3) data.phase='EXPANSION';
+        else data.phase='RANGE';
     }
 
-    // ==================== 5. ADAPTIVE ATR CALCULATION ====================
-    function calculateATR(id) {
+    function calculateConfidence(id) {
         const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < 14) return;
-
-        // Hitung True Range untuk setiap candle
-        const trueRanges = [];
-        for (let i = 1; i < candles.length; i++) {
-            const high = candles[i].high;
-            const low = candles[i].low;
-            const prevClose = candles[i - 1].close;
-            
-            const tr1 = high - low;
-            const tr2 = Math.abs(high - prevClose);
-            const tr3 = Math.abs(low - prevClose);
-            
-            trueRanges.push(Math.max(tr1, tr2, tr3));
-        }
-
-        // Simple Moving Average of True Range (14 period)
-        const recentTR = trueRanges.slice(-14);
-        data.atr = recentTR.reduce((a, b) => a + b, 0) / recentTR.length;
+        const candles = data.ohlcCandles.filter(c=>c.closed);
+        let score=0, maxScore=80;
+        if(data.structure==='BULLISH'||data.structure==='BEARISH') score+=32;
+        else if(data.structure==='TRANSITIONAL') score+=14;
+        if(data.momentumStrength==='STRONG') score+=28;
+        else if(data.momentumStrength==='MODERATE') score+=18;
+        else if(data.momentumStrength==='WEAK') score+=8;
+        if(data.phase==='TRENDING') score+=18;
+        else if(data.phase==='EXPANSION') score+=10;
+        const aligned = ((data.structure==='BULLISH' && data.momentum.includes('UP')) || (data.structure==='BEARISH' && data.momentum.includes('DOWN')));
+        if(aligned) score+=14;
+        if(candles.length>=25) score += 8;
+        let final = Math.max(0, Math.min(100, (score/maxScore)*100));
+        data.confidence = final;
+        if(final>=68) data.confidenceStatus='HIGH';
+        else if(final>=45) data.confidenceStatus='MEDIUM';
+        else if(final>=25) data.confidenceStatus='LOW';
+        else data.confidenceStatus='INVALID';
     }
 
-    // ==================== HTF CONFIDENCE CALCULATION ====================
-    function calculateHTFConfidence(id) {
-        const data = htfData[id];
-        let confidence = 0;
-
-        // Structure confidence (0-40)
-        if (data.structure === 'BULLISH' || data.structure === 'BEARISH') {
-            confidence += 40;
-        } else if (data.structure === 'TRANSITIONAL') {
-            confidence += 15;
-        }
-
-        // Momentum confidence (0-35)
-        switch (data.momentumStrength) {
-            case 'STRONG': confidence += 35; break;
-            case 'MODERATE': confidence += 25; break;
-            case 'WEAK': confidence += 10; break;
-            default: confidence += 0;
-        }
-
-        // Phase confidence (0-25)
-        switch (data.phase) {
-            case 'TRENDING': confidence += 25; break;
-            case 'EXPANSION': confidence += 15; break;
-            case 'LOW_VOLATILITY': confidence += 5; break;
-            default: confidence += 0;
-        }
-
-        // Alignment penalty
-        const isAligned = 
-            (data.structure === 'BULLISH' && data.momentum.includes('UP')) ||
-            (data.structure === 'BEARISH' && data.momentum.includes('DOWN'));
-        
-        if (!isAligned && data.structure !== 'NEUTRAL' && data.structure !== 'RANGE') {
-            confidence = Math.min(confidence, 35);
-        }
-
-        data.confidence = Math.max(0, Math.min(100, confidence));
-    }
-
-    // ==================== MAIN HTF ENGINE UPDATE ====================
     function updateHTFEngine(id, price) {
-        const data = htfData[id];
-
-        // 1. Build OHLC Candle
+        if(!htfData[id]) initHTFData(id);
         buildOHLCCandle(id, price);
-
-        // 2. Calculate ATR (adaptive threshold)
-        calculateATR(id);
-
-        // 3. Detect Pivot Fractals & Structure
-        detectPivotFractals(id);
-
-        // 4. Detect Momentum (menggunakan ATR)
-        detectMomentum(id);
-
-        // 5. Detect Market Phase
+        calculateAdaptiveATR(id);
+        detectPivotsAndStructure(id);
+        detectAccurateMomentum(id);
         detectMarketPhase(id);
-
-        // 6. Calculate Confidence
-        calculateHTFConfidence(id);
-
-        // 7. Render HTF UI
+        calculateConfidence(id);
         renderHTFContext(id);
     }
 
-    // ==================== RENDER HTF CONTEXT ====================
     function renderHTFContext(id) {
-        const data = htfData[id];
-
-        // === TREND (Structure) ===
+        const d = htfData[id];
+        if(!d) return;
         const trendEl = document.getElementById(`trend-${id}`);
-        if (trendEl) {
-            let trendText = '';
-            let trendClass = '';
-
-            switch (data.structure) {
-                case 'BULLISH':
-                    trendText = '▲ BULLISH';
-                    trendClass = 'htf-struct-bull';
-                    break;
-                case 'BEARISH':
-                    trendText = '▼ BEARISH';
-                    trendClass = 'htf-struct-bear';
-                    break;
-                case 'TRANSITIONAL':
-                    trendText = '◆ TRANS';
-                    trendClass = 'htf-struct-weak';
-                    break;
-                case 'RANGE':
-                    trendText = '◆ RANGE';
-                    trendClass = 'htf-struct-neutral';
-                    break;
-                default:
-                    trendText = '◆ NEUTRAL';
-                    trendClass = 'htf-struct-neutral';
-            }
-
-            trendEl.innerHTML = trendText;
-            trendEl.className = `metric-value ${trendClass}`;
+        if(trendEl){
+            let txt='', cls='';
+            if(d.structure==='BULLISH'){ txt='▲ BULLISH'; cls='htf-struct-bull'; }
+            else if(d.structure==='BEARISH'){ txt='▼ BEARISH'; cls='htf-struct-bear'; }
+            else if(d.structure==='RANGE'){ txt='◆ RANGE'; cls='htf-struct-neutral'; }
+            else { txt='◆ TRANS'; cls='htf-struct-neutral'; }
+            trendEl.innerHTML = txt; trendEl.className = `metric-value ${cls}`;
         }
-
-        // === MOMENTUM ===
         const momEl = document.getElementById(`mom-${id}`);
-        if (momEl) {
-            let momText = '';
-            let momColor = '';
-
-            switch (data.momentum) {
-                case 'IMPULSIVE_UP':
-                    momText = data.momentumStrength === 'STRONG' ? '▲ STRONG' : '▲ MODERATE';
-                    momColor = 'var(--htf-bullish)';
-                    break;
-                case 'IMPULSIVE_DOWN':
-                    momText = data.momentumStrength === 'STRONG' ? '▼ STRONG' : '▼ MODERATE';
-                    momColor = 'var(--htf-bearish)';
-                    break;
-                case 'BULLISH':
-                    momText = '▲ WEAK';
-                    momColor = 'var(--htf-weak)';
-                    break;
-                case 'BEARISH':
-                    momText = '▼ WEAK';
-                    momColor = 'var(--htf-weak)';
-                    break;
-                default:
-                    momText = '◆ FLAT';
-                    momColor = 'var(--htf-neutral)';
-            }
-
-            momEl.innerHTML = momText;
-            momEl.style.color = momColor;
+        if(momEl){
+            let mtxt='--', mcolor='var(--text-dim)';
+            if(d.momentum==='IMPULSIVE_UP'){ mtxt='▲ IMPULSE'; mcolor='var(--terminal-green)'; }
+            else if(d.momentum==='IMPULSIVE_DOWN'){ mtxt='▼ IMPULSE'; mcolor='var(--terminal-red)'; }
+            else if(d.momentum==='BULLISH'){ mtxt='▲ BULLISH'; mcolor='#a0e0a0'; }
+            else if(d.momentum==='BEARISH'){ mtxt='▼ BEARISH'; mcolor='#ff8888'; }
+            else mtxt='◆ FLAT';
+            momEl.innerHTML = mtxt; momEl.style.color = mcolor;
         }
-
-        // === RANGE (Phase + Confidence + ATR) ===
         const rangeEl = document.getElementById(`range-${id}`);
-        if (rangeEl) {
+        if(rangeEl){
             rangeEl.innerHTML = '';
-
-            // Phase tag
-            const phaseSpan = document.createElement('span');
-            phaseSpan.style.display = 'block';
-            phaseSpan.style.marginBottom = '2px';
-            
-            let phaseText = '';
-            let phaseClass = '';
-            
-            switch (data.phase) {
-                case 'TRENDING':
-                    phaseText = 'TRENDING';
-                    phaseClass = 'phase-trending';
-                    break;
-                case 'EXPANSION':
-                    phaseText = 'EXPANSION';
-                    phaseClass = 'phase-expansion';
-                    break;
-                case 'LOW_VOLATILITY':
-                    phaseText = 'LOW VOL';
-                    phaseClass = 'phase-lowvol';
-                    break;
-                default:
-                    phaseText = 'RANGE';
-                    phaseClass = 'phase-ranging';
-            }
-            
-            phaseSpan.className = `price-action-phase ${phaseClass}`;
-            phaseSpan.textContent = phaseText;
+            let phaseClass='phase-ranging', phaseText='RANGE';
+            if(d.phase==='TRENDING'){ phaseClass='phase-trending'; phaseText='TRENDING'; }
+            else if(d.phase==='EXPANSION'){ phaseClass='phase-expansion'; phaseText='EXPANSION'; }
+            const phaseSpan = document.createElement('span'); phaseSpan.className=`phase-tag ${phaseClass}`; phaseSpan.textContent=phaseText;
             rangeEl.appendChild(phaseSpan);
-
-            // ATR value
-            const atrSpan = document.createElement('span');
-            atrSpan.style.display = 'block';
-            atrSpan.style.fontSize = '7px';
-            atrSpan.style.color = 'var(--text-dim)';
-            atrSpan.style.marginBottom = '2px';
-            atrSpan.textContent = `ATR ${data.atr.toFixed(2)}`;
+            const atrSpan = document.createElement('div'); atrSpan.style.fontSize='7px'; atrSpan.style.marginTop='3px'; atrSpan.innerText=`ATR ${d.atr.toFixed(2)}`;
             rangeEl.appendChild(atrSpan);
-
-            // Confidence bar
-            const confBar = document.createElement('div');
-            confBar.className = 'confidence-bar-inline';
-            const confFill = document.createElement('div');
-            confFill.className = 'confidence-fill-inline';
-            confFill.style.width = `${data.confidence}%`;
-            
-            if (data.confidence >= 70) {
-                confFill.style.background = 'var(--htf-bullish)';
-            } else if (data.confidence >= 40) {
-                confFill.style.background = 'var(--htf-weak)';
-            } else {
-                confFill.style.background = 'var(--htf-bearish)';
-            }
-            
-            confBar.appendChild(confFill);
-            rangeEl.appendChild(confBar);
-
-            // Confidence text
-            const confText = document.createElement('span');
-            confText.style.fontSize = '6px';
-            confText.style.color = 'var(--text-dim)';
-            confText.style.marginTop = '1px';
-            confText.textContent = `CONF ${Math.round(data.confidence)}%`;
-            rangeEl.appendChild(confText);
+            const confBar=document.createElement('div'); confBar.className='confidence-bar';
+            const fill=document.createElement('div'); fill.className='confidence-fill'; fill.style.width=`${d.confidence}%`;
+            fill.style.backgroundColor = d.confidence>=65 ? 'var(--terminal-green)' : (d.confidence>=40 ? 'var(--terminal-orange)' : 'var(--terminal-red)');
+            confBar.appendChild(fill); rangeEl.appendChild(confBar);
+            const confTxt=document.createElement('div'); confTxt.style.fontSize='6px'; confTxt.style.marginTop='2px'; confTxt.innerText=`CONF ${Math.round(d.confidence)}% | ${d.confidenceStatus}`;
+            rangeEl.appendChild(confTxt);
         }
+        updateSignalQualityUI(id);
     }
 
-    // ==================== SIGNAL ENGINE (UNCHANGED) ====================
+    // ==================== VALIDASI HTF ====================
+    function validateSignalWithHTF(id, direction, price) {
+        const htf = htfData[id];
+        if(!htf || htf.confidenceStatus === 'INVALID') return { valid: true, reason: 'HTF_INIT', confidence: 35, priority:'LOW', sizeMult:0.5 };
+        if(htf.confidence < CONFIG.htf.confidenceThreshold.minToAllow) {
+            if(htf.momentumStrength === 'MODERATE' && htf.structure !== 'BEARISH' && direction==='buy') return { valid: true, reason: 'FAST_MOM', confidence: 42, priority:'MEDIUM', sizeMult:0.65 };
+            if(htf.momentumStrength === 'MODERATE' && htf.structure !== 'BULLISH' && direction==='sell') return { valid: true, reason: 'FAST_MOM', confidence: 42, priority:'MEDIUM', sizeMult:0.65 };
+            return { valid: false, reason: `LOW_HTF (${Math.round(htf.confidence)}%)`, confidence: htf.confidence };
+        }
+        const structMatch = (direction==='buy' && htf.structure==='BULLISH') || (direction==='sell' && htf.structure==='BEARISH');
+        const momMatch = (direction==='buy' && (htf.momentum==='IMPULSIVE_UP'||htf.momentum==='BULLISH')) || (direction==='sell' && (htf.momentum==='IMPULSIVE_DOWN'||htf.momentum==='BEARISH'));
+        if(structMatch && momMatch) return { valid: true, reason: 'FULL_ALIGN', confidence: htf.confidence, priority:'HIGH', sizeMult:1.0 };
+        if(structMatch && htf.momentumStrength==='STRONG') return { valid: true, reason: 'STRUCT_ALIGN', confidence: htf.confidence*0.9, priority:'MEDIUM', sizeMult:0.85 };
+        if(htf.structure==='RANGE' && momMatch && htf.confidence>=50) return { valid: true, reason: 'BREAKOUT', confidence: htf.confidence, priority:'MEDIUM', sizeMult:0.7 };
+        if(htf.confidence>=55 && htf.momentumStrength !== 'NONE') return { valid: true, reason: 'MOM_ONLY', confidence: htf.confidence*0.8, priority:'LOW', sizeMult:0.55 };
+        return { valid: false, reason: `${htf.structure} vs ${direction.toUpperCase()}`, confidence: htf.confidence };
+    }
+
+    function lockSignalWithHTF(id, entry, direction) {
+        const s = state[id];
+        const p = CONFIG.pairs[id];
+        const validation = validateSignalWithHTF(id, direction, entry);
+        if(!validation.valid){
+            if(s) { s.lastReject = validation.reason; }
+            const rejectSpan = document.getElementById(`reject-${id}`);
+            if(rejectSpan) { rejectSpan.innerText = `⛔ ${validation.reason}`; setTimeout(()=>{ if(rejectSpan) rejectSpan.innerText=''; }, 2000); }
+            resetSignal(id);
+            return false;
+        }
+        s.l3 = true; s.confirmed = true; s.type = direction; s.entry = entry; s.signalTimestamp = Date.now();
+        s.htfConfidence = validation.confidence; s.htfReason = validation.reason;
+        let risk = (id==='xau') ? p.risk : entry * p.risk;
+        if(validation.sizeMult) risk *= validation.sizeMult;
+        s.sl = direction==='buy' ? entry - risk : entry + risk;
+        s.tp = direction==='buy' ? entry + (risk * p.rr) : entry - (risk * p.rr);
+        saveState();
+        const sigTxt = document.getElementById(`signal-text-${id}`);
+        if(sigTxt) sigTxt.innerHTML = `${direction.toUpperCase()} ${Math.round(validation.confidence)}%`;
+        return true;
+    }
+
+    // ==================== SIGNAL ENGINE ====================
     function updateSignalLogic(id, price) {
         const s = state[id];
         const p = CONFIG.pairs[id];
-        
-        if (s.confirmed) {
-            if (s.type === 'buy' && (price >= s.tp || price <= s.sl)) resetSignal(id);
-            else if (s.type === 'sell' && (price <= s.tp || price >= s.sl)) resetSignal(id);
+        if(!s) return;
+        if(s.confirmed){
+            if((s.type==='buy' && (price>=s.tp || price<=s.sl)) || (s.type==='sell' && (price<=s.tp || price>=s.sl))) {
+                lastSignalResetTime[id] = Date.now();
+                resetSignal(id);
+            }
             return;
         }
-        
+        if(!s.l1 && Date.now() - lastSignalResetTime[id] > CONFIG.signal.resetCooldownMs && s.prevPrice !== 0) {
+            if(Math.abs(price - s.prevPrice) < p.threshold * 0.8) {
+                resetSignal(id);
+                return;
+            }
+        }
         const diff = price - s.prevPrice;
-        if (s.prevPrice !== 0 && diff !== 0) {
-            s.trendScore += diff;
-        }
-        
-        if (!s.confirmed && s.prevPrice !== 0 && Math.abs(diff) > p.threshold) {
-            const direction = diff > 0 ? 'buy' : 'sell';
-            if (!s.l1) { s.l1 = true; s.type = direction; saveState(); }
-            else if (!s.l2) { s.l2 = true; saveState(); }
-            else { lockSignal(id, price, direction); }
+        if(s.prevPrice!==0 && diff!==0) s.trendScore += diff * 0.7;
+        const thresholdAdjusted = p.threshold * (s.l1 ? 0.9 : 1.0);
+        if(!s.confirmed && s.prevPrice!==0 && Math.abs(diff) > thresholdAdjusted){
+            const direction = diff>0 ? 'buy' : 'sell';
+            if(!s.l1){ s.l1=true; s.type=direction; saveState(); }
+            else if(!s.l2 && s.type===direction){ s.l2=true; saveState(); }
+            else if(!s.l3 && s.l2 && s.type===direction){ lockSignalWithHTF(id, price, direction); }
+            else if(s.type !== direction){ resetSignal(id); }
         }
     }
 
-    function lockSignal(id, entry, type) {
-        const s = state[id];
-        const p = CONFIG.pairs[id];
-        const adjustedEntry = entry;
-        
-        s.l3 = true;
-        s.confirmed = true;
-        s.type = type;
-        s.entry = adjustedEntry;
-        
-        let risk;
-        if (id === 'xau') { risk = p.risk; }
-        else { risk = entry * p.risk; }
-        
-        s.sl = type === 'buy' ? adjustedEntry - risk : adjustedEntry + risk;
-        s.tp = type === 'buy' ? adjustedEntry + (risk * p.rr) : adjustedEntry - (risk * p.rr);
-        saveState();
-    }
-
-    function resetSignal(id) {
-        const s = state[id];
-        const history = priceHistory[id];
-        const prevPrice = s.lastPrice;
-        
+    function resetSignal(id){
+        const oldPrice = state[id]?.lastPrice || 0;
         state[id] = createFreshState();
-        state[id].lastPrice = prevPrice;
-        state[id].prevPrice = prevPrice;
-        priceHistory[id] = history;
+        state[id].lastPrice = oldPrice;
+        state[id].prevPrice = oldPrice;
         saveState();
         renderUI(id);
     }
 
-    // ==================== UPDATE DISPLAY ====================
-    function updateDisplay(id, price) {
+    function renderUI(id){
         const s = state[id];
-        s.prevPrice = s.lastPrice;
-        s.lastPrice = price;
-        
-        // HTF Engine (context only)
-        updateHTFEngine(id, price);
-        
-        // Price display
-        const priceEl = document.getElementById(`price-${id}`);
-        if (priceEl) {
-            priceEl.innerText = price.toFixed(2);
-            if (s.prevPrice !== 0) {
-                priceEl.style.color = price >= s.prevPrice ? 'var(--terminal-green)' : 'var(--terminal-red)';
+        if(!s) return;
+        const isBuy = s.type==='buy';
+        ['fd1','fd2','fd3'].forEach((fd,i)=>{
+            const dot = document.getElementById(`${fd}-${id}`);
+            if(dot){
+                const stage = s[`l${i+1}`];
+                dot.className='fusion-dot';
+                if(stage && s.confirmed) dot.classList.add(isBuy ? 'active-buy':'active-sell','pulse');
+                else if(stage) dot.classList.add(isBuy ? 'active-buy':'active-sell');
+            }
+        });
+        const sigText = document.getElementById(`signal-text-${id}`);
+        if(sigText){
+            if(!wsStatus[id]) sigText.innerText='NO FEED';
+            else if(s.confirmed) sigText.innerText = `${s.type.toUpperCase()}`;
+            else if(s.l3) sigText.innerText='FVG';
+            else if(s.l2) sigText.innerText='CHoCH';
+            else if(s.l1) sigText.innerText='SWEEP';
+            else sigText.innerText='IDLE';
+        }
+        ['ml1','ml2','ml3'].forEach((ml,i)=>{ const dot=document.getElementById(`${ml}-${id}`); if(dot) dot.className = s[`l${i+1}`] ? 'mini-dot on' : 'mini-dot off'; });
+        const l1el=document.getElementById(`logic-l1-${id}`); if(l1el) l1el.innerText = s.l1 ? '' : '';
+        const l2el=document.getElementById(`logic-l2-${id}`); if(l2el) l2el.innerText = s.l2 ? '' : '';
+        const l3el=document.getElementById(`logic-l3-${id}`); if(l3el) l3el.innerText = s.l3 ? '' : '';
+        const entryEl=document.getElementById(`entry-${id}`); if(entryEl) entryEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
+        const tpEl=document.getElementById(`tp-${id}`); if(tpEl) tpEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
+        const slEl=document.getElementById(`sl-${id}`); if(slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+        updateSignalQualityUI(id);
+    }
+
+    function updateSignalQualityUI(id){
+        const s = state[id];
+        const h = htfData[id];
+        const qualityDiv = document.getElementById(`quality-${id}`);
+        if(qualityDiv && h){
+            if(s.confirmed){
+                let cls='quality-low';
+                if(s.htfConfidence>=70) cls='quality-high';
+                else if(s.htfConfidence>=48) cls='quality-med';
+                qualityDiv.innerHTML = `<span class="quality-badge ${cls}">SIGNAL ${s.type.toUpperCase()} | CONF ${Math.round(s.htfConfidence)}% | ${s.htfReason||''}</span>`;
+            } else {
+                qualityDiv.innerHTML = `<span class="quality-badge" style="color:var(--text-dim);">HTF: ${h.confidenceStatus} | CONF ${Math.round(h.confidence)}%</span>`;
             }
         }
-        
-        // Price change
-        const changeEl = document.getElementById(`change-${id}`);
-        if (changeEl && s.prevPrice !== 0) {
-            const diff = price - s.prevPrice;
-            changeEl.innerText = `${diff >= 0 ? '+' : ''}${diff.toFixed(2)}`;
-            changeEl.style.color = diff >= 0 ? 'var(--terminal-green)' : 'var(--terminal-red)';
+    }
+
+    function updateDisplay(id, price){
+        const s = state[id];
+        if(!s) return;
+        s.prevPrice = s.lastPrice;
+        s.lastPrice = price;
+        updateHTFEngine(id, price);
+        const priceEl = document.getElementById(`price-${id}`);
+        if(priceEl){
+            priceEl.innerText = price.toFixed(2);
+            if(s.prevPrice!==0) priceEl.style.color = price>=s.prevPrice ? 'var(--terminal-green)' : 'var(--terminal-red)';
         }
-        
-        // Signal logic (unchanged)
+        const changeEl = document.getElementById(`change-${id}`);
+        if(changeEl && s.prevPrice!==0){
+            const diff = price - s.prevPrice;
+            changeEl.innerText = `${diff>=0?'+':''}${diff.toFixed(2)}`;
+            changeEl.style.color = diff>=0 ? 'var(--terminal-green)' : 'var(--terminal-red)';
+        }
         updateSignalLogic(id, price);
         renderUI(id);
     }
 
-    // ==================== RENDER UI (UNCHANGED) ====================
-    function renderUI(id) {
-        const s = state[id];
-        const isBuy = s.type === 'buy';
-        const hasFeed = wsStatus[id];
-        
-        ['fd1', 'fd2', 'fd3'].forEach((fd, i) => {
-            const dot = document.getElementById(`${fd}-${id}`);
-            if (!dot) return;
-            const stage = s[`l${i+1}`];
-            dot.className = 'fusion-dot';
-            if (stage && s.confirmed) { dot.classList.add(isBuy ? 'active-buy' : 'active-sell'); dot.classList.add('pulse'); }
-            else if (stage) { dot.classList.add(isBuy ? 'active-buy' : 'active-sell'); }
-        });
-        
-        const sigText = document.getElementById(`signal-text-${id}`);
-        if (sigText) {
-            if (!hasFeed) { sigText.innerText = 'NO FEED'; sigText.style.color = 'var(--terminal-red)'; }
-            else if (s.confirmed) { sigText.innerText = s.type.toUpperCase(); sigText.style.color = isBuy ? 'var(--terminal-green)' : 'var(--terminal-red)'; }
-            else if (s.l3) { sigText.innerText = 'FVG'; sigText.style.color = 'var(--terminal-orange)'; }
-            else if (s.l2) { sigText.innerText = 'CHoCH'; sigText.style.color = 'var(--terminal-orange)'; }
-            else if (s.l1) { sigText.innerText = 'SWEEP'; sigText.style.color = 'var(--terminal-blue)'; }
-            else { sigText.innerText = 'IDLE'; sigText.style.color = 'var(--text-dim)'; }
-        }
-        
-        ['ml1', 'ml2', 'ml3'].forEach((ml, i) => {
-            const dot = document.getElementById(`${ml}-${id}`);
-            if (dot) { dot.className = s[`l${i+1}`] ? 'mini-dot on' : 'mini-dot off'; }
-        });
-        
-        const l1El = document.getElementById(`logic-l1-${id}`);
-        if (l1El) l1El.innerText = s.l1 ? 'DETECT' : '--';
-        const l2El = document.getElementById(`logic-l2-${id}`);
-        if (l2El) l2El.innerText = s.l2 ? 'DETECT' : '--';
-        const l3El = document.getElementById(`logic-l3-${id}`);
-        if (l3El) l3El.innerText = s.l3 ? 'DETECT' : '--';
-        
-        const entryEl = document.getElementById(`entry-${id}`);
-        if (entryEl) entryEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-        const tpEl = document.getElementById(`tp-${id}`);
-        if (tpEl) tpEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
-        const slEl = document.getElementById(`sl-${id}`);
-        if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
-    }
-
-    // ==================== WEBSOCKET (UNCHANGED) ====================
-    function connectWebSocket(id) {
+    // WEBSOCKET & INIT
+    function connectWebSocket(id){
         const p = CONFIG.pairs[id];
-        if (!p) return;
-        if (wsConnections[id]) try { wsConnections[id].close(); } catch(e) {}
-        
-        try {
-            const ws = new WebSocket(p.wsUrl);
-            ws.onopen = () => { wsStatus[id] = true; wsRetries[id] = 0; updateWSStatus(id); updateGlobalLivePulse(); };
-            ws.onclose = () => {
-                wsStatus[id] = false; updateWSStatus(id); updateGlobalLivePulse();
-                const delay = Math.min(1000 * Math.pow(2, wsRetries[id]), 30000);
-                wsRetries[id]++; setTimeout(() => connectWebSocket(id), delay);
-            };
-            ws.onerror = () => { wsStatus[id] = false; updateWSStatus(id); updateGlobalLivePulse(); };
-            ws.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    const price = parseFloat(data.c) + p.offset;
-                    if (price > 0) {
-                        if (!wsStatus[id]) { wsStatus[id] = true; updateWSStatus(id); updateGlobalLivePulse(); }
-                        priceHistory[id].push(price);
-                        if (priceHistory[id].length > 100) priceHistory[id].shift();
-                        updateDisplay(id, price);
-                    }
-                } catch(err) { console.error(`Parse error ${id}:`, err); }
-            };
-            wsConnections[id] = ws;
-        } catch(err) { wsStatus[id] = false; updateWSStatus(id); updateGlobalLivePulse(); setTimeout(() => connectWebSocket(id), 5000); }
+        if(!p) return;
+        if(wsConnections[id]) try{ wsConnections[id].close(); }catch(e){}
+        const ws = new WebSocket(p.wsUrl);
+        ws.onopen = ()=>{ wsStatus[id]=true; wsRetries[id]=0; updateWSStatus(id); updateGlobalPulse(); };
+        ws.onclose = ()=>{ wsStatus[id]=false; updateWSStatus(id); updateGlobalPulse(); setTimeout(()=>connectWebSocket(id), Math.min(5000*(wsRetries[id]++),30000)); };
+        ws.onerror = ()=>{ wsStatus[id]=false; updateWSStatus(id); updateGlobalPulse(); };
+        ws.onmessage = (e)=>{
+            try{
+                const data = JSON.parse(e.data);
+                let price = parseFloat(data.c) + p.offset;
+                if(price>0){
+                    if(!wsStatus[id]){ wsStatus[id]=true; updateWSStatus(id); updateGlobalPulse(); }
+                    priceHistory[id].push(price);
+                    if(priceHistory[id].length>150) priceHistory[id].shift();
+                    updateDisplay(id, price);
+                }
+            }catch(err){}
+        };
+        wsConnections[id]=ws;
     }
 
-    function updateWSStatus(id) {
+    function updateWSStatus(id){
         const el = document.getElementById(`ws-status-${id}`);
-        if (el) { el.textContent = wsStatus[id] ? '● LIVE' : '● RECONNECT'; el.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`; }
+        if(el){ el.textContent = wsStatus[id] ? '● CONNECTED' : '● RECONNECT'; el.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`; }
         renderUI(id);
     }
-
-    function updateGlobalLivePulse() {
-        const pulseEl = document.getElementById('livePulse');
-        if (pulseEl) { const anyConnected = wsStatus.xau || wsStatus.btc; if (anyConnected) pulseEl.classList.add('connected'); else pulseEl.classList.remove('connected'); }
+    function updateGlobalPulse(){
+        const pulse = document.getElementById('livePulse');
+        if(pulse) pulse.className = `live-pulse ${(wsStatus.xau||wsStatus.btc) ? 'connected' : ''}`;
     }
-
-    function updateSwitchLabel() {
-        const label = document.getElementById('switchLabel');
-        if (label) label.innerText = CONFIG.pairs[activePairId]?.symbol || activePairId.toUpperCase();
+    function saveState(){ localStorage.setItem('ura_fusion_v81', JSON.stringify({ xau: state.xau, btc: state.btc })); }
+    function loadState(){
+        const saved = localStorage.getItem('ura_fusion_v81');
+        if(saved){
+            try{ const p=JSON.parse(saved); state.xau=p.xau||createFreshState(); state.btc=p.btc||createFreshState(); }catch(e){ resetStates(); }
+        } else resetStates();
+        activePairId = localStorage.getItem('ura_active_pair_v81') || CONFIG.defaultPair;
     }
+    function resetStates(){ state.xau=createFreshState(); state.btc=createFreshState(); }
 
-    function createFreshState() {
-        return { lastPrice: 0, prevPrice: 0, trendScore: 0, l1: false, l2: false, l3: false, confirmed: false, type: 'none', entry: 0, sl: 0, tp: 0 };
-    }
-
-    function loadState() {
-        const savedState = localStorage.getItem('ura_fusion_state');
-        if (savedState) { try { const parsed = JSON.parse(savedState); state.xau = parsed.xau || createFreshState(); state.btc = parsed.btc || createFreshState(); } catch(e) { resetAllStates(); } }
-        else { resetAllStates(); }
-        activePairId = localStorage.getItem('ura_fusion_active_pair') || CONFIG.defaultPair;
-    }
-
-    function resetAllStates() { state.xau = createFreshState(); state.btc = createFreshState(); }
-    function saveState() { localStorage.setItem('ura_fusion_state', JSON.stringify({ xau: state.xau, btc: state.btc })); }
-    function saveActivePair(id) { localStorage.setItem('ura_fusion_active_pair', id); }
-
-    // ==================== INIT ====================
-    function init() {
+    function init(){
         loadState();
-        
-        Object.keys(CONFIG.pairs).forEach(id => { initHTFData(id); });
-        
+        Object.keys(CONFIG.pairs).forEach(id=>{ initHTFData(id); if(!state[id]) state[id]=createFreshState(); priceHistory[id]=[]; });
         const container = document.getElementById('terminals');
-        container.innerHTML = '';
-        
-        Object.keys(CONFIG.pairs).forEach(id => {
-            const p = CONFIG.pairs[id];
-            if (!state[id]) state[id] = createFreshState();
-            if (!priceHistory[id]) priceHistory[id] = [];
-            
-            container.innerHTML += `
-                <div class="pair-card ${id === activePairId ? 'active' : ''}" id="card-${id}">
-                    <div class="card">
-                        <div class="price-header">
-                            <div class="pair-info">
-                                <span class="pair-name">${p.symbol}</span>
-                                <span id="ws-status-${id}" class="ws-status disconnected">● RECONNECT</span>
-                            </div>
-                            <div class="price-display">
-                                <div class="price-value" id="price-${id}">0.00</div>
-                                <div class="price-change" id="change-${id}">--</div>
-                            </div>
-                        </div>
-                        <div class="signal-fusion-bar">
-                            <span class="signal-label">Signal</span>
-                            <div class="signal-fusion-center">
-                                <div class="fusion-dot" id="fd1-${id}"></div>
-                                <div class="fusion-line"></div>
-                                <div class="fusion-dot" id="fd2-${id}"></div>
-                                <div class="fusion-line"></div>
-                                <div class="fusion-dot" id="fd3-${id}"></div>
-                            </div>
-                            <span class="signal-status-text" id="signal-text-${id}">IDLE</span>
-                        </div>
-                        <div class="levels-fusion">
-                            <div class="level-box entry" onclick="copyValue('${id}','entry')"><div class="lbl">Entry</div><div class="val" id="entry-${id}">--</div></div>
-                            <div class="level-box target" onclick="copyValue('${id}','tp')"><div class="lbl">Target</div><div class="val" id="tp-${id}">--</div></div>
-                            <div class="level-box stop" onclick="copyValue('${id}','sl')"><div class="lbl">Stop</div><div class="val" id="sl-${id}">--</div></div>
-                        </div>
-                        <div class="analysis-row">
-                            <div class="analysis-panel">
-                                <div class="panel-title">Logic Engine</div>
-                                <div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml1-${id}"></span>SWEEP</span><span class="metric-value" id="logic-l1-${id}">--</span></div>
-                                <div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml2-${id}"></span>CHoCH</span><span class="metric-value" id="logic-l2-${id}">--</span></div>
-                                <div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml3-${id}"></span>FVG</span><span class="metric-value" id="logic-l3-${id}">--</span></div>
-                            </div>
-                            <div class="analysis-panel">
-                                <div class="panel-title">H1 Direction</div>
-                                <div class="metric-row"><span class="metric-label">TREND</span><span class="metric-value" id="trend-${id}" style="color: var(--htf-neutral);">◆ NEUTRAL</span></div>
-                                <div class="metric-row"><span class="metric-label">MOMENTUM</span><span class="metric-value" id="mom-${id}" style="color: var(--htf-neutral);">◆ FLAT</span></div>
-                                <div class="metric-row" style="flex-direction: column; align-items: flex-start; gap: 2px;"><span class="metric-label">CONTEXT</span><span class="metric-value" id="range-${id}" style="display: flex; flex-direction: column; gap: 2px; width: 100%;">--</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            connectWebSocket(id);
-        });
-
-        updateSwitchLabel();
-        document.getElementById('switchPairBtn').onclick = () => {
-            const pairsList = Object.keys(CONFIG.pairs);
-            const currentIndex = pairsList.indexOf(activePairId);
-            const nextIndex = (currentIndex + 1) % pairsList.length;
-            activePairId = pairsList[nextIndex];
-            saveActivePair(activePairId);
-            updateSwitchLabel();
-            document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active'));
+        const fullHTML = `
+            <div class="pair-card ${activePairId==='xau'?'active':''}" id="card-xau">${generateCardHTML('xau')}</div>
+            <div class="pair-card ${activePairId==='btc'?'active':''}" id="card-btc">${generateCardHTML('btc')}</div>
+        `;
+        container.innerHTML = fullHTML;
+        Object.keys(CONFIG.pairs).forEach(id=>{ connectWebSocket(id); });
+        document.getElementById('switchPairBtn').onclick = ()=>{
+            const keys = Object.keys(CONFIG.pairs);
+            let idx = keys.indexOf(activePairId);
+            activePairId = keys[(idx+1)%keys.length];
+            localStorage.setItem('ura_active_pair_v81', activePairId);
+            document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol;
+            document.querySelectorAll('.pair-card').forEach(c=>c.classList.remove('active'));
             document.getElementById(`card-${activePairId}`).classList.add('active');
         };
+        document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol;
         
-        updateGlobalLivePulse();
-        setInterval(() => updateGlobalLivePulse(), 1000);
+        setupTripleTapReset();
+        
+        updateGlobalPulse();
+        setInterval(()=>updateGlobalPulse(),1000);
     }
-
-    window.copyValue = (id, type) => {
-        const val = document.getElementById(`${type}-${id}`).innerText;
-        if (val !== '--') { navigator.clipboard.writeText(val); if (navigator.vibrate) navigator.vibrate(50); }
-    };
-    
+    function generateCardHTML(id){
+        const p = CONFIG.pairs[id];
+        return `<div class="card"><div class="price-header"><div class="pair-info"><span class="pair-name">${p.symbol}</span><span id="ws-status-${id}" class="ws-status disconnected">● RECONNECT</span></div><div class="price-display"><div class="price-value" id="price-${id}">0.00</div><div class="price-change" id="change-${id}">--</div></div></div><div class="signal-fusion-bar"><span class="signal-label">SIGNAL</span><div class="signal-fusion-center"><div class="fusion-dot" id="fd1-${id}"></div><div class="fusion-line"></div><div class="fusion-dot" id="fd2-${id}"></div><div class="fusion-line"></div><div class="fusion-dot" id="fd3-${id}"></div></div><span class="signal-status-text" id="signal-text-${id}">IDLE</span></div><div class="levels-fusion"><div class="level-box entry" onclick="window.copyValue('${id}','entry')"><div class="lbl">Entry</div><div class="val" id="entry-${id}">--</div></div><div class="level-box target" onclick="window.copyValue('${id}','tp')"><div class="lbl">Target</div><div class="val" id="tp-${id}">--</div></div><div class="level-box stop" onclick="window.copyValue('${id}','sl')"><div class="lbl">Stop</div><div class="val" id="sl-${id}">--</div></div></div><div class="analysis-row"><div class="analysis-panel"><div class="panel-title">LOGIC ENGINE</div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml1-${id}"></span>LIQUIDITY</span><span class="metric-value" id="logic-l1-${id}"></span></div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml2-${id}"></span>CHoCH</span><span class="metric-value" id="logic-l2-${id}"></span></div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml3-${id}"></span>FAIR VALUE GAP</span><span class="metric-value" id="logic-l3-${id}"></span></div></div><div class="analysis-panel"><div class="panel-title">HTF DIRECTION</div><div class="metric-row"><span class="metric-label">STRUCTURE</span><span class="metric-value" id="trend-${id}">--</span></div><div class="metric-row"><span class="metric-label">MOMENTUM</span><span class="metric-value" id="mom-${id}">--</span></div><div class="metric-row" style="flex-direction:column; align-items:flex-start;"><span class="metric-label">CONTEXT</span><span id="range-${id}" style="width:100%"></span></div></div></div><div class="signal-quality-panel" id="quality-${id}"><span class="quality-badge">WAITING HTF</span></div><div id="reject-${id}" class="reject-reason" style="padding:4px 8px;"></div></div>`;
+    }
+    window.copyValue = (id,type)=>{ const v = document.getElementById(`${type}-${id}`).innerText; if(v!=='--'){ navigator.clipboard.writeText(v); if(navigator.vibrate) navigator.vibrate(30); } };
     init();
 </script>
 </body>
