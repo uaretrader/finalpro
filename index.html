@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>URA FUSION v8.6 | DUAL SOURCE (WS + Polling) | HTF-Integrated</title>
+    <title>URA FUSION v8.7 | STABLE BTC | HTF-Integrated Precision Signal</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -234,7 +234,7 @@
 <body>
 <div class="container">
     <header id="mainHeader">
-        <div class="brand"><h1>URA</h1><span class="version">v8.6</span></div>
+        <div class="brand"><h1>URA</h1><span class="version">v8.7</span></div>
         <div class="header-right">
             <div style="display: flex; align-items: center; gap: 6px; font-size: 8px; background: rgba(0,0,0,0.3); padding: 4px 8px;">
                 <span id="livePulse" class="live-pulse"></span><span>LIVE</span>
@@ -243,12 +243,12 @@
         </div>
     </header>
     <div id="terminals"></div>
-    <footer>URA FUSION v8.6 | DUAL SOURCE (WebSocket + Polling 1s) | LIMIT ORDER + BIAS</footer>
+    <footer>URA FUSION v8.7 | STABLE BTC | HTF BIAS TREND + MOMENTUM | OPTIMIZED</footer>
 </div>
 <div id="toastMsg" class="toast-message">✓ ALL RESET</div>
 
 <script>
-    // ==================== KONFIGURASI ====================
+    // ==================== KONFIGURASI OPTIMASI ====================
     const CONFIG = {
         pairs: {
             xau: { 
@@ -259,10 +259,17 @@
                 offset: -4, 
                 risk: 15, 
                 rr: 1.6, 
-                threshold: 1,
+                threshold: 1.2,
                 priceMultiplier: 1,
                 limitSpread: 1.5,
-                biasOffset: { buy: -3, sell: 3 }
+                biasOffset: { buy: -3, sell: 3 },
+                htfParams: {
+                    ticksPerCandle: 5,
+                    pivotLookback: 2,
+                    minCandlesForStructure: 12,
+                    minCandlesForMomentum: 10,
+                    atrPeriod: 10
+                }
             },
             btc: { 
                 name: 'BTCUSD', 
@@ -270,34 +277,48 @@
                 wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker',
                 restUrl: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
                 offset: -10, 
-                risk: 0.0050, 
-                rr: 2, 
-                threshold: 16,
+                risk: 0.0035,      // Dikurangi dari 0.0050 untuk filtering
+                rr: 2.2,           // Dinaikkan untuk reward lebih besar
+                threshold: 35,     // 🔥 Dinaikkan dari 16 → 35
                 priceMultiplier: 1,
-                limitSpread: 50,
-                biasOffset: { buy: -50, sell: 50 }
+                limitSpread: 25,   // 🔥 Dikurangi dari 50 → 25
+                biasOffset: { buy: -30, sell: 30 },
+                htfParams: {
+                    ticksPerCandle: 8,      // 🔥 Lebih panjang untuk BTC
+                    pivotLookback: 3,       // 🔥 Lebih stabil
+                    minCandlesForStructure: 20,
+                    minCandlesForMomentum: 15,
+                    atrPeriod: 14
+                }
             }
         },
         defaultPair: 'xau',
         htf: {
+            // Default parameters (akan di-override per pair jika ada)
             ticksPerCandle: 5,
             pivotLookback: 1,
             minCandlesForStructure: 12,
             minCandlesForMomentum: 8,
-            confidenceThreshold: { minToAllow: 35, high: 70, medium: 45 }
+            confidenceThreshold: { 
+                minToAllow: 45,    // 🔥 Dinaikkan dari 35 → 45
+                high: 70, 
+                medium: 50 
+            }
         },
         signal: {
-            resetCooldownMs: 8000,
-            orderTimeoutMs: 900000
+            resetCooldownMs: 15000,    // 🔥 Dinaikkan dari 8000 → 15000
+            orderTimeoutMs: 900000,
+            minTrendScoreTrigger: 0.05,
+            confirmationBars: 2        // 🔥 Baru: butuh konfirmasi multiple candles
         },
         ws: {
             reconnectBaseDelayMs: 2000,
             maxReconnectDelayMs: 30000,
-            maxPriceHistory: 150
+            maxPriceHistory: 200        // 🔥 Dinaikkan untuk HTF lebih akurat
         },
         polling: {
             enabled: true,
-            intervalMs: 1000  // 1 detik polling
+            intervalMs: 1000
         }
     };
 
@@ -310,10 +331,11 @@
     let priceHistory = { xau: [], btc: [] };
     let lastSignalResetTime = { xau: 0, btc: 0 };
     let pollingTimers = { xau: null, btc: null };
-    let dataSource = { xau: 'WS', btc: 'WS' };  // 'WS' or 'POLLING'
+    let dataSource = { xau: 'WS', btc: 'WS' };
     let lastWsPrice = { xau: null, btc: null };
     let lastPollPrice = { xau: null, btc: null };
     let wsLastUpdate = { xau: 0, btc: 0 };
+    let consecutiveSameDirection = { xau: 0, btc: 0 };  // 🔥 Anti flip-flap
 
     let htfData = { xau: null, btc: null };
     let renderPending = { xau: false, btc: false };
@@ -329,11 +351,16 @@
         return id === 'xau' ? price.toFixed(2) : price.toFixed(1);
     }
 
-    // ==================== POLLING (1 DETIK) ====================
+    function getPairParams(id) {
+        const pair = CONFIG.pairs[id];
+        const htfParams = { ...CONFIG.htf, ...(pair.htfParams || {}) };
+        return { pair, htfParams };
+    }
+
+    // ==================== POLLING ====================
     async function fetchPriceRest(id) {
         const p = CONFIG.pairs[id];
         if (!p || !p.restUrl) return null;
-        
         try {
             const response = await fetch(p.restUrl);
             const data = await response.json();
@@ -342,23 +369,17 @@
                 price += p.offset;
                 return price;
             }
-        } catch (err) {
-            console.warn(`[${id}] Polling failed:`, err);
-        }
+        } catch (err) {}
         return null;
     }
 
     function startPolling(id) {
         if (pollingTimers[id]) clearInterval(pollingTimers[id]);
-        
         pollingTimers[id] = setInterval(async () => {
             const price = await fetchPriceRest(id);
             if (price && isValidPrice(price)) {
                 lastPollPrice[id] = price;
-                
-                // Jika WebSocket mati atau tidak update > 3 detik, gunakan polling
                 const wsIsDead = !wsStatus[id] || (Date.now() - wsLastUpdate[id] > 3000);
-                
                 if (wsIsDead) {
                     if (dataSource[id] !== 'POLLING') {
                         dataSource[id] = 'POLLING';
@@ -366,12 +387,10 @@
                         updateGlobalPulse();
                     }
                     updateDisplay(id, price);
-                } else {
-                    if (dataSource[id] !== 'WS') {
-                        dataSource[id] = 'WS';
-                        updateWSStatus(id);
-                        updateGlobalPulse();
-                    }
+                } else if (dataSource[id] !== 'WS') {
+                    dataSource[id] = 'WS';
+                    updateWSStatus(id);
+                    updateGlobalPulse();
                 }
             }
         }, CONFIG.polling.intervalMs);
@@ -399,13 +418,14 @@
     function resetAllData() {
         Object.keys(CONFIG.pairs).forEach(id => {
             const currentPrice = state[id]?.lastPrice || 0;
-            state[id] = createFreshState();
+            state[id] = createFreshState(id);
             state[id].lastPrice = currentPrice;
             state[id].prevPrice = currentPrice;
             initHTFData(id);
             seedHTFWithHistoricalData(id);
             lastSignalResetTime[id] = Date.now();
             priceHistory[id] = [];
+            consecutiveSameDirection[id] = 0;
             renderUIThrottled(id);
             renderHTFContext(id);
         });
@@ -416,7 +436,8 @@
         if(navigator.vibrate) navigator.vibrate(50);
     }
 
-    function createFreshState() {
+    function createFreshState(id) {
+        const p = CONFIG.pairs[id];
         return {
             lastPrice: 0, prevPrice: 0, trendScore: 0,
             l1: false, l2: false, l3: false, confirmed: false, type: 'none',
@@ -424,29 +445,34 @@
             entryDisplay: 0,
             sl: 0, tp: 0,
             htfConfidence: 0, htfReason: null, lastReject: null,
-            signalTimestamp: 0, orderExpiry: 0
+            signalTimestamp: 0, orderExpiry: 0,
+            lastDirection: null,           // 🔥 Anti flip-flap
+            directionConfirmCount: 0       // 🔥 Konfirmasi beruntun
         };
     }
 
-    // ==================== HTF ENGINE ====================
+    // ==================== HTF ENGINE OPTIMASI ====================
     function initHTFData(id) {
+        const { htfParams } = getPairParams(id);
         htfData[id] = {
             ohlcCandles: [],
             currentCandle: null,
             tickCounter: 0,
             swings: [], pivotHighs: [], pivotLows: [],
             structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE',
-            momentumConfidence: 0, phase: 'RANGE', atr: id === 'xau' ? 0.15 : 50,
+            momentumConfidence: 0, phase: 'RANGE', atr: id === 'xau' ? 0.15 : 150,
             atrPercent: 0, atrReliability: 'NONE', confidence: 0,
-            confidenceStatus: 'INVALID', lastStructureBreak: 0, lastUpdate: 0
+            confidenceStatus: 'INVALID', lastStructureBreak: 0, lastUpdate: 0,
+            emaShort: [], emaLong: [],      // 🔥 Trend filter tambahan
+            trendBias: 'NEUTRAL'
         };
     }
 
     function seedHTFWithHistoricalData(id) {
         const data = htfData[id];
-        if (!data || priceHistory[id].length < 4) return;
+        if (!data || priceHistory[id].length < 10) return;
         const history = [...priceHistory[id]];
-        const candleSize = Math.max(1, Math.floor(history.length / 10));
+        const candleSize = Math.max(1, Math.floor(history.length / 15));
         for (let i = 0; i < history.length; i += candleSize) {
             const slice = history.slice(i, i + candleSize);
             if (slice.length > 0) {
@@ -459,18 +485,19 @@
                 });
             }
         }
-        if (data.ohlcCandles.length > 80) data.ohlcCandles = data.ohlcCandles.slice(-80);
+        if (data.ohlcCandles.length > 120) data.ohlcCandles = data.ohlcCandles.slice(-120);
     }
 
     function buildOHLCCandle(id, price) {
         const data = htfData[id];
+        const { htfParams } = getPairParams(id);
         if (!data || !isValidPrice(price)) return;
         data.tickCounter++;
-        if (!data.currentCandle || data.tickCounter >= CONFIG.htf.ticksPerCandle) {
+        if (!data.currentCandle || data.tickCounter >= htfParams.ticksPerCandle) {
             if (data.currentCandle && !data.currentCandle.closed) {
                 data.currentCandle.closed = true;
                 data.ohlcCandles.push(data.currentCandle);
-                if (data.ohlcCandles.length > 80) data.ohlcCandles.shift();
+                if (data.ohlcCandles.length > 120) data.ohlcCandles.shift();
             }
             data.tickCounter = 0;
             data.currentCandle = {
@@ -490,29 +517,32 @@
 
     function calculateAdaptiveATR(id) {
         const data = htfData[id];
+        const { htfParams } = getPairParams(id);
         const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < 4) { 
-            data.atr = id === 'xau' ? 0.15 : 50; 
+        if (candles.length < 5) { 
+            data.atr = id === 'xau' ? 0.15 : 150; 
             return; 
         }
         let totalTR = 0;
-        for (let i = 1; i < candles.length; i++) {
+        const period = Math.min(htfParams.atrPeriod, candles.length - 1);
+        for (let i = 1; i <= period; i++) {
             totalTR += Math.max(candles[i].high - candles[i].low, 
                 Math.abs(candles[i].high - candles[i-1].close), 
                 Math.abs(candles[i].low - candles[i-1].close));
         }
-        data.atr = totalTR / (candles.length - 1);
-        const latestPrice = candles[candles.length-1]?.close || data.currentCandle?.close || (id === 'xau' ? 2000 : 50000);
+        data.atr = totalTR / period;
+        const latestPrice = candles[candles.length-1]?.close || data.currentCandle?.close || (id === 'xau' ? 2000 : 60000);
         data.atrPercent = (data.atr / latestPrice) * 100;
     }
 
     function detectPivotsAndStructure(id) {
         const data = htfData[id];
+        const { htfParams } = getPairParams(id);
         const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < CONFIG.htf.minCandlesForStructure) return;
+        if (candles.length < htfParams.minCandlesForStructure) return;
         
         data.pivotHighs = []; data.pivotLows = [];
-        const lookback = CONFIG.htf.pivotLookback;
+        const lookback = htfParams.pivotLookback;
         for (let i = lookback; i < candles.length - lookback; i++) {
             let isHigh = true, isLow = true;
             for (let j = 1; j <= lookback; j++) {
@@ -525,32 +555,40 @@
             if (isLow) data.pivotLows.push({ index: i, price: candles[i].low });
         }
         
-        const swings = data.pivotHighs.slice(-3).map(p => ({ val: p.price, type: 'H' }))
-            .concat(data.pivotLows.slice(-3).map(p => ({ val: p.price, type: 'L' })))
-            .sort((a, b) => a.val - b.val);
+        // 🔥 Improved structure detection with more data points
+        const recentHighs = data.pivotHighs.slice(-5).map(p => p.price);
+        const recentLows = data.pivotLows.slice(-5).map(p => p.price);
         
-        const highs = swings.filter(s => s.type === 'H').map(s => s.val);
-        const lows = swings.filter(s => s.type === 'L').map(s => s.val);
-        
-        if (highs.length >= 2 && lows.length >= 2) {
-            const isHH = highs[highs.length-1] > highs[highs.length-2];
-            const isHL = lows[lows.length-1] > lows[lows.length-2];
-            if (isHH && isHL) data.structure = 'BULLISH';
-            else if (highs[highs.length-1] < highs[highs.length-2] && lows[lows.length-1] < lows[lows.length-2]) data.structure = 'BEARISH';
+        if (recentHighs.length >= 3 && recentLows.length >= 3) {
+            const isHigherHigh = recentHighs[recentHighs.length-1] > recentHighs[recentHighs.length-2];
+            const isHigherLow = recentLows[recentLows.length-1] > recentLows[recentLows.length-2];
+            const isLowerHigh = recentHighs[recentHighs.length-1] < recentHighs[recentHighs.length-2];
+            const isLowerLow = recentLows[recentLows.length-1] < recentLows[recentLows.length-2];
+            
+            if (isHigherHigh && isHigherLow) data.structure = 'BULLISH';
+            else if (isLowerHigh && isLowerLow) data.structure = 'BEARISH';
             else data.structure = 'RANGE';
-        } else data.structure = 'TRANSITIONAL';
+        } else {
+            data.structure = 'TRANSITIONAL';
+        }
     }
 
+    // 🔥 Enhanced momentum detection with trend bias
     function detectAccurateMomentum(id) {
         const data = htfData[id];
         const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < CONFIG.htf.minCandlesForMomentum) {
+        const { htfParams } = getPairParams(id);
+        
+        if (candles.length < htfParams.minCandlesForMomentum) {
             data.momentum = 'INSUFFICIENT'; data.momentumStrength = 'NONE'; data.momentumConfidence = 20;
             return;
         }
-        const recent = candles.slice(-6);
-        const threshold = Math.max(data.atr * 0.55, id === 'xau' ? 0.04 : 10);
+        
+        const recent = candles.slice(-10);
+        const atr = data.atr;
+        const threshold = Math.max(atr * 0.45, id === 'xau' ? 0.03 : 80);
         let buyPressure = 0, sellPressure = 0, valid = 0;
+        
         for (let c of recent) {
             const bodyRatio = c.body / (c.range || 0.0001);
             const isDisplace = c.range > threshold;
@@ -558,50 +596,94 @@
             if (c.isBullish && (isDisplace || isBodyDom)) { buyPressure += (1 + bodyRatio); valid++; }
             else if (!c.isBullish && (isDisplace || isBodyDom)) { sellPressure += (1 + bodyRatio); valid++; }
         }
+        
+        // 🔥 Calculate EMA trend bias
+        const closes = candles.slice(-20).map(c => c.close);
+        if (closes.length >= 10) {
+            const emaShort = closes.slice(-5).reduce((a,b) => a+b, 0) / 5;
+            const emaLong = closes.slice(-10).reduce((a,b) => a+b, 0) / 10;
+            data.trendBias = emaShort > emaLong ? 'BULLISH' : (emaShort < emaLong ? 'BEARISH' : 'NEUTRAL');
+        }
+        
         const total = buyPressure + sellPressure;
-        if (valid >= 3 && total > 0) {
+        if (valid >= 4 && total > 0) {
             const buyPct = buyPressure / total;
-            if (buyPct > 0.65) { data.momentum = 'IMPULSIVE_UP'; data.momentumStrength = 'STRONG'; data.momentumConfidence = Math.min(100, buyPct * 100); }
-            else if (sellPressure / total > 0.65) { data.momentum = 'IMPULSIVE_DOWN'; data.momentumStrength = 'STRONG'; data.momentumConfidence = Math.min(100, (sellPressure / total) * 100); }
-            else if (buyPct > 0.55) { data.momentum = 'BULLISH'; data.momentumStrength = 'MODERATE'; data.momentumConfidence = 58; }
-            else if (sellPressure / total > 0.55) { data.momentum = 'BEARISH'; data.momentumStrength = 'MODERATE'; data.momentumConfidence = 58; }
-            else { data.momentum = 'CONGESTION'; data.momentumStrength = 'WEAK'; data.momentumConfidence = 35; }
-        } else { data.momentum = 'STABLE'; data.momentumStrength = 'WEAK'; data.momentumConfidence = 25; }
+            if (buyPct > 0.65) { 
+                data.momentum = 'IMPULSIVE_UP'; 
+                data.momentumStrength = 'STRONG'; 
+                data.momentumConfidence = Math.min(100, buyPct * 100); 
+            } else if (sellPressure / total > 0.65) { 
+                data.momentum = 'IMPULSIVE_DOWN'; 
+                data.momentumStrength = 'STRONG'; 
+                data.momentumConfidence = Math.min(100, (sellPressure / total) * 100); 
+            } else if (buyPct > 0.58) { 
+                data.momentum = 'BULLISH'; 
+                data.momentumStrength = 'MODERATE'; 
+                data.momentumConfidence = 58; 
+            } else if (sellPressure / total > 0.58) { 
+                data.momentum = 'BEARISH'; 
+                data.momentumStrength = 'MODERATE'; 
+                data.momentumConfidence = 58; 
+            } else { 
+                data.momentum = 'CONGESTION'; 
+                data.momentumStrength = 'WEAK'; 
+                data.momentumConfidence = 35; 
+            }
+        } else { 
+            data.momentum = 'STABLE'; 
+            data.momentumStrength = 'WEAK'; 
+            data.momentumConfidence = 25; 
+        }
     }
 
     function detectMarketPhase(id) {
         const data = htfData[id];
         const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < 8) return;
-        const recent = candles.slice(-8);
+        if (candles.length < 12) return;
+        const recent = candles.slice(-12);
         let expand = 0;
         for (let i = 1; i < recent.length; i++) {
-            if (recent[i].range > (data.atr * 1.1)) expand++;
+            if (recent[i].range > (data.atr * 1.2)) expand++;
         }
         const isTrend = (data.structure === 'BULLISH' || data.structure === 'BEARISH');
-        if (isTrend && expand >= 2) data.phase = 'TRENDING';
-        else if (expand >= 3) data.phase = 'EXPANSION';
+        if (isTrend && expand >= 3) data.phase = 'TRENDING';
+        else if (expand >= 4) data.phase = 'EXPANSION';
+        else if (expand <= 1) data.phase = 'LOW_VOL';
         else data.phase = 'RANGE';
     }
 
     function calculateConfidence(id) {
         const data = htfData[id];
-        let score = 0, maxScore = 80;
-        if (data.structure === 'BULLISH' || data.structure === 'BEARISH') score += 32;
-        else if (data.structure === 'TRANSITIONAL') score += 14;
-        if (data.momentumStrength === 'STRONG') score += 28;
-        else if (data.momentumStrength === 'MODERATE') score += 18;
+        let score = 0, maxScore = 100;
+        
+        // Structure contribution (max 35)
+        if (data.structure === 'BULLISH' || data.structure === 'BEARISH') score += 35;
+        else if (data.structure === 'TRANSITIONAL') score += 15;
+        
+        // Momentum contribution (max 30)
+        if (data.momentumStrength === 'STRONG') score += 30;
+        else if (data.momentumStrength === 'MODERATE') score += 20;
         else if (data.momentumStrength === 'WEAK') score += 8;
-        if (data.phase === 'TRENDING') score += 18;
-        else if (data.phase === 'EXPANSION') score += 10;
+        
+        // Phase contribution (max 20)
+        if (data.phase === 'TRENDING') score += 20;
+        else if (data.phase === 'EXPANSION') score += 12;
+        else if (data.phase === 'RANGE') score += 5;
+        
+        // Alignment between structure and momentum (max 15)
         const aligned = ((data.structure === 'BULLISH' && data.momentum.includes('UP')) || 
                          (data.structure === 'BEARISH' && data.momentum.includes('DOWN')));
-        if (aligned) score += 14;
-        let final = Math.max(0, Math.min(100, (score / maxScore) * 100));
+        if (aligned) score += 15;
+        
+        // Trend bias alignment (max 10)
+        if (data.trendBias === data.structure) score += 10;
+        
+        let final = Math.max(0, Math.min(100, score));
         data.confidence = final;
-        if (final >= 68) data.confidenceStatus = 'HIGH';
-        else if (final >= 45) data.confidenceStatus = 'MEDIUM';
-        else if (final >= 25) data.confidenceStatus = 'LOW';
+        
+        if (final >= 70) data.confidenceStatus = 'HIGH';
+        else if (final >= 50) data.confidenceStatus = 'MEDIUM';
+        else if (final >= 30) data.confidenceStatus = 'LOW';
         else data.confidenceStatus = 'INVALID';
     }
 
@@ -647,9 +729,10 @@
             let phaseClass = 'phase-ranging', phaseText = 'RANGE';
             if (d.phase === 'TRENDING') { phaseClass = 'phase-trending'; phaseText = 'TRENDING'; }
             else if (d.phase === 'EXPANSION') { phaseClass = 'phase-expansion'; phaseText = 'EXPANSION'; }
+            else if (d.phase === 'LOW_VOL') { phaseClass = 'phase-lowvol'; phaseText = 'LOW VOL'; }
             const phaseSpan = document.createElement('span'); phaseSpan.className = `phase-tag ${phaseClass}`; phaseSpan.textContent = phaseText;
             rangeEl.appendChild(phaseSpan);
-            const atrSpan = document.createElement('div'); atrSpan.style.fontSize = '7px'; atrSpan.style.marginTop = '3px'; atrSpan.innerText = `ATR ${d.atr.toFixed(2)}`;
+            const atrSpan = document.createElement('div'); atrSpan.style.fontSize = '7px'; atrSpan.style.marginTop = '3px'; atrSpan.innerText = `ATR ${d.atr.toFixed(id === 'xau' ? 2 : 0)}`;
             rangeEl.appendChild(atrSpan);
             const confBar = document.createElement('div'); confBar.className = 'confidence-bar';
             const fill = document.createElement('div'); fill.className = 'confidence-fill'; fill.style.width = `${d.confidence}%`;
@@ -662,21 +745,42 @@
         updateSignalQualityUI(id);
     }
 
+    // 🔥 Enhanced validation dengan trend bias
     function validateSignalWithHTF(id, direction, price) {
         const htf = htfData[id];
+        const { htfParams } = getPairParams(id);
+        
         if (!htf || htf.confidenceStatus === 'INVALID') { 
             return { valid: true, reason: 'HTF_INIT', confidence: 35, priority: 'LOW', sizeMult: 0.5 }; 
         }
+        
+        // 🔥 Tighter confidence threshold
         if (htf.confidence < CONFIG.htf.confidenceThreshold.minToAllow) {
             return { valid: false, reason: `LOW_HTF (${Math.round(htf.confidence)}%)`, confidence: htf.confidence };
         }
+        
         const structMatch = (direction === 'buy' && htf.structure === 'BULLISH') || (direction === 'sell' && htf.structure === 'BEARISH');
         const momMatch = (direction === 'buy' && (htf.momentum === 'IMPULSIVE_UP' || htf.momentum === 'BULLISH')) || 
                          (direction === 'sell' && (htf.momentum === 'IMPULSIVE_DOWN' || htf.momentum === 'BEARISH'));
-        if (structMatch && momMatch) return { valid: true, reason: 'FULL_ALIGN', confidence: htf.confidence, priority: 'HIGH', sizeMult: 1.0 };
-        if (structMatch && htf.momentumStrength === 'STRONG') return { valid: true, reason: 'STRUCT_ALIGN', confidence: htf.confidence * 0.9, priority: 'MEDIUM', sizeMult: 0.85 };
-        if (htf.structure === 'RANGE' && momMatch && htf.confidence >= 50) return { valid: true, reason: 'BREAKOUT', confidence: htf.confidence, priority: 'MEDIUM', sizeMult: 0.7 };
-        if (htf.confidence >= 55 && htf.momentumStrength !== 'NONE') return { valid: true, reason: 'MOM_ONLY', confidence: htf.confidence * 0.8, priority: 'LOW', sizeMult: 0.55 };
+        const trendMatch = (direction === 'buy' && htf.trendBias === 'BULLISH') || (direction === 'sell' && htf.trendBias === 'BEARISH');
+        
+        // 🔥 Full alignment with all three components
+        if (structMatch && momMatch && trendMatch) { 
+            return { valid: true, reason: 'FULL_ALIGN', confidence: htf.confidence, priority: 'HIGH', sizeMult: 1.0 }; 
+        }
+        if (structMatch && momMatch) { 
+            return { valid: true, reason: 'STRUCT+MOM', confidence: htf.confidence * 0.95, priority: 'HIGH', sizeMult: 0.9 }; 
+        }
+        if (structMatch && htf.momentumStrength === 'STRONG') { 
+            return { valid: true, reason: 'STRUCT_ALIGN', confidence: htf.confidence * 0.9, priority: 'MEDIUM', sizeMult: 0.85 }; 
+        }
+        if (htf.structure === 'RANGE' && momMatch && htf.confidence >= 55) { 
+            return { valid: true, reason: 'BREAKOUT', confidence: htf.confidence, priority: 'MEDIUM', sizeMult: 0.7 }; 
+        }
+        if (htf.confidence >= 60 && htf.momentumStrength !== 'NONE') { 
+            return { valid: true, reason: 'MOM_ONLY', confidence: htf.confidence * 0.85, priority: 'LOW', sizeMult: 0.6 }; 
+        }
+        
         return { valid: false, reason: `${htf.structure} vs ${direction.toUpperCase()}`, confidence: htf.confidence };
     }
 
@@ -697,9 +801,8 @@
             return false;
         }
         
-        // LIMIT ORDER CALCULATION
         let entryOriginal, sl, tp;
-        const spread = p.limitSpread || (id === 'xau' ? 1.5 : 50);
+        const spread = p.limitSpread;
         
         if (direction === 'buy') {
             entryOriginal = marketPrice - spread;
@@ -711,7 +814,6 @@
             tp = entryOriginal - (p.risk * p.rr);
         }
         
-        // Apply size multiplier
         if (validation.sizeMult) {
             const riskAmount = (direction === 'buy') ? (entryOriginal - sl) : (sl - entryOriginal);
             const adjustedRisk = riskAmount * validation.sizeMult;
@@ -724,8 +826,7 @@
             }
         }
         
-        // Apply bias offset for display
-        const bias = p.biasOffset || { buy: -3, sell: 3 };
+        const bias = p.biasOffset;
         let entryDisplay = entryOriginal;
         if (direction === 'buy') {
             entryDisplay = entryOriginal + bias.buy;
@@ -750,6 +851,7 @@
         return true;
     }
 
+    // 🔥 Enhanced signal logic with anti flip-flap
     function updateSignalLogic(id, price) {
         const s = state[id];
         const p = CONFIG.pairs[id];
@@ -770,18 +872,29 @@
         }
         
         if (!s.l1 && Date.now() - lastSignalResetTime[id] > CONFIG.signal.resetCooldownMs && s.prevPrice !== 0) {
-            if (Math.abs(price - s.prevPrice) < p.threshold * 0.8) { 
+            if (Math.abs(price - s.prevPrice) < p.threshold * 0.7) { 
                 resetSignal(id); 
                 return; 
             }
         }
         
         const diff = price - s.prevPrice;
-        if (s.prevPrice !== 0 && diff !== 0) s.trendScore += diff * 0.7;
+        if (s.prevPrice !== 0 && diff !== 0) s.trendScore += diff * 0.5;
         
-        const thresholdAdjusted = p.threshold * (s.l1 ? 0.9 : 1.0);
-        if (!s.confirmed && s.prevPrice !== 0 && Math.abs(diff) > thresholdAdjusted) {
-            const direction = diff > 0 ? 'buy' : 'sell';
+        const direction = diff > 0 ? 'buy' : 'sell';
+        
+        // 🔥 Anti flip-flap: butuh konfirmasi multiple ticks
+        if (s.lastDirection === direction) {
+            s.directionConfirmCount++;
+        } else {
+            s.directionConfirmCount = 1;
+            s.lastDirection = direction;
+        }
+        
+        const thresholdAdjusted = p.threshold * (s.l1 ? 0.85 : 1.0);
+        const enoughConfirmation = s.directionConfirmCount >= 2;  // Butuh 2 tick searah
+        
+        if (!s.confirmed && s.prevPrice !== 0 && Math.abs(diff) > thresholdAdjusted && enoughConfirmation) {
             if (!s.l1) { 
                 s.l1 = true; 
                 s.type = direction; 
@@ -791,8 +904,11 @@
                 saveState(); 
             } else if (!s.l3 && s.l2 && s.type === direction) { 
                 lockSignalWithHTF(id, price, direction); 
-            } else if (s.type !== direction) { 
-                resetSignal(id); 
+            } else if (s.type !== direction && s.l1) { 
+                // Reset only if direction change is confirmed
+                if (s.directionConfirmCount >= 3) {
+                    resetSignal(id);
+                }
             }
         }
         renderUIThrottled(id);
@@ -800,9 +916,10 @@
 
     function resetSignal(id) {
         const oldPrice = state[id]?.lastPrice || 0;
-        state[id] = createFreshState();
+        state[id] = createFreshState(id);
         state[id].lastPrice = oldPrice;
         state[id].prevPrice = oldPrice;
+        consecutiveSameDirection[id] = 0;
         saveState();
         renderUIThrottled(id);
     }
@@ -847,7 +964,7 @@
         const entryEl = document.getElementById(`entry-${id}`); 
         if (entryEl) {
             if (s.confirmed) {
-                const bias = CONFIG.pairs[id].biasOffset || { buy: -3, sell: 3 };
+                const bias = CONFIG.pairs[id].biasOffset;
                 const biasValue = s.type === 'buy' ? bias.buy : bias.sell;
                 entryEl.innerHTML = `${formatPrice(s.entryDisplay, id)} <span class="bias-info">(${biasValue >= 0 ? '+' : ''}${biasValue})</span>`;
             } else {
@@ -870,10 +987,10 @@
             if (s.confirmed) {
                 let cls = 'quality-low';
                 if (s.htfConfidence >= 70) cls = 'quality-high';
-                else if (s.htfConfidence >= 48) cls = 'quality-med';
-                qualityDiv.innerHTML = `<span class="quality-badge ${cls}">SIGNAL ${s.type.toUpperCase()} | LIMIT ${formatPrice(s.entryOriginal, id)} | BIAS ${formatPrice(s.entryDisplay, id)} | CONF ${Math.round(s.htfConfidence)}% | ${s.htfReason || ''}</span>`;
+                else if (s.htfConfidence >= 55) cls = 'quality-med';
+                qualityDiv.innerHTML = `<span class="quality-badge ${cls}">${s.type.toUpperCase()} | ENTRY ${formatPrice(s.entryOriginal, id)} | BIAS ${formatPrice(s.entryDisplay, id)} | CONF ${Math.round(s.htfConfidence)}% | ${s.htfReason || ''}</span>`;
             } else {
-                qualityDiv.innerHTML = `<span class="quality-badge" style="color:#8a8a96;">HTF: ${h.confidenceStatus} | CONF ${Math.round(h.confidence)}%</span>`;
+                qualityDiv.innerHTML = `<span class="quality-badge" style="color:#8a8a96;">HTF: ${h.confidenceStatus} | ${h.structure} | ${h.momentum} | CONF ${Math.round(h.confidence)}%</span>`;
             }
         }
     }
@@ -1002,20 +1119,20 @@
         }
     }
 
-    function saveState() { localStorage.setItem('ura_fusion_v86', JSON.stringify({ xau: state.xau, btc: state.btc, version: '8.6' })); }
+    function saveState() { localStorage.setItem('ura_fusion_v87', JSON.stringify({ xau: state.xau, btc: state.btc, version: '8.7' })); }
     function loadState() {
-        const saved = localStorage.getItem('ura_fusion_v86');
+        const saved = localStorage.getItem('ura_fusion_v87');
         if (saved) {
-            try { const p = JSON.parse(saved); state.xau = p.xau || createFreshState(); state.btc = p.btc || createFreshState(); } catch(e) { resetStates(); }
+            try { const p = JSON.parse(saved); state.xau = p.xau || createFreshState('xau'); state.btc = p.btc || createFreshState('btc'); } catch(e) { resetStates(); }
         } else resetStates();
-        activePairId = localStorage.getItem('ura_active_pair_v86') || CONFIG.defaultPair;
+        activePairId = localStorage.getItem('ura_active_pair_v87') || CONFIG.defaultPair;
     }
-    function resetStates() { state.xau = createFreshState(); state.btc = createFreshState(); }
+    function resetStates() { state.xau = createFreshState('xau'); state.btc = createFreshState('btc'); }
 
     // ==================== INITIALIZATION ====================
     function init() {
         loadState();
-        Object.keys(CONFIG.pairs).forEach(id => { initHTFData(id); if (!state[id]) state[id] = createFreshState(); priceHistory[id] = []; });
+        Object.keys(CONFIG.pairs).forEach(id => { initHTFData(id); if (!state[id]) state[id] = createFreshState(id); priceHistory[id] = []; });
         const container = document.getElementById('terminals');
         container.innerHTML = `
             <div class="pair-card ${activePairId === 'xau' ? 'active' : ''}" id="card-xau">${generateCardHTML('xau')}</div>
@@ -1029,7 +1146,7 @@
             const keys = Object.keys(CONFIG.pairs);
             let idx = keys.indexOf(activePairId);
             activePairId = keys[(idx + 1) % keys.length];
-            localStorage.setItem('ura_active_pair_v86', activePairId);
+            localStorage.setItem('ura_active_pair_v87', activePairId);
             document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol;
             document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active'));
             document.getElementById(`card-${activePairId}`).classList.add('active');
