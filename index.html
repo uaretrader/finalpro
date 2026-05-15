@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>URA FUSION v8.4 | LIMIT ORDER | HTF-Integrated Precision Signal</title>
+    <title>URA FUSION v8.6 | DUAL SOURCE (WS + Polling) | HTF-Integrated</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -64,6 +64,7 @@
             animation: pulseBlink 1.5s infinite;
         }
         .live-pulse.connected { background: #00e5a0; box-shadow: 0 0 6px rgba(0,229,160,0.6); }
+        .live-pulse.polling { background: #ffaa44; box-shadow: 0 0 6px rgba(255,170,68,0.6); animation: pulseBlink 0.8s infinite; }
         @keyframes pulseBlink {
             0%, 100% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.4; transform: scale(0.8); }
@@ -98,12 +99,14 @@
         .pair-name { font-size: 15px; font-weight: 800; color: #e8e8ee; letter-spacing: 1.5px; }
         .ws-status { font-size: 8px; font-weight: 600; letter-spacing: 0.5px; }
         .ws-status.connected { color: #00e5a0; }
+        .ws-status.polling { color: #ffaa44; }
         .ws-status.disconnected { color: #ff4466; animation: blink 1s infinite; }
         @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 
         .price-display { text-align: right; }
         .price-value { font-size: 20px; font-weight: 800; letter-spacing: 1px; line-height: 1; }
         .price-change { font-size: 8px; margin-top: 2px; }
+        .data-source { font-size: 6px; margin-top: 2px; opacity: 0.6; }
 
         .signal-fusion-bar {
             display: grid; grid-template-columns: 1fr auto 1fr;
@@ -195,6 +198,12 @@
         .quality-low { color: #ff4466; border-left: 2px solid #ff4466; }
         .reject-reason { font-size: 6px; color: #ff4466; font-family: monospace; }
 
+        .bias-info {
+            font-size: 6px;
+            color: #ffaa44;
+            margin-left: 4px;
+        }
+
         footer {
             text-align: center; font-size: 7px; color: #8a8a96;
             padding: 8px; opacity: 0.6; letter-spacing: 1px;
@@ -225,7 +234,7 @@
 <body>
 <div class="container">
     <header id="mainHeader">
-        <div class="brand"><h1>URA</h1><span class="version">v8.4</span></div>
+        <div class="brand"><h1>URA</h1><span class="version">v8.6</span></div>
         <div class="header-right">
             <div style="display: flex; align-items: center; gap: 6px; font-size: 8px; background: rgba(0,0,0,0.3); padding: 4px 8px;">
                 <span id="livePulse" class="live-pulse"></span><span>LIVE</span>
@@ -234,7 +243,7 @@
         </div>
     </header>
     <div id="terminals"></div>
-    <footer>URA FUSION v8.4 | LIMIT ORDER (BUY below price | SELL above price) | HTF CONFIRMATION</footer>
+    <footer>URA FUSION v8.6 | DUAL SOURCE (WebSocket + Polling 1s) | LIMIT ORDER + BIAS</footer>
 </div>
 <div id="toastMsg" class="toast-message">✓ ALL RESET</div>
 
@@ -252,7 +261,8 @@
                 rr: 1.6, 
                 threshold: 1,
                 priceMultiplier: 1,
-                limitSpread: 1.5
+                limitSpread: 1.5,
+                biasOffset: { buy: -3, sell: 3 }
             },
             btc: { 
                 name: 'BTCUSD', 
@@ -264,7 +274,8 @@
                 rr: 2, 
                 threshold: 16,
                 priceMultiplier: 1,
-                limitSpread: 50
+                limitSpread: 50,
+                biasOffset: { buy: -50, sell: 50 }
             }
         },
         defaultPair: 'xau',
@@ -282,8 +293,11 @@
         ws: {
             reconnectBaseDelayMs: 2000,
             maxReconnectDelayMs: 30000,
-            maxPriceHistory: 150,
-            restFallbackIntervalMs: 30000
+            maxPriceHistory: 150
+        },
+        polling: {
+            enabled: true,
+            intervalMs: 1000  // 1 detik polling
         }
     };
 
@@ -295,8 +309,11 @@
     let wsConnections = {};
     let priceHistory = { xau: [], btc: [] };
     let lastSignalResetTime = { xau: 0, btc: 0 };
-    let lastRestFallback = { xau: 0, btc: 0 };
-    let restFallbackTimers = { xau: null, btc: null };
+    let pollingTimers = { xau: null, btc: null };
+    let dataSource = { xau: 'WS', btc: 'WS' };  // 'WS' or 'POLLING'
+    let lastWsPrice = { xau: null, btc: null };
+    let lastPollPrice = { xau: null, btc: null };
+    let wsLastUpdate = { xau: 0, btc: 0 };
 
     let htfData = { xau: null, btc: null };
     let renderPending = { xau: false, btc: false };
@@ -312,7 +329,7 @@
         return id === 'xau' ? price.toFixed(2) : price.toFixed(1);
     }
 
-    // ==================== REST FALLBACK ====================
+    // ==================== POLLING (1 DETIK) ====================
     async function fetchPriceRest(id) {
         const p = CONFIG.pairs[id];
         if (!p || !p.restUrl) return null;
@@ -326,23 +343,38 @@
                 return price;
             }
         } catch (err) {
-            console.warn(`[${id}] REST fallback failed:`, err);
+            console.warn(`[${id}] Polling failed:`, err);
         }
         return null;
     }
 
-    function startRestFallback(id) {
-        if (restFallbackTimers[id]) clearInterval(restFallbackTimers[id]);
+    function startPolling(id) {
+        if (pollingTimers[id]) clearInterval(pollingTimers[id]);
         
-        restFallbackTimers[id] = setInterval(async () => {
-            const timeSinceLastUpdate = Date.now() - lastPriceUpdate[id];
-            if (timeSinceLastUpdate > 10000 && !wsStatus[id]) {
-                const price = await fetchPriceRest(id);
-                if (price && isValidPrice(price)) {
+        pollingTimers[id] = setInterval(async () => {
+            const price = await fetchPriceRest(id);
+            if (price && isValidPrice(price)) {
+                lastPollPrice[id] = price;
+                
+                // Jika WebSocket mati atau tidak update > 3 detik, gunakan polling
+                const wsIsDead = !wsStatus[id] || (Date.now() - wsLastUpdate[id] > 3000);
+                
+                if (wsIsDead) {
+                    if (dataSource[id] !== 'POLLING') {
+                        dataSource[id] = 'POLLING';
+                        updateWSStatus(id);
+                        updateGlobalPulse();
+                    }
                     updateDisplay(id, price);
+                } else {
+                    if (dataSource[id] !== 'WS') {
+                        dataSource[id] = 'WS';
+                        updateWSStatus(id);
+                        updateGlobalPulse();
+                    }
                 }
             }
-        }, CONFIG.ws.restFallbackIntervalMs);
+        }, CONFIG.polling.intervalMs);
     }
 
     // ==================== TRIPLE TAP RESET ====================
@@ -388,7 +420,9 @@
         return {
             lastPrice: 0, prevPrice: 0, trendScore: 0,
             l1: false, l2: false, l3: false, confirmed: false, type: 'none',
-            entry: 0, sl: 0, tp: 0,
+            entryOriginal: 0,
+            entryDisplay: 0,
+            sl: 0, tp: 0,
             htfConfidence: 0, htfReason: null, lastReject: null,
             signalTimestamp: 0, orderExpiry: 0
         };
@@ -646,9 +680,7 @@
         return { valid: false, reason: `${htf.structure} vs ${direction.toUpperCase()}`, confidence: htf.confidence };
     }
 
-    // 🔥🔥🔥 PERBAIKAN UTAMA: LIMIT ORDER LOGIC 🔥🔥🔥
-    // BUY = Entry di BAWAH harga pasar (limit order)
-    // SELL = Entry di ATAS harga pasar (limit order)
+    // LIMIT ORDER + BIAS OFFSET LOGIC
     function lockSignalWithHTF(id, marketPrice, direction) {
         const s = state[id];
         const p = CONFIG.pairs[id];
@@ -666,38 +698,46 @@
         }
         
         // LIMIT ORDER CALCULATION
-        let entry, sl, tp;
+        let entryOriginal, sl, tp;
         const spread = p.limitSpread || (id === 'xau' ? 1.5 : 50);
         
         if (direction === 'buy') {
-            // BUY: Pasang Limit Order di BAWAH harga pasar
-            entry = marketPrice - spread;
-            sl = entry - p.risk;
-            tp = entry + (p.risk * p.rr);
+            entryOriginal = marketPrice - spread;
+            sl = entryOriginal - p.risk;
+            tp = entryOriginal + (p.risk * p.rr);
         } else {
-            // SELL: Pasang Limit Order di ATAS harga pasar
-            entry = marketPrice + spread;
-            sl = entry + p.risk;
-            tp = entry - (p.risk * p.rr);
+            entryOriginal = marketPrice + spread;
+            sl = entryOriginal + p.risk;
+            tp = entryOriginal - (p.risk * p.rr);
         }
         
-        // Apply size multiplier from HTF validation
+        // Apply size multiplier
         if (validation.sizeMult) {
-            const riskAmount = (direction === 'buy') ? (entry - sl) : (sl - entry);
+            const riskAmount = (direction === 'buy') ? (entryOriginal - sl) : (sl - entryOriginal);
             const adjustedRisk = riskAmount * validation.sizeMult;
             if (direction === 'buy') {
-                sl = entry - adjustedRisk;
-                tp = entry + (adjustedRisk * p.rr);
+                sl = entryOriginal - adjustedRisk;
+                tp = entryOriginal + (adjustedRisk * p.rr);
             } else {
-                sl = entry + adjustedRisk;
-                tp = entry - (adjustedRisk * p.rr);
+                sl = entryOriginal + adjustedRisk;
+                tp = entryOriginal - (adjustedRisk * p.rr);
             }
+        }
+        
+        // Apply bias offset for display
+        const bias = p.biasOffset || { buy: -3, sell: 3 };
+        let entryDisplay = entryOriginal;
+        if (direction === 'buy') {
+            entryDisplay = entryOriginal + bias.buy;
+        } else {
+            entryDisplay = entryOriginal + bias.sell;
         }
         
         s.l3 = true; 
         s.confirmed = true; 
         s.type = direction; 
-        s.entry = entry; 
+        s.entryOriginal = entryOriginal;
+        s.entryDisplay = entryDisplay;
         s.sl = sl;
         s.tp = tp;
         s.signalTimestamp = Date.now();
@@ -715,13 +755,11 @@
         const p = CONFIG.pairs[id];
         if (!s) return;
         
-        // Check expiry
         if (s.confirmed && s.orderExpiry > 0 && Date.now() > s.orderExpiry) { 
             resetSignal(id); 
             return; 
         }
         
-        // Check TP/SL hit (for limit orders, compare with current market price)
         if (s.confirmed) {
             if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) || 
                 (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
@@ -731,7 +769,6 @@
             return;
         }
         
-        // Reset if idle too long
         if (!s.l1 && Date.now() - lastSignalResetTime[id] > CONFIG.signal.resetCooldownMs && s.prevPrice !== 0) {
             if (Math.abs(price - s.prevPrice) < p.threshold * 0.8) { 
                 resetSignal(id); 
@@ -793,7 +830,8 @@
         
         const sigText = document.getElementById(`signal-text-${id}`);
         if (sigText) {
-            if (!wsStatus[id]) sigText.innerText = 'NO FEED';
+            if (!wsStatus[id] && dataSource[id] === 'POLLING') sigText.innerText = 'POLL';
+            else if (!wsStatus[id]) sigText.innerText = 'NO FEED';
             else if (s.confirmed) sigText.innerText = `${s.type.toUpperCase()}`;
             else if (s.l3) sigText.innerText = 'FVG';
             else if (s.l2) sigText.innerText = 'CHoCH';
@@ -807,7 +845,15 @@
         });
         
         const entryEl = document.getElementById(`entry-${id}`); 
-        if (entryEl) entryEl.innerText = s.confirmed ? formatPrice(s.entry, id) : '--';
+        if (entryEl) {
+            if (s.confirmed) {
+                const bias = CONFIG.pairs[id].biasOffset || { buy: -3, sell: 3 };
+                const biasValue = s.type === 'buy' ? bias.buy : bias.sell;
+                entryEl.innerHTML = `${formatPrice(s.entryDisplay, id)} <span class="bias-info">(${biasValue >= 0 ? '+' : ''}${biasValue})</span>`;
+            } else {
+                entryEl.innerText = '--';
+            }
+        }
         const tpEl = document.getElementById(`tp-${id}`); 
         if (tpEl) tpEl.innerText = s.confirmed ? formatPrice(s.tp, id) : '--';
         const slEl = document.getElementById(`sl-${id}`); 
@@ -825,7 +871,7 @@
                 let cls = 'quality-low';
                 if (s.htfConfidence >= 70) cls = 'quality-high';
                 else if (s.htfConfidence >= 48) cls = 'quality-med';
-                qualityDiv.innerHTML = `<span class="quality-badge ${cls}">SIGNAL ${s.type.toUpperCase()} | LIMIT ${formatPrice(s.entry, id)} | CONF ${Math.round(s.htfConfidence)}% | ${s.htfReason || ''}</span>`;
+                qualityDiv.innerHTML = `<span class="quality-badge ${cls}">SIGNAL ${s.type.toUpperCase()} | LIMIT ${formatPrice(s.entryOriginal, id)} | BIAS ${formatPrice(s.entryDisplay, id)} | CONF ${Math.round(s.htfConfidence)}% | ${s.htfReason || ''}</span>`;
             } else {
                 qualityDiv.innerHTML = `<span class="quality-badge" style="color:#8a8a96;">HTF: ${h.confidenceStatus} | CONF ${Math.round(h.confidence)}%</span>`;
             }
@@ -850,6 +896,12 @@
             if (s.prevPrice !== 0) priceEl.style.color = price >= s.prevPrice ? '#00e5a0' : '#ff4466';
         }
         
+        const sourceEl = document.getElementById(`source-${id}`);
+        if (sourceEl) {
+            sourceEl.innerText = dataSource[id] === 'WS' ? '⚡ WS REAL-TIME' : '📡 POLLING 1s';
+            sourceEl.style.color = dataSource[id] === 'WS' ? '#00e5a0' : '#ffaa44';
+        }
+        
         const changeEl = document.getElementById(`change-${id}`);
         if (changeEl && s.prevPrice !== 0) {
             const diff = price - s.prevPrice;
@@ -866,12 +918,16 @@
         if (!p) return;
         if (wsConnections[id]) { try { wsConnections[id].close(); } catch(e) {} }
         const ws = new WebSocket(p.wsUrl);
+        
         ws.onopen = () => { 
             wsStatus[id] = true; 
             wsRetries[id] = 0; 
+            wsLastUpdate[id] = Date.now();
+            dataSource[id] = 'WS';
             updateWSStatus(id); 
             updateGlobalPulse();
         };
+        
         ws.onclose = () => { 
             wsStatus[id] = false; 
             updateWSStatus(id); 
@@ -880,7 +936,13 @@
             setTimeout(() => connectWebSocket(id), delay);
             wsRetries[id]++;
         };
-        ws.onerror = () => { wsStatus[id] = false; updateWSStatus(id); updateGlobalPulse(); };
+        
+        ws.onerror = () => { 
+            wsStatus[id] = false; 
+            updateWSStatus(id); 
+            updateGlobalPulse();
+        };
+        
         ws.onmessage = (e) => {
             try {
                 const data = JSON.parse(e.data);
@@ -888,7 +950,21 @@
                 if (data.c) price = parseFloat(data.c);
                 if (price && isValidPrice(price)) {
                     price += p.offset;
-                    if (!wsStatus[id]) { wsStatus[id] = true; updateWSStatus(id); updateGlobalPulse(); }
+                    wsLastUpdate[id] = Date.now();
+                    lastWsPrice[id] = price;
+                    
+                    if (!wsStatus[id]) { 
+                        wsStatus[id] = true; 
+                        updateWSStatus(id); 
+                        updateGlobalPulse();
+                    }
+                    
+                    if (dataSource[id] !== 'WS') {
+                        dataSource[id] = 'WS';
+                        updateWSStatus(id);
+                        updateGlobalPulse();
+                    }
+                    
                     updateDisplay(id, price);
                 }
             } catch(err) {}
@@ -898,22 +974,41 @@
 
     function updateWSStatus(id) {
         const el = document.getElementById(`ws-status-${id}`);
-        if (el) { el.textContent = wsStatus[id] ? '● CONNECTED' : '● RECONNECT'; el.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`; }
+        if (el) { 
+            if (dataSource[id] === 'POLLING') {
+                el.textContent = '● POLLING 1s';
+                el.className = 'ws-status polling';
+            } else if (wsStatus[id]) {
+                el.textContent = '● CONNECTED';
+                el.className = 'ws-status connected';
+            } else {
+                el.textContent = '● RECONNECT';
+                el.className = 'ws-status disconnected';
+            }
+        }
         renderUIThrottled(id);
     }
 
     function updateGlobalPulse() {
         const pulse = document.getElementById('livePulse');
-        if (pulse) pulse.className = `live-pulse ${(wsStatus.xau || wsStatus.btc) ? 'connected' : ''}`;
+        if (pulse) {
+            if (dataSource.xau === 'POLLING' || dataSource.btc === 'POLLING') {
+                pulse.className = 'live-pulse polling';
+            } else if (wsStatus.xau || wsStatus.btc) {
+                pulse.className = 'live-pulse connected';
+            } else {
+                pulse.className = 'live-pulse';
+            }
+        }
     }
 
-    function saveState() { localStorage.setItem('ura_fusion_v84', JSON.stringify({ xau: state.xau, btc: state.btc, version: '8.4' })); }
+    function saveState() { localStorage.setItem('ura_fusion_v86', JSON.stringify({ xau: state.xau, btc: state.btc, version: '8.6' })); }
     function loadState() {
-        const saved = localStorage.getItem('ura_fusion_v84');
+        const saved = localStorage.getItem('ura_fusion_v86');
         if (saved) {
             try { const p = JSON.parse(saved); state.xau = p.xau || createFreshState(); state.btc = p.btc || createFreshState(); } catch(e) { resetStates(); }
         } else resetStates();
-        activePairId = localStorage.getItem('ura_active_pair_v84') || CONFIG.defaultPair;
+        activePairId = localStorage.getItem('ura_active_pair_v86') || CONFIG.defaultPair;
     }
     function resetStates() { state.xau = createFreshState(); state.btc = createFreshState(); }
 
@@ -926,12 +1021,15 @@
             <div class="pair-card ${activePairId === 'xau' ? 'active' : ''}" id="card-xau">${generateCardHTML('xau')}</div>
             <div class="pair-card ${activePairId === 'btc' ? 'active' : ''}" id="card-btc">${generateCardHTML('btc')}</div>
         `;
-        Object.keys(CONFIG.pairs).forEach(id => connectWebSocket(id));
+        Object.keys(CONFIG.pairs).forEach(id => {
+            connectWebSocket(id);
+            if (CONFIG.polling.enabled) startPolling(id);
+        });
         document.getElementById('switchPairBtn').onclick = () => {
             const keys = Object.keys(CONFIG.pairs);
             let idx = keys.indexOf(activePairId);
             activePairId = keys[(idx + 1) % keys.length];
-            localStorage.setItem('ura_active_pair_v84', activePairId);
+            localStorage.setItem('ura_active_pair_v86', activePairId);
             document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol;
             document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active'));
             document.getElementById(`card-${activePairId}`).classList.add('active');
@@ -945,8 +1043,15 @@
         const p = CONFIG.pairs[id];
         return `<div class="card">
             <div class="price-header">
-                <div class="pair-info"><span class="pair-name">${p.symbol}</span><span id="ws-status-${id}" class="ws-status disconnected">● RECONNECT</span></div>
-                <div class="price-display"><div class="price-value" id="price-${id}">0.00</div><div class="price-change" id="change-${id}">--</div></div>
+                <div class="pair-info">
+                    <span class="pair-name">${p.symbol}</span>
+                    <span id="ws-status-${id}" class="ws-status disconnected">● RECONNECT</span>
+                </div>
+                <div class="price-display">
+                    <div class="price-value" id="price-${id}">0.00</div>
+                    <div class="price-change" id="change-${id}">--</div>
+                    <div class="data-source" id="source-${id}">⚡ WS REAL-TIME</div>
+                </div>
             </div>
             <div class="signal-fusion-bar">
                 <span class="signal-label">SIGNAL</span>
@@ -954,7 +1059,7 @@
                 <span class="signal-status-text" id="signal-text-${id}">IDLE</span>
             </div>
             <div class="levels-fusion">
-                <div class="level-box entry" onclick="window.copyValue('${id}','entry')"><div class="lbl">Entry (Limit)</div><div class="val" id="entry-${id}">--</div></div>
+                <div class="level-box entry" onclick="window.copyValue('${id}','entry')"><div class="lbl">Entry (Bias)</div><div class="val" id="entry-${id}">--</div></div>
                 <div class="level-box target" onclick="window.copyValue('${id}','tp')"><div class="lbl">Target</div><div class="val" id="tp-${id}">--</div></div>
                 <div class="level-box stop" onclick="window.copyValue('${id}','sl')"><div class="lbl">Stop</div><div class="val" id="sl-${id}">--</div></div>
             </div>
@@ -978,8 +1083,20 @@
     }
 
     window.copyValue = async (id, type) => {
-        const el = document.getElementById(`${type}-${id}`);
-        const value = el ? el.innerText : '--';
+        let value = '--';
+        const s = state[id];
+        
+        if (type === 'entry' && s && s.confirmed) {
+            value = formatPrice(s.entryDisplay, id);
+        } else if (type === 'tp' && s && s.confirmed) {
+            value = formatPrice(s.tp, id);
+        } else if (type === 'sl' && s && s.confirmed) {
+            value = formatPrice(s.sl, id);
+        } else {
+            const el = document.getElementById(`${type}-${id}`);
+            value = el ? el.innerText.split(' ')[0] : '--';
+        }
+        
         if (value !== '--') {
             try { await navigator.clipboard.writeText(value); if (navigator.vibrate) navigator.vibrate(30); } 
             catch { const ta = document.createElement('textarea'); ta.value = value; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
