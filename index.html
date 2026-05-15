@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>URA FUSION v8.3 | FIXED WEBSOCKET | HTF-Integrated Precision Signal</title>
+    <title>URA FUSION v8.4 | LIMIT ORDER | HTF-Integrated Precision Signal</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -225,7 +225,7 @@
 <body>
 <div class="container">
     <header id="mainHeader">
-        <div class="brand"><h1>URA</h1><span class="version">v8.3</span></div>
+        <div class="brand"><h1>URA</h1><span class="version">v8.4</span></div>
         <div class="header-right">
             <div style="display: flex; align-items: center; gap: 6px; font-size: 8px; background: rgba(0,0,0,0.3); padding: 4px 8px;">
                 <span id="livePulse" class="live-pulse"></span><span>LIVE</span>
@@ -234,25 +234,25 @@
         </div>
     </header>
     <div id="terminals"></div>
-    <footer>URA FUSION v8.3 | SMART MONEY + HTF CONFIRMATION | FIXED WEBSOCKET</footer>
+    <footer>URA FUSION v8.4 | LIMIT ORDER (BUY below price | SELL above price) | HTF CONFIRMATION</footer>
 </div>
 <div id="toastMsg" class="toast-message">✓ ALL RESET</div>
 
 <script>
-    // ==================== KONFIGURASI - FIXED WEBSOCKET ENDPOINTS ====================
+    // ==================== KONFIGURASI ====================
     const CONFIG = {
         pairs: {
             xau: { 
                 name: 'XAUUSD', 
                 symbol: 'XAUUSD', 
-                // Menggunakan endpoint yang benar untuk XAUUSD (PAXG/USDT sebagai proxy karena Binance tidak punya XAUUSD langsung)
                 wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker',
                 restUrl: 'https://api.binance.com/api/v3/ticker/price?symbol=PAXGUSDT',
                 offset: 2.6, 
                 risk: 15, 
                 rr: 1.6, 
                 threshold: 1,
-                priceMultiplier: 1
+                priceMultiplier: 1,
+                limitSpread: 1.5
             },
             btc: { 
                 name: 'BTCUSD', 
@@ -263,7 +263,8 @@
                 risk: 0.0050, 
                 rr: 2, 
                 threshold: 16,
-                priceMultiplier: 1
+                priceMultiplier: 1,
+                limitSpread: 50
             }
         },
         defaultPair: 'xau',
@@ -311,7 +312,7 @@
         return id === 'xau' ? price.toFixed(2) : price.toFixed(1);
     }
 
-    // ==================== REST FALLBACK (jika WebSocket bermasalah) ====================
+    // ==================== REST FALLBACK ====================
     async function fetchPriceRest(id) {
         const p = CONFIG.pairs[id];
         if (!p || !p.restUrl) return null;
@@ -334,7 +335,6 @@
         if (restFallbackTimers[id]) clearInterval(restFallbackTimers[id]);
         
         restFallbackTimers[id] = setInterval(async () => {
-            // Only use REST fallback if WebSocket is not receiving data
             const timeSinceLastUpdate = Date.now() - lastPriceUpdate[id];
             if (timeSinceLastUpdate > 10000 && !wsStatus[id]) {
                 const price = await fetchPriceRest(id);
@@ -646,24 +646,65 @@
         return { valid: false, reason: `${htf.structure} vs ${direction.toUpperCase()}`, confidence: htf.confidence };
     }
 
-    function lockSignalWithHTF(id, entry, direction) {
+    // 🔥🔥🔥 PERBAIKAN UTAMA: LIMIT ORDER LOGIC 🔥🔥🔥
+    // BUY = Entry di BAWAH harga pasar (limit order)
+    // SELL = Entry di ATAS harga pasar (limit order)
+    function lockSignalWithHTF(id, marketPrice, direction) {
         const s = state[id];
         const p = CONFIG.pairs[id];
-        const validation = validateSignalWithHTF(id, direction, entry);
+        const validation = validateSignalWithHTF(id, direction, marketPrice);
+        
         if (!validation.valid) {
             if (s) s.lastReject = validation.reason;
             const rejectSpan = document.getElementById(`reject-${id}`);
-            if (rejectSpan) { rejectSpan.innerText = `⛔ ${validation.reason}`; setTimeout(() => { if (rejectSpan) rejectSpan.innerText = ''; }, 2000); }
+            if (rejectSpan) { 
+                rejectSpan.innerText = `⛔ ${validation.reason}`; 
+                setTimeout(() => { if (rejectSpan) rejectSpan.innerText = ''; }, 2000); 
+            }
             resetSignal(id);
             return false;
         }
-        s.l3 = true; s.confirmed = true; s.type = direction; s.entry = entry; s.signalTimestamp = Date.now();
+        
+        // LIMIT ORDER CALCULATION
+        let entry, sl, tp;
+        const spread = p.limitSpread || (id === 'xau' ? 1.5 : 50);
+        
+        if (direction === 'buy') {
+            // BUY: Pasang Limit Order di BAWAH harga pasar
+            entry = marketPrice - spread;
+            sl = entry - p.risk;
+            tp = entry + (p.risk * p.rr);
+        } else {
+            // SELL: Pasang Limit Order di ATAS harga pasar
+            entry = marketPrice + spread;
+            sl = entry + p.risk;
+            tp = entry - (p.risk * p.rr);
+        }
+        
+        // Apply size multiplier from HTF validation
+        if (validation.sizeMult) {
+            const riskAmount = (direction === 'buy') ? (entry - sl) : (sl - entry);
+            const adjustedRisk = riskAmount * validation.sizeMult;
+            if (direction === 'buy') {
+                sl = entry - adjustedRisk;
+                tp = entry + (adjustedRisk * p.rr);
+            } else {
+                sl = entry + adjustedRisk;
+                tp = entry - (adjustedRisk * p.rr);
+            }
+        }
+        
+        s.l3 = true; 
+        s.confirmed = true; 
+        s.type = direction; 
+        s.entry = entry; 
+        s.sl = sl;
+        s.tp = tp;
+        s.signalTimestamp = Date.now();
         s.orderExpiry = Date.now() + CONFIG.signal.orderTimeoutMs;
-        s.htfConfidence = validation.confidence; s.htfReason = validation.reason;
-        let risk = (id === 'xau') ? p.risk : entry * p.risk;
-        if (validation.sizeMult) risk *= validation.sizeMult;
-        s.sl = direction === 'buy' ? entry - risk : entry + risk;
-        s.tp = direction === 'buy' ? entry + (risk * p.rr) : entry - (risk * p.rr);
+        s.htfConfidence = validation.confidence; 
+        s.htfReason = validation.reason;
+        
         saveState();
         renderUIThrottled(id);
         return true;
@@ -673,26 +714,49 @@
         const s = state[id];
         const p = CONFIG.pairs[id];
         if (!s) return;
-        if (s.confirmed && s.orderExpiry > 0 && Date.now() > s.orderExpiry) { resetSignal(id); return; }
+        
+        // Check expiry
+        if (s.confirmed && s.orderExpiry > 0 && Date.now() > s.orderExpiry) { 
+            resetSignal(id); 
+            return; 
+        }
+        
+        // Check TP/SL hit (for limit orders, compare with current market price)
         if (s.confirmed) {
-            if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) || (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
+            if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) || 
+                (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
                 lastSignalResetTime[id] = Date.now();
                 resetSignal(id);
             }
             return;
         }
+        
+        // Reset if idle too long
         if (!s.l1 && Date.now() - lastSignalResetTime[id] > CONFIG.signal.resetCooldownMs && s.prevPrice !== 0) {
-            if (Math.abs(price - s.prevPrice) < p.threshold * 0.8) { resetSignal(id); return; }
+            if (Math.abs(price - s.prevPrice) < p.threshold * 0.8) { 
+                resetSignal(id); 
+                return; 
+            }
         }
+        
         const diff = price - s.prevPrice;
         if (s.prevPrice !== 0 && diff !== 0) s.trendScore += diff * 0.7;
+        
         const thresholdAdjusted = p.threshold * (s.l1 ? 0.9 : 1.0);
         if (!s.confirmed && s.prevPrice !== 0 && Math.abs(diff) > thresholdAdjusted) {
             const direction = diff > 0 ? 'buy' : 'sell';
-            if (!s.l1) { s.l1 = true; s.type = direction; saveState(); }
-            else if (!s.l2 && s.type === direction) { s.l2 = true; saveState(); }
-            else if (!s.l3 && s.l2 && s.type === direction) { lockSignalWithHTF(id, price, direction); }
-            else if (s.type !== direction) { resetSignal(id); }
+            if (!s.l1) { 
+                s.l1 = true; 
+                s.type = direction; 
+                saveState(); 
+            } else if (!s.l2 && s.type === direction) { 
+                s.l2 = true; 
+                saveState(); 
+            } else if (!s.l3 && s.l2 && s.type === direction) { 
+                lockSignalWithHTF(id, price, direction); 
+            } else if (s.type !== direction) { 
+                resetSignal(id); 
+            }
         }
         renderUIThrottled(id);
     }
@@ -716,6 +780,7 @@
         const s = state[id];
         if (!s) return;
         const isBuy = s.type === 'buy';
+        
         ['fd1', 'fd2', 'fd3'].forEach((fd, i) => {
             const dot = document.getElementById(`${fd}-${id}`);
             if (dot) {
@@ -725,6 +790,7 @@
                 else if (stage) dot.classList.add(isBuy ? 'active-buy' : 'active-sell');
             }
         });
+        
         const sigText = document.getElementById(`signal-text-${id}`);
         if (sigText) {
             if (!wsStatus[id]) sigText.innerText = 'NO FEED';
@@ -734,10 +800,19 @@
             else if (s.l1) sigText.innerText = 'SWEEP';
             else sigText.innerText = 'IDLE';
         }
-        ['ml1', 'ml2', 'ml3'].forEach((ml, i) => { const dot = document.getElementById(`${ml}-${id}`); if (dot) dot.className = s[`l${i+1}`] ? 'mini-dot on' : 'mini-dot off'; });
-        const entryEl = document.getElementById(`entry-${id}`); if (entryEl) entryEl.innerText = s.confirmed ? formatPrice(s.entry, id) : '--';
-        const tpEl = document.getElementById(`tp-${id}`); if (tpEl) tpEl.innerText = s.confirmed ? formatPrice(s.tp, id) : '--';
-        const slEl = document.getElementById(`sl-${id}`); if (slEl) slEl.innerText = s.confirmed ? formatPrice(s.sl, id) : '--';
+        
+        ['ml1', 'ml2', 'ml3'].forEach((ml, i) => { 
+            const dot = document.getElementById(`${ml}-${id}`); 
+            if (dot) dot.className = s[`l${i+1}`] ? 'mini-dot on' : 'mini-dot off'; 
+        });
+        
+        const entryEl = document.getElementById(`entry-${id}`); 
+        if (entryEl) entryEl.innerText = s.confirmed ? formatPrice(s.entry, id) : '--';
+        const tpEl = document.getElementById(`tp-${id}`); 
+        if (tpEl) tpEl.innerText = s.confirmed ? formatPrice(s.tp, id) : '--';
+        const slEl = document.getElementById(`sl-${id}`); 
+        if (slEl) slEl.innerText = s.confirmed ? formatPrice(s.sl, id) : '--';
+        
         updateSignalQualityUI(id);
     }
 
@@ -750,7 +825,7 @@
                 let cls = 'quality-low';
                 if (s.htfConfidence >= 70) cls = 'quality-high';
                 else if (s.htfConfidence >= 48) cls = 'quality-med';
-                qualityDiv.innerHTML = `<span class="quality-badge ${cls}">SIGNAL ${s.type.toUpperCase()} | CONF ${Math.round(s.htfConfidence)}% | ${s.htfReason || ''}</span>`;
+                qualityDiv.innerHTML = `<span class="quality-badge ${cls}">SIGNAL ${s.type.toUpperCase()} | LIMIT ${formatPrice(s.entry, id)} | CONF ${Math.round(s.htfConfidence)}% | ${s.htfReason || ''}</span>`;
             } else {
                 qualityDiv.innerHTML = `<span class="quality-badge" style="color:#8a8a96;">HTF: ${h.confidenceStatus} | CONF ${Math.round(h.confidence)}%</span>`;
             }
@@ -768,17 +843,20 @@
         s.prevPrice = s.lastPrice;
         s.lastPrice = price;
         updateHTFEngine(id, price);
+        
         const priceEl = document.getElementById(`price-${id}`);
         if (priceEl) {
             priceEl.innerText = formatPrice(price, id);
             if (s.prevPrice !== 0) priceEl.style.color = price >= s.prevPrice ? '#00e5a0' : '#ff4466';
         }
+        
         const changeEl = document.getElementById(`change-${id}`);
         if (changeEl && s.prevPrice !== 0) {
             const diff = price - s.prevPrice;
             changeEl.innerText = `${diff >= 0 ? '+' : ''}${formatPrice(diff, id)}`;
             changeEl.style.color = diff >= 0 ? '#00e5a0' : '#ff4466';
         }
+        
         updateSignalLogic(id, price);
     }
 
@@ -829,13 +907,13 @@
         if (pulse) pulse.className = `live-pulse ${(wsStatus.xau || wsStatus.btc) ? 'connected' : ''}`;
     }
 
-    function saveState() { localStorage.setItem('ura_fusion_v83', JSON.stringify({ xau: state.xau, btc: state.btc, version: '8.3' })); }
+    function saveState() { localStorage.setItem('ura_fusion_v84', JSON.stringify({ xau: state.xau, btc: state.btc, version: '8.4' })); }
     function loadState() {
-        const saved = localStorage.getItem('ura_fusion_v83');
+        const saved = localStorage.getItem('ura_fusion_v84');
         if (saved) {
             try { const p = JSON.parse(saved); state.xau = p.xau || createFreshState(); state.btc = p.btc || createFreshState(); } catch(e) { resetStates(); }
         } else resetStates();
-        activePairId = localStorage.getItem('ura_active_pair_v83') || CONFIG.defaultPair;
+        activePairId = localStorage.getItem('ura_active_pair_v84') || CONFIG.defaultPair;
     }
     function resetStates() { state.xau = createFreshState(); state.btc = createFreshState(); }
 
@@ -853,7 +931,7 @@
             const keys = Object.keys(CONFIG.pairs);
             let idx = keys.indexOf(activePairId);
             activePairId = keys[(idx + 1) % keys.length];
-            localStorage.setItem('ura_active_pair_v83', activePairId);
+            localStorage.setItem('ura_active_pair_v84', activePairId);
             document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol;
             document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active'));
             document.getElementById(`card-${activePairId}`).classList.add('active');
@@ -876,7 +954,7 @@
                 <span class="signal-status-text" id="signal-text-${id}">IDLE</span>
             </div>
             <div class="levels-fusion">
-                <div class="level-box entry" onclick="window.copyValue('${id}','entry')"><div class="lbl">Entry</div><div class="val" id="entry-${id}">--</div></div>
+                <div class="level-box entry" onclick="window.copyValue('${id}','entry')"><div class="lbl">Entry (Limit)</div><div class="val" id="entry-${id}">--</div></div>
                 <div class="level-box target" onclick="window.copyValue('${id}','tp')"><div class="lbl">Target</div><div class="val" id="tp-${id}">--</div></div>
                 <div class="level-box stop" onclick="window.copyValue('${id}','sl')"><div class="lbl">Stop</div><div class="val" id="sl-${id}">--</div></div>
             </div>
