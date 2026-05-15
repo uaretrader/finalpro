@@ -898,7 +898,7 @@
         
         const sourceEl = document.getElementById(`source-${id}`);
         if (sourceEl) {
-            sourceEl.innerText = dataSource[id] === 'WS' ? '' : '📡 POLLING 1s';
+            sourceEl.innerText = dataSource[id] === 'WS' ? '⚡ WS REAL-TIME' : '📡 POLLING 1s';
             sourceEl.style.color = dataSource[id] === 'WS' ? '#00e5a0' : '#ffaa44';
         }
         
@@ -1050,7 +1050,7 @@
                 <div class="price-display">
                     <div class="price-value" id="price-${id}">0.00</div>
                     <div class="price-change" id="change-${id}">--</div>
-                    <div class="data-source" id="source-${id}"></div>
+                    <div class="data-source" id="source-${id}">⚡ WS REAL-TIME</div>
                 </div>
             </div>
             <div class="signal-fusion-bar">
