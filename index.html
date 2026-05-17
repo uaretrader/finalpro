@@ -234,708 +234,410 @@
     </style>
 </head>
 <body>
-
 <div class="container">
     <header id="mainHeader">
-        <div class="brand">
-            <h1>URA</h1>
-            <span class="version">v7.1</span>
-        </div>
-        <div class="header-right">
-            <div class="feed-status" style="display: flex; align-items: center; gap: 6px; font-size: 8px; font-weight: 500; color: var(--feed); background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 2px; border-left: 2px solid var(--feed);">
-                <span id="livePulse" class="live-pulse"></span>
-                <span>LIVE</span>
-            </div>
-            <button id="switchPairBtn" class="switch-pair-btn">
-                <span id="switchLabel">XAU</span>
-            </button>
-        </div>
+        <div class="brand"><h1>URA</h1><span class="version">v7.1</span></div>
+        <div class="header-right"><div class="feed-status" style="display: flex; align-items: center; gap: 6px; font-size: 8px; font-weight: 500; color: var(--feed); background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 2px; border-left: 2px solid var(--feed);"><span id="livePulse" class="live-pulse"></span><span>LIVE</span></div><button id="switchPairBtn" class="switch-pair-btn"><span id="switchLabel">XAU</span></button></div>
     </header>
-
     <div id="terminals"></div>
-
-    <footer>
-        BLOOMBERG FUSION TERMINAL v7.1 | SMC PRECISION ENGINE | DUAL SOURCE | LIMIT ORDER + BIAS
-    </footer>
+    <footer>BLOOMBERG FUSION TERMINAL v7.1 | SMC PRECISION ENGINE | DUAL SOURCE | LIMIT ORDER + BIAS</footer>
 </div>
-
 <div id="toastMsg" class="toast-message">✓ ALL RESET</div>
 
 <script>
-    // ==================== KONFIGURASI ENHANCED ====================
+(function(){
+    // ==================== CONFIGURATION ====================
     const CONFIG = {
         pairs: {
-            xau: {
-                name: 'XAUUSD', symbol: 'XAUUSD',
-                wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker',
-                restUrl: 'https://api.binance.com/api/v3/ticker/price?symbol=PAXGUSDT',
-                offset: 5.1, risk: 8, rr: 1.5, threshold: 1,
-                limitSpread: 1.5,
-                biasOffset: { buy: -3, sell: 3 }
-            },
-            btc: {
-                name: 'BTCUSD', symbol: 'BTCUSD',
-                wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker',
-                restUrl: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
-                offset: 0, risk: 0.0030, rr: 1.5, threshold: 18,
-                limitSpread: 25,
-                biasOffset: { buy: -30, sell: 30 }
-            }
+            xau: { name: 'XAUUSD', symbol: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', restUrl: 'https://api.binance.com/api/v3/ticker/price?symbol=PAXGUSDT', offset: 6.4, risk: 8, rr: 1.5, threshold: 1, limitSpread: 1.5, biasOffset: { buy: -3, sell: 3 } },
+            btc: { name: 'BTCUSD', symbol: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', restUrl: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', offset: 0, risk: 0.0030, rr: 1.5, threshold: 18, limitSpread: 25, biasOffset: { buy: -30, sell: 30 } }
         },
         defaultPair: 'xau',
-        htf: {
-            ticksPerCandle: 8,
-            pivotLookback: 2,
-            momentumLookback: 6,
-            rangeLookback: 12,
-            minCandlesForStructure: 20,
-            minCandlesForMomentum: 14,
-            confidenceThreshold: {
-                minToAllow: 35,
-                high: 70,
-                medium: 45
-            }
-        },
-        signal: {
-            resetCooldownMs: 8000,
-            orderTimeoutMs: 1800000
-        },
-        ws: {
-            heartbeatIntervalMs: 25000,
-            reconnectBaseDelayMs: 2000,
-            maxReconnectDelayMs: 30000,
-            maxPriceHistory: 150
-        },
-        polling: {
-            enabled: true,
-            intervalMs: 1000
-        }
+        htf: { ticksPerCandle: 8, pivotLookback: 2, momentumLookback: 6, rangeLookback: 12, minCandlesForStructure: 20, minCandlesForMomentum: 14, confidenceThreshold: { minToAllow: 35, high: 70, medium: 45 } },
+        signal: { resetCooldownMs: 8000, orderTimeoutMs: 1800000, minPersistenceCandles: 2, spikeATRMult: 2.5 },
+        ws: { heartbeatIntervalMs: 25000, reconnectBaseDelayMs: 2000, maxReconnectDelayMs: 30000, maxPriceHistory: 150 },
+        polling: { enabled: true, intervalMs: 1000, wsDeadThresholdMs: 5000 }
     };
 
-    // ==================== STATE ====================
+    // ==================== GLOBAL STATE ====================
     let state = { xau: null, btc: null };
     let wsStatus = { xau: false, btc: false };
-    let wsRetries = { xau: 0, btc: 0 };
-    let activePairId = null;
-    let wsConnections = {};
+    let wsConnections = { xau: null, btc: null };
     let wsHeartbeatInterval = { xau: null, btc: null };
-    let priceHistory = { xau: [], btc: [] };
-    let lastSignalResetTime = { xau: 0, btc: 0 };
+    let wsReconnectTimers = { xau: null, btc: null };
+    let wsRetries = { xau: 0, btc: 0 };
     let pollingTimers = { xau: null, btc: null };
     let dataSource = { xau: 'WS', btc: 'WS' };
     let wsLastUpdate = { xau: 0, btc: 0 };
-    let renderPending = { xau: false, btc: false };
-    let htfUpdatePending = { xau: false, btc: false };
+    let priceHistory = { xau: [], btc: [] };
     let htfData = { xau: null, btc: null };
-
-    // ==================== HELPER FUNCTIONS ====================
-    function isValidPrice(price) {
-        return typeof price === 'number' && !isNaN(price) && isFinite(price) && price > 0;
-    }
-
-    function formatPrice(price, id) {
-        if (!isValidPrice(price)) return '--';
-        return id === 'xau' ? price.toFixed(2) : price.toFixed(1);
-    }
-
-    // ==================== REST POLLING (FIXED MEMORY LEAK) ====================
-    async function fetchPriceRest(id) {
-        const p = CONFIG.pairs[id];
-        if (!p || !p.restUrl) return null;
-        try {
-            const response = await fetch(p.restUrl);
-            const data = await response.json();
-            let price = parseFloat(data.price);
-            if (isValidPrice(price)) {
-                price += p.offset;
-                return price;
-            }
-        } catch (err) {}
-        return null;
-    }
-
-    function startPolling(id) {
-        if (pollingTimers[id]) {
-            clearInterval(pollingTimers[id]);
-            pollingTimers[id] = null;
-        }
-        pollingTimers[id] = setInterval(async () => {
-            const price = await fetchPriceRest(id);
-            if (price && isValidPrice(price)) {
-                const wsIsDead = !wsStatus[id] || (Date.now() - wsLastUpdate[id] > 5000);
-                if (wsIsDead) {
-                    if (dataSource[id] !== 'POLLING') {
-                        dataSource[id] = 'POLLING';
-                        updateWSStatus(id);
-                        updateGlobalPulse();
-                    }
-                    updateDisplay(id, price);
-                } else if (dataSource[id] !== 'WS') {
-                    dataSource[id] = 'WS';
-                    updateWSStatus(id);
-                    updateGlobalPulse();
-                }
-            }
-        }, CONFIG.polling.intervalMs);
-    }
-
-    // ==================== TRIPLE TAP RESET ====================
-    let tapCount = 0;
-    let tapTimeout = null;
+    let lastSignalResetTime = { xau: 0, btc: 0 };
+    let activePairId = 'xau';
     
-    function setupTripleTapReset() {
-        const header = document.getElementById('mainHeader');
-        if (!header) return;
-        header.addEventListener('click', () => {
-            tapCount++;
-            if (tapTimeout) clearTimeout(tapTimeout);
-            if (tapCount === 3) {
-                resetAllData();
-                tapCount = 0;
-            } else {
-                tapTimeout = setTimeout(() => { tapCount = 0; }, 500);
-            }
-        });
-    }
+    // DOM Cache
+    const dom = { terminals: null, livePulse: null, switchBtn: null, switchLabel: null, pairCards: {}, priceEl: {}, changeEl: {}, wsStatusEl: {}, sourceEl: {}, signalText: {}, entryEl: {}, tpEl: {}, slEl: {}, rejectEl: {}, trendEl: {}, momEl: {}, rangeEl: {}, fusionDots: {}, logicDots: {} };
     
-    function resetAllData() {
-        Object.keys(CONFIG.pairs).forEach(id => {
-            const currentPrice = state[id]?.lastPrice || 0;
-            state[id] = createFreshState();
-            state[id].lastPrice = currentPrice;
-            state[id].prevPrice = currentPrice;
-            initHTFData(id);
-            seedHTFWithHistoricalData(id);
-            lastSignalResetTime[id] = Date.now();
-            priceHistory[id] = [];
-            renderUIThrottled(id);
-            renderHTFContext(id);
-        });
-        saveState();
-        const toast = document.getElementById('toastMsg');
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2000);
-        if(navigator.vibrate) navigator.vibrate(50);
-    }
-
-    function createFreshState() {
-        return {
-            lastPrice: 0, prevPrice: 0, trendScore: 0,
-            l1: false, l2: false, l3: false, confirmed: false, type: 'none',
-            entryOriginal: 0, entryDisplay: 0, sl: 0, tp: 0,
-            htfConfidence: 0, htfReason: null, lastReject: null,
-            signalTimestamp: 0, orderExpiry: 0
-        };
-    }
-
-    // ==================== HTF INIT & SEEDING ====================
-    function initHTFData(id) {
-        htfData[id] = {
-            ohlcCandles: [],
-            currentCandle: null,
-            tickCounter: 0,
-            swings: [],
-            pivotHighs: [],
-            pivotLows: [],
-            structure: 'NEUTRAL',
-            momentum: 'STABLE',
-            momentumStrength: 'NONE',
-            momentumConfidence: 0,
-            phase: 'RANGE',
-            atr: id === 'xau' ? 0.15 : 150,
-            atrPercent: 0,
-            atrReliability: 'NONE',
-            confidence: 0,
-            confidenceStatus: 'INVALID',
-            lastStructureBreak: 0,
-            lastUpdate: 0,
-            trendBias: 'NEUTRAL'
-        };
-    }
-
-    function seedHTFWithHistoricalData(id) {
-        const data = htfData[id];
-        if (!data || priceHistory[id].length < 10) return;
-        const history = [...priceHistory[id]];
-        const candleSize = Math.max(1, Math.floor(history.length / 15));
-        for (let i = 0; i < history.length; i += candleSize) {
-            const slice = history.slice(i, i + candleSize);
-            if (slice.length > 0) {
-                const open = slice[0];
-                const close = slice[slice.length - 1];
-                const high = Math.max(...slice);
-                const low = Math.min(...slice);
-                const body = Math.abs(close - open);
-                const upperWick = high - Math.max(open, close);
-                const lowerWick = Math.min(open, close) - low;
-                data.ohlcCandles.push({
-                    open, high, low, close, closed: true,
-                    body, range: high - low,
-                    isBullish: close >= open,
-                    upperWick, lowerWick
-                });
-            }
-        }
-        if (data.ohlcCandles.length > 120) data.ohlcCandles = data.ohlcCandles.slice(-120);
-    }
-
-    // ==================== 1. CANDLE BUILDER WITH WICK FIX ====================
+    // Render & visibility
+    let renderFrameRequest = { xau: false, btc: false };
+    let htfRenderThrottle = { xau: 0, btc: 0 };
+    let pageVisible = true;
+    let saveStateTimer = null;
+    
+    // Spikes & validation
+    let lastValidPrice = { xau: 0, btc: 0 };
+    let persistenceCounter = { xau: 0, btc: 0 };
+    
+    // ==================== UTILS ====================
+    const isValidPrice = (p) => typeof p === 'number' && isFinite(p) && p > 0;
+    const formatPrice = (p, id) => !isValidPrice(p) ? '--' : (id === 'xau' ? p.toFixed(2) : p.toFixed(1));
+    function clamp(val, min, max) { return Math.min(max, Math.max(min, val)); }
+    
+    // ==================== STATE MANAGEMENT ====================
+    function createFreshState() { return { lastPrice: 0, prevPrice: 0, trendScore: 0, l1: false, l2: false, l3: false, confirmed: false, type: 'none', entryOriginal: 0, entryDisplay: 0, sl: 0, tp: 0, htfConfidence: 0, htfReason: null, lastReject: null, signalTimestamp: 0, orderExpiry: 0 }; }
+    
+    function initHTFData(id) { htfData[id] = { ohlcCandles: [], currentCandle: null, tickCounter: 0, swings: [], pivotHighs: [], pivotLows: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', momentumConfidence: 0, phase: 'RANGE', atr: id === 'xau' ? 0.15 : 150, atrPercent: 0, atrReliability: 'NONE', confidence: 0, confidenceStatus: 'INVALID', lastStructureBreak: 0, lastUpdate: 0, trendBias: 'NEUTRAL', lastPivotUpdateIdx: 0 }; }
+    
+    function saveStateDebounced() { if(saveStateTimer) clearTimeout(saveStateTimer); saveStateTimer = setTimeout(() => { try { localStorage.setItem('bloomberg_fusion_v71', JSON.stringify({ xau: state.xau, btc: state.btc, version: '7.1' })); } catch(e){} saveStateTimer = null; }, 500); }
+    function loadState() { try { const saved = localStorage.getItem('bloomberg_fusion_v71'); if(saved) { const p = JSON.parse(saved); state.xau = p.xau || createFreshState(); state.btc = p.btc || createFreshState(); } else resetStates(); } catch(e) { resetStates(); } activePairId = localStorage.getItem('bloomberg_active_pair_v71') || CONFIG.defaultPair; }
+    function resetStates() { state.xau = createFreshState(); state.btc = createFreshState(); }
+    
+    // ==================== HTF ENGINE - INCREMENTAL PIVOTS ====================
     function buildOHLCCandle(id, price) {
-        const data = htfData[id];
-        if (!data || !isValidPrice(price)) return;
-        data.tickCounter++;
-        if (!data.currentCandle || data.tickCounter >= CONFIG.htf.ticksPerCandle) {
-            if (data.currentCandle && !data.currentCandle.closed) {
-                data.currentCandle.closed = true;
-                data.ohlcCandles.push(data.currentCandle);
-                if (data.ohlcCandles.length > 120) data.ohlcCandles.shift();
-            }
-            data.tickCounter = 0;
-            data.currentCandle = {
-                open: price, high: price, low: price, close: price, closed: false,
-                body: 0, range: 0, isBullish: true, upperWick: 0, lowerWick: 0
-            };
-        } else {
-            data.currentCandle.high = Math.max(data.currentCandle.high, price);
-            data.currentCandle.low = Math.min(data.currentCandle.low, price);
-            data.currentCandle.close = price;
-            data.currentCandle.range = data.currentCandle.high - data.currentCandle.low;
-            data.currentCandle.body = Math.abs(data.currentCandle.close - data.currentCandle.open);
-            data.currentCandle.isBullish = data.currentCandle.close >= data.currentCandle.open;
-            // FIX WICK: hitung upperWick & lowerWick secara realtime
-            const maxOC = Math.max(data.currentCandle.open, data.currentCandle.close);
-            const minOC = Math.min(data.currentCandle.open, data.currentCandle.close);
-            data.currentCandle.upperWick = data.currentCandle.high - maxOC;
-            data.currentCandle.lowerWick = minOC - data.currentCandle.low;
-            if (data.currentCandle.upperWick < 0) data.currentCandle.upperWick = 0;
-            if (data.currentCandle.lowerWick < 0) data.currentCandle.lowerWick = 0;
+    const data = htfData[id];
+    if (!data) return;
+    
+    data.tickCounter++;
+    
+    if (!data.currentCandle || data.tickCounter >= CONFIG.htf.ticksPerCandle) {
+        // Finalize existing candle
+        if (data.currentCandle && !data.currentCandle.closed) {
+            data.currentCandle.closed = true;
+            data.ohlcCandles.push(data.currentCandle);
+            if (data.ohlcCandles.length > 120) data.ohlcCandles.shift();
         }
-        data.lastUpdate = Date.now();
+        
+        // Create new candle (Cukup inisialisasi basic properti harga awal)
+        data.tickCounter = 0;
+        data.currentCandle = {
+            open: price,
+            high: price,
+            low: price,
+            close: price,
+            closed: false
+        };
+    } else {
+        // Update existing candle with new price
+        data.currentCandle.high = Math.max(data.currentCandle.high, price);
+        data.currentCandle.low = Math.min(data.currentCandle.low, price);
+        data.currentCandle.close = price;
     }
-
-    // ==================== ATR ADAPTIF + DIV ZERO PROTECTION ====================
-    function calculateAdaptiveATR(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < 5) {
-            data.atr = id === 'xau' ? 0.15 : 150;
-            return;
-        }
-        let totalTR = 0;
-        const period = Math.min(14, candles.length - 1);
-        for (let i = 1; i <= period; i++) {
-            const hl = candles[i].high - candles[i].low;
-            const hc = Math.abs(candles[i].high - candles[i-1].close);
-            const lc = Math.abs(candles[i].low - candles[i-1].close);
-            totalTR += Math.max(hl, hc, lc);
-        }
-        data.atr = totalTR / period;
-        if (data.atr <= 0 || isNaN(data.atr)) data.atr = id === 'xau' ? 0.15 : 150;
+    
+    // UNIVERSAL METRICS CALCULATION - Berjalan otomatis untuk TICK BARU maupun TICK BERJALAN
+    data.currentCandle.range = data.currentCandle.high - data.currentCandle.low;
+    data.currentCandle.body = Math.abs(data.currentCandle.close - data.currentCandle.open);
+    data.currentCandle.isBullish = data.currentCandle.close >= data.currentCandle.open;
+    
+    const maxOC = Math.max(data.currentCandle.open, data.currentCandle.close);
+    const minOC = Math.min(data.currentCandle.open, data.currentCandle.close);
+    data.currentCandle.upperWick = Math.max(0, data.currentCandle.high - maxOC);
+    data.currentCandle.lowerWick = Math.max(0, minOC - data.currentCandle.low);
+    
+    data.lastUpdate = Date.now();
+}
+    
+    function calculateATR(id){
+        const data = htfData[id]; const candles = data.ohlcCandles.filter(c=>c.closed);
+        if(candles.length<5) { data.atr = id==='xau'?0.15:150; return; }
+        let total=0; const period=Math.min(14,candles.length-1);
+        for(let i=1;i<=period;i++) total += Math.max(candles[i].high-candles[i].low, Math.abs(candles[i].high-candles[i-1].close), Math.abs(candles[i].low-candles[i-1].close));
+        data.atr = total/period;
+        if(!isValidPrice(data.atr) || data.atr<=0) data.atr = id==='xau'?0.15:150;
     }
-
-    // ==================== 2. OPTIMIZED STRUCTURE ENGINE ====================
-    function detectPivotFractals(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < CONFIG.htf.minCandlesForStructure) return;
-
-        data.pivotHighs = [];
-        data.pivotLows = [];
-
-        for (let i = CONFIG.htf.pivotLookback; i < candles.length - CONFIG.htf.pivotLookback; i++) {
-            let isPivotHigh = true;
-            let isPivotLow = true;
-
-            for (let j = 1; j <= CONFIG.htf.pivotLookback; j++) {
-                if (candles[i - j].high >= candles[i].high) isPivotHigh = false;
-                if (candles[i + j].high >= candles[i].high) isPivotHigh = false;
-                if (candles[i - j].low <= candles[i].low) isPivotLow = false;
-                if (candles[i + j].low <= candles[i].low) isPivotLow = false;
+    
+    function detectPivotsIncremental(id){
+        const data = htfData[id]; const candles = data.ohlcCandles.filter(c=>c.closed);
+        if(candles.length < CONFIG.htf.minCandlesForStructure) return;
+        const lookback = CONFIG.htf.pivotLookback;
+        let startIdx = Math.max(0, data.lastPivotUpdateIdx - lookback);
+        for(let i=startIdx; i<candles.length - lookback; i++){
+            if(i<lookback) continue;
+            let isHigh=true, isLow=true;
+            for(let j=1;j<=lookback;j++){
+                if(candles[i-j].high >= candles[i].high || candles[i+j].high >= candles[i].high) isHigh=false;
+                if(candles[i-j].low <= candles[i].low || candles[i+j].low <= candles[i].low) isLow=false;
             }
-
-            if (isPivotHigh) data.pivotHighs.push({ index: i, price: candles[i].high });
-            if (isPivotLow) data.pivotLows.push({ index: i, price: candles[i].low });
+            if(isHigh) data.pivotHighs.push({index:i, price:candles[i].high});
+            if(isLow) data.pivotLows.push({index:i, price:candles[i].low});
         }
-
-        data.swings = [];
-        const allPivots = [...data.pivotHighs.map(p => ({ ...p, type: 'H' })), 
-                          ...data.pivotLows.map(p => ({ ...p, type: 'L' }))];
-        allPivots.sort((a, b) => a.index - b.index);
-
-        let lastType = null;
-        allPivots.forEach(pivot => {
-            if (pivot.type !== lastType) {
-                data.swings.push({ val: pivot.price, type: pivot.type, index: pivot.index });
-                lastType = pivot.type;
-            }
-        });
+        data.lastPivotUpdateIdx = candles.length - 1;
+        const all = [...data.pivotHighs.map(p=>({...p,type:'H'})), ...data.pivotLows.map(p=>({...p,type:'L'}))];
+        all.sort((a,b)=>a.index-b.index);
+        data.swings = []; let lastType=null;
+        all.forEach(p=>{ if(p.type!==lastType) { data.swings.push({val:p.price, type:p.type}); lastType=p.type; } });
         detectStructure(id);
     }
-
-    function detectStructure(id) {
-        const data = htfData[id];
-        const swings = data.swings;
-        if (swings.length < 4) return;
-        const recentSwings = swings.slice(-4);
-        const highs = recentSwings.filter(s => s.type === 'H').map(s => s.val);
-        const lows = recentSwings.filter(s => s.type === 'L').map(s => s.val);
-
-        if (highs.length >= 2 && lows.length >= 2) {
-            const last2Highs = highs.slice(-2);
-            const last2Lows = lows.slice(-2);
-            const isHH = last2Highs[1] > last2Highs[0];
-            const isHL = last2Lows[1] > last2Lows[0];
-            const isLH = last2Highs[1] < last2Highs[0];
-            const isLL = last2Lows[1] < last2Lows[0];
-
-            if (isHH && isHL) data.structure = 'BULLISH';
-            else if (isLH && isLL) data.structure = 'BEARISH';
-            else data.structure = 'RANGE';
-        } else {
-            data.structure = 'TRANSITIONAL';
-        }
+    
+    function detectStructure(id){
+        const data = htfData[id]; const swings = data.swings;
+        if(swings.length<4) return;
+        const recent=swings.slice(-4); const highs=recent.filter(s=>s.type==='H').map(s=>s.val); const lows=recent.filter(s=>s.type==='L').map(s=>s.val);
+        if(highs.length>=2 && lows.length>=2){
+            const hh = highs[highs.length-1] > highs[highs.length-2]; const hl = lows[lows.length-1] > lows[lows.length-2];
+            const lh = highs[highs.length-1] < highs[highs.length-2]; const ll = lows[lows.length-1] < lows[lows.length-2];
+            if(hh && hl) data.structure='BULLISH';
+            else if(lh && ll) data.structure='BEARISH';
+            else data.structure='RANGE';
+        } else data.structure='TRANSITIONAL';
     }
-
-    // ==================== 3. MOMENTUM ENGINE (DIV ZERO SAFE) ====================
-    function detectMomentum(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < CONFIG.htf.minCandlesForMomentum) {
-            data.momentum = 'INSUFFICIENT'; data.momentumStrength = 'NONE';
-            return;
-        }
-        const safeATR = (data.atr > 0 && isFinite(data.atr)) ? data.atr : (id === 'xau' ? 0.15 : 150);
-        const recentCandles = candles.slice(-CONFIG.htf.momentumLookback);
-        let bullishDisplacement = 0;
-        let bearishDisplacement = 0;
-        let totalBodyDominance = 0;
-
-        recentCandles.forEach(candle => {
-            const rangeSafe = (candle.range > 0) ? candle.range : 0.0001;
-            const bodyRatio = candle.body / rangeSafe;
-            const isDisplacement = candle.range > (safeATR * 0.7);
-            const isBodyDominant = bodyRatio > 0.55;
-            const upperWickRatio = candle.upperWick / rangeSafe;
-            const lowerWickRatio = candle.lowerWick / rangeSafe;
-            totalBodyDominance += bodyRatio;
-            if (candle.isBullish && isBodyDominant && isDisplacement && upperWickRatio < 0.25) bullishDisplacement++;
-            else if (!candle.isBullish && isBodyDominant && isDisplacement && lowerWickRatio < 0.25) bearishDisplacement++;
-        });
-
-        const closes = candles.slice(-30).map(c => c.close);
-        if (closes.length >= 20) {
-            const emaShort = closes.slice(-8).reduce((a,b) => a+b, 0) / 8;
-            const emaLong = closes.slice(-20).reduce((a,b) => a+b, 0) / 20;
-            data.trendBias = emaShort > emaLong ? 'BULLISH' : (emaShort < emaLong ? 'BEARISH' : 'NEUTRAL');
-        }
-
-        const avgBodyDominance = totalBodyDominance / CONFIG.htf.momentumLookback;
-        if (bullishDisplacement >= 3) { data.momentum = 'IMPULSIVE_UP'; data.momentumStrength = 'STRONG'; }
-        else if (bearishDisplacement >= 3) { data.momentum = 'IMPULSIVE_DOWN'; data.momentumStrength = 'STRONG'; }
-        else if (bullishDisplacement >= 2 && avgBodyDominance > 0.6) { data.momentum = 'IMPULSIVE_UP'; data.momentumStrength = 'MODERATE'; }
-        else if (bearishDisplacement >= 2 && avgBodyDominance > 0.6) { data.momentum = 'IMPULSIVE_DOWN'; data.momentumStrength = 'MODERATE'; }
-        else if (bullishDisplacement >= 1) { data.momentum = 'BULLISH'; data.momentumStrength = 'WEAK'; }
-        else if (bearishDisplacement >= 1) { data.momentum = 'BEARISH'; data.momentumStrength = 'WEAK'; }
-        else { data.momentum = 'STABLE'; data.momentumStrength = 'NONE'; }
+    
+    function detectMomentum(id){ /* simplified, robust */
+        const data = htfData[id]; const candles = data.ohlcCandles.filter(c=>c.closed);
+        if(candles.length<CONFIG.htf.minCandlesForMomentum) return;
+        const safeATR = Math.max(0.01, data.atr);
+        const recent = candles.slice(-CONFIG.htf.momentumLookback);
+        let bullish=0, bearish=0;
+        recent.forEach(c=>{ if(c.isBullish && c.range>safeATR*0.6 && c.body/c.range>0.55) bullish++; else if(!c.isBullish && c.range>safeATR*0.6 && c.body/c.range>0.55) bearish++; });
+        if(bullish>=3) { data.momentum='IMPULSIVE_UP'; data.momentumStrength='STRONG'; }
+        else if(bearish>=3) { data.momentum='IMPULSIVE_DOWN'; data.momentumStrength='STRONG'; }
+        else if(bullish>=1) { data.momentum='BULLISH'; data.momentumStrength='WEAK'; }
+        else if(bearish>=1) { data.momentum='BEARISH'; data.momentumStrength='WEAK'; }
+        else { data.momentum='STABLE'; data.momentumStrength='NONE'; }
     }
-
-    // ==================== 4. MARKET PHASE ENGINE (DIV ZERO SAFE) ====================
-    function detectMarketPhase(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < CONFIG.htf.rangeLookback) return;
-        const safeATR = (data.atr > 0 && isFinite(data.atr)) ? data.atr : (id === 'xau' ? 0.15 : 150);
-        const recentCandles = candles.slice(-CONFIG.htf.rangeLookback);
-        let overlapCount = 0;
-        let expansionCount = 0;
-        const ranges = [];
-
-        for (let i = 1; i < recentCandles.length; i++) {
-            const prev = recentCandles[i - 1];
-            const curr = recentCandles[i];
-            const prevMid = (prev.high + prev.low) / 2;
-            const currMid = (curr.high + curr.low) / 2;
-            const midDistance = Math.abs(currMid - prevMid);
-            if (midDistance < (safeATR * 0.4)) overlapCount++;
-            if (curr.range > (safeATR * 1.2)) expansionCount++;
-            ranges.push(curr.range);
+    
+    function detectMarketPhase(id){
+        const data = htfData[id]; const candles = data.ohlcCandles.filter(c=>c.closed);
+        if(candles.length<CONFIG.htf.rangeLookback) return;
+        const safeATR = Math.max(0.01, data.atr); let expansion=0, overlap=0;
+        for(let i=1;i<candles.length && i<CONFIG.htf.rangeLookback;i++){
+            if(candles[i].range > safeATR*1.2) expansion++;
+            if(Math.abs((candles[i].high+candles[i].low)/2 - (candles[i-1].high+candles[i-1].low)/2) < safeATR*0.4) overlap++;
         }
-        const avgRange = ranges.reduce((a, b) => a + b, 0) / ranges.length;
-        const rangeVolatility = Math.max(...ranges) - Math.min(...ranges);
-        const isTrending = data.structure === 'BULLISH' || data.structure === 'BEARISH';
-        const hasMomentum = data.momentumStrength === 'STRONG' || data.momentumStrength === 'MODERATE';
-        const lowOverlap = overlapCount <= 3;
-
-        if (isTrending && hasMomentum && lowOverlap && expansionCount >= 2) data.phase = 'TRENDING';
-        else if (expansionCount >= 3 && rangeVolatility > (safeATR * 0.5)) data.phase = 'EXPANSION';
-        else if (overlapCount >= 6 && avgRange < (safeATR * 0.7)) data.phase = 'LOW_VOLATILITY';
-        else data.phase = 'RANGE';
+        if(expansion>=3) data.phase = 'EXPANSION';
+        else if(overlap>=6) data.phase = 'LOW_VOLATILITY';
+        else if(data.structure==='BULLISH'||data.structure==='BEARISH') data.phase = 'TRENDING';
+        else data.phase='RANGE';
     }
-
-    // ==================== HTF CONFIDENCE & SIGNAL VALIDATION ====================
-    function calculateHTFConfidence(id) {
-        const data = htfData[id];
-        let confidence = 0;
-        if (data.structure === 'BULLISH' || data.structure === 'BEARISH') confidence += 40;
-        else if (data.structure === 'TRANSITIONAL') confidence += 15;
-        switch (data.momentumStrength) {
-            case 'STRONG': confidence += 35; break;
-            case 'MODERATE': confidence += 25; break;
-            case 'WEAK': confidence += 10; break;
-            default: confidence += 0;
-        }
-        switch (data.phase) {
-            case 'TRENDING': confidence += 25; break;
-            case 'EXPANSION': confidence += 15; break;
-            case 'LOW_VOLATILITY': confidence += 5; break;
-            default: confidence += 0;
-        }
-        const isAligned = (data.structure === 'BULLISH' && data.momentum.includes('UP')) ||
-                         (data.structure === 'BEARISH' && data.momentum.includes('DOWN'));
-        if (!isAligned && data.structure !== 'NEUTRAL' && data.structure !== 'RANGE') confidence = Math.min(confidence, 35);
-        if (data.trendBias === data.structure) confidence += 10;
-        data.confidence = Math.max(0, Math.min(100, confidence));
-        if (data.confidence >= 70) data.confidenceStatus = 'HIGH';
-        else if (data.confidence >= 50) data.confidenceStatus = 'MEDIUM';
-        else if (data.confidence >= 30) data.confidenceStatus = 'LOW';
-        else data.confidenceStatus = 'INVALID';
+    
+    function calculateHTFConfidence(id){
+        const d = htfData[id]; let c = 0;
+        if(d.structure==='BULLISH'||d.structure==='BEARISH') c+=40; else if(d.structure==='TRANSITIONAL') c+=15;
+        if(d.momentumStrength==='STRONG') c+=35; else if(d.momentumStrength==='WEAK') c+=10;
+        if(d.phase==='TRENDING') c+=25; else if(d.phase==='EXPANSION') c+=15;
+        d.confidence = clamp(c,0,100);
+        d.confidenceStatus = d.confidence>=70?'HIGH':(d.confidence>=45?'MEDIUM':(d.confidence>=30?'LOW':'INVALID'));
     }
-
-    function updateHTFEngine(id, price) {
-        if (!htfData[id]) initHTFData(id);
+    
+    function updateHTFEngine(id, price){
+        if(!htfData[id]) initHTFData(id);
         buildOHLCCandle(id, price);
-        calculateAdaptiveATR(id);
-        detectPivotFractals(id);
+        calculateATR(id);
+        detectPivotsIncremental(id);
         detectMomentum(id);
         detectMarketPhase(id);
         calculateHTFConfidence(id);
-        if (!htfUpdatePending[id]) {
-            htfUpdatePending[id] = true;
-            requestAnimationFrame(() => { renderHTFContext(id); htfUpdatePending[id] = false; });
-        }
+        const now = Date.now();
+        if(now - htfRenderThrottle[id] > 250) { htfRenderThrottle[id] = now; renderHTFContext(id); }
     }
-
-    function renderHTFContext(id) { /* (sama seperti asli, hanya perbaikan visual) */ 
-        const d = htfData[id];
-        if (!d) return;
-        const trendEl = document.getElementById(`trend-${id}`);
-        if (trendEl) {
-            let txt = '', cls = '';
-            if (d.structure === 'BULLISH') { txt = '▲ BULLISH'; cls = 'htf-struct-bull'; }
-            else if (d.structure === 'BEARISH') { txt = '▼ BEARISH'; cls = 'htf-struct-bear'; }
-            else if (d.structure === 'RANGE') { txt = '◆ RANGE'; cls = 'htf-struct-neutral'; }
-            else { txt = '◆ TRANS'; cls = 'htf-struct-weak'; }
-            trendEl.innerHTML = txt; trendEl.className = `metric-value ${cls}`;
-        }
-        const momEl = document.getElementById(`mom-${id}`);
-        if (momEl) {
-            let mtxt = '--', mcolor = 'var(--htf-neutral)';
-            if (d.momentum === 'IMPULSIVE_UP') { mtxt = d.momentumStrength === 'STRONG' ? '▲ STRONG' : '▲ MODERATE'; mcolor = 'var(--htf-bullish)'; }
-            else if (d.momentum === 'IMPULSIVE_DOWN') { mtxt = d.momentumStrength === 'STRONG' ? '▼ STRONG' : '▼ MODERATE'; mcolor = 'var(--htf-bearish)'; }
-            else if (d.momentum === 'BULLISH') { mtxt = '▲ WEAK'; mcolor = 'var(--htf-weak)'; }
-            else if (d.momentum === 'BEARISH') { mtxt = '▼ WEAK'; mcolor = 'var(--htf-weak)'; }
-            else mtxt = '◆ FLAT';
-            momEl.innerHTML = mtxt; momEl.style.color = mcolor;
-        }
-        const rangeEl = document.getElementById(`range-${id}`);
-        if (rangeEl) {
-            rangeEl.innerHTML = '';
-            let phaseClass = 'phase-ranging', phaseText = 'RANGE';
-            if (d.phase === 'TRENDING') { phaseClass = 'phase-trending'; phaseText = 'TRENDING'; }
-            else if (d.phase === 'EXPANSION') { phaseClass = 'phase-expansion'; phaseText = 'EXPANSION'; }
-            else if (d.phase === 'LOW_VOLATILITY') { phaseClass = 'phase-lowvol'; phaseText = 'LOW VOL'; }
-            const phaseSpan = document.createElement('span'); phaseSpan.className = `price-action-phase ${phaseClass}`; phaseSpan.textContent = phaseText;
-            rangeEl.appendChild(phaseSpan);
-            const atrSpan = document.createElement('div'); atrSpan.style.fontSize = '7px'; atrSpan.style.marginTop = '3px'; atrSpan.style.color = 'var(--text-dim)';
-            atrSpan.innerText = `ATR ${d.atr.toFixed(id === 'xau' ? 2 : 0)}`;
-            rangeEl.appendChild(atrSpan);
-            const confBar = document.createElement('div'); confBar.className = 'confidence-bar-inline';
-            const fill = document.createElement('div'); fill.className = 'confidence-fill-inline'; fill.style.width = `${d.confidence}%`;
-            fill.style.backgroundColor = d.confidence >= 65 ? 'var(--htf-bullish)' : (d.confidence >= 40 ? 'var(--htf-weak)' : 'var(--htf-bearish)');
-            confBar.appendChild(fill); rangeEl.appendChild(confBar);
-            const confTxt = document.createElement('div'); confTxt.style.fontSize = '6px'; confTxt.style.color = 'var(--text-dim)'; confTxt.style.marginTop = '2px';
-            confTxt.innerText = `CONF ${Math.round(d.confidence)}% | ${d.confidenceStatus}`;
-            rangeEl.appendChild(confTxt);
-        }
-    }
-
-    function validateSignalWithHTF(id, direction, price) { /* fungsi tetap sama seperti asli */ 
+    
+    // ==================== SIGNAL VALIDATION ====================
+    function validateSignalWithHTF(id, direction, price){
         const htf = htfData[id];
-        if (!htf || htf.confidenceStatus === 'INVALID') return { valid: true, reason: 'HTF_INIT', confidence: 35, priority: 'LOW', sizeMult: 0.5 };
-        if (htf.confidence < CONFIG.htf.confidenceThreshold.minToAllow) {
-            if (htf.momentumStrength === 'MODERATE' && htf.structure !== 'BEARISH' && direction === 'buy') return { valid: true, reason: 'FAST_MOM', confidence: 42, priority: 'MEDIUM', sizeMult: 0.65 };
-            if (htf.momentumStrength === 'MODERATE' && htf.structure !== 'BULLISH' && direction === 'sell') return { valid: true, reason: 'FAST_MOM', confidence: 42, priority: 'MEDIUM', sizeMult: 0.65 };
-            return { valid: false, reason: `LOW_HTF (${Math.round(htf.confidence)}%)`, confidence: htf.confidence };
-        }
-        const structMatch = (direction === 'buy' && htf.structure === 'BULLISH') || (direction === 'sell' && htf.structure === 'BEARISH');
-        const momMatch = (direction === 'buy' && (htf.momentum === 'IMPULSIVE_UP' || htf.momentum === 'BULLISH')) || (direction === 'sell' && (htf.momentum === 'IMPULSIVE_DOWN' || htf.momentum === 'BEARISH'));
-        const trendMatch = (direction === 'buy' && htf.trendBias === 'BULLISH') || (direction === 'sell' && htf.trendBias === 'BEARISH');
-        if (structMatch && momMatch && trendMatch) return { valid: true, reason: 'FULL_ALIGN', confidence: htf.confidence, priority: 'HIGH', sizeMult: 1.0 };
-        if (structMatch && momMatch) return { valid: true, reason: 'STRUCT+MOM', confidence: htf.confidence * 0.95, priority: 'HIGH', sizeMult: 0.9 };
-        if (structMatch && htf.momentumStrength === 'STRONG') return { valid: true, reason: 'STRUCT_ALIGN', confidence: htf.confidence * 0.9, priority: 'MEDIUM', sizeMult: 0.85 };
-        if (htf.structure === 'RANGE' && momMatch && htf.confidence >= 50) return { valid: true, reason: 'BREAKOUT', confidence: htf.confidence, priority: 'MEDIUM', sizeMult: 0.7 };
-        if (htf.confidence >= 55 && htf.momentumStrength !== 'NONE') return { valid: true, reason: 'MOM_ONLY', confidence: htf.confidence * 0.8, priority: 'LOW', sizeMult: 0.55 };
-        return { valid: false, reason: `${htf.structure} vs ${direction.toUpperCase()}`, confidence: htf.confidence };
+        if(!htf || htf.confidenceStatus==='INVALID') return { valid: true, reason: 'HTF_INIT', confidence: 35, priority: 'LOW', sizeMult: 0.5 };
+        if(htf.confidence < CONFIG.htf.confidenceThreshold.minToAllow) return { valid: false, reason: `LOW_HTF (${Math.round(htf.confidence)}%)`, confidence: htf.confidence };
+        const structMatch = (direction==='buy' && htf.structure==='BULLISH') || (direction==='sell' && htf.structure==='BEARISH');
+        const momMatch = (direction==='buy' && (htf.momentum==='IMPULSIVE_UP'||htf.momentum==='BULLISH')) || (direction==='sell' && (htf.momentum==='IMPULSIVE_DOWN'||htf.momentum==='BEARISH'));
+        if(structMatch && momMatch) return { valid: true, reason: 'FULL_ALIGN', confidence: htf.confidence, priority: 'HIGH', sizeMult: 1.0 };
+        if(structMatch) return { valid: true, reason: 'STRUCT_ALIGN', confidence: htf.confidence*0.9, priority: 'MEDIUM', sizeMult: 0.85 };
+        if(htf.confidence>=55 && htf.momentumStrength!=='NONE') return { valid: true, reason: 'MOM_ONLY', confidence: htf.confidence*0.8, priority: 'LOW', sizeMult: 0.55 };
+        return { valid: false, reason: `${htf.structure} vs ${direction}`, confidence: htf.confidence };
     }
-
-    function lockSignalWithHTF(id, marketPrice, direction) {
-        const s = state[id];
-        const p = CONFIG.pairs[id];
-        const validation = validateSignalWithHTF(id, direction, marketPrice);
-        if (!validation.valid) {
-            if (s) s.lastReject = validation.reason;
-            const rejectSpan = document.getElementById(`reject-${id}`);
-            if (rejectSpan) { rejectSpan.innerText = `⛔ ${validation.reason}`; setTimeout(() => { if (rejectSpan) rejectSpan.innerText = ''; }, 2000); }
-            resetSignal(id);
-            return false;
-        }
-        let entryOriginal, sl, tp;
-        const spread = p.limitSpread;
-        if (direction === 'buy') { entryOriginal = marketPrice - spread; sl = entryOriginal - p.risk; tp = entryOriginal + (p.risk * p.rr); }
-        else { entryOriginal = marketPrice + spread; sl = entryOriginal + p.risk; tp = entryOriginal - (p.risk * p.rr); }
-        if (validation.sizeMult) {
-            const riskAmount = (direction === 'buy') ? (entryOriginal - sl) : (sl - entryOriginal);
-            const adjustedRisk = riskAmount * validation.sizeMult;
-            if (direction === 'buy') { sl = entryOriginal - adjustedRisk; tp = entryOriginal + (adjustedRisk * p.rr); }
-            else { sl = entryOriginal + adjustedRisk; tp = entryOriginal - (adjustedRisk * p.rr); }
-        }
-        const bias = p.biasOffset;
-        let entryDisplay = entryOriginal + (direction === 'buy' ? bias.buy : bias.sell);
-        s.l3 = true; s.confirmed = true; s.type = direction; s.entryOriginal = entryOriginal;
-        s.entryDisplay = entryDisplay; s.sl = sl; s.tp = tp; s.signalTimestamp = Date.now();
-        s.orderExpiry = Date.now() + CONFIG.signal.orderTimeoutMs;
-        s.htfConfidence = validation.confidence; s.htfReason = validation.reason;
-        saveState();
-        renderUIThrottled(id);
-        return true;
+    
+    function lockSignalWithHTF(id, marketPrice, direction){
+        const s = state[id], p = CONFIG.pairs[id];
+        const val = validateSignalWithHTF(id, direction, marketPrice);
+        if(!val.valid) { if(dom.rejectEl[id]) dom.rejectEl[id].textContent = `⛔ ${val.reason}`; setTimeout(()=>{ if(dom.rejectEl[id]) dom.rejectEl[id].textContent=''; },2000); resetSignal(id); return false; }
+        let entry = direction==='buy' ? marketPrice - p.limitSpread : marketPrice + p.limitSpread;
+        let sl = direction==='buy' ? entry - p.risk : entry + p.risk;
+        let tp = direction==='buy' ? entry + (p.risk * p.rr) : entry - (p.risk * p.rr);
+        if(val.sizeMult){ const adjRisk = p.risk * val.sizeMult; sl = direction==='buy' ? entry - adjRisk : entry + adjRisk; tp = direction==='buy' ? entry + (adjRisk * p.rr) : entry - (adjRisk * p.rr); }
+        const bias = p.biasOffset; const entryDisplay = entry + (direction==='buy' ? bias.buy : bias.sell);
+        s.l3=true; s.confirmed=true; s.type=direction; s.entryOriginal=entry; s.entryDisplay=entryDisplay; s.sl=sl; s.tp=tp; s.signalTimestamp=Date.now(); s.orderExpiry=Date.now()+CONFIG.signal.orderTimeoutMs; s.htfConfidence=val.confidence; s.htfReason=val.reason;
+        saveStateDebounced(); renderUIThrottled(id); return true;
     }
-
-    // ==================== SIGNAL ENGINE WITH SPIKE PROTECTION ====================
-    function updateSignalLogic(id, price) {
-        const s = state[id];
-        const p = CONFIG.pairs[id];
-        if (!s) return;
-        if (s.confirmed && s.orderExpiry > 0 && Date.now() > s.orderExpiry) { resetSignal(id); return; }
-        if (s.confirmed) {
-            if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) || (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
-                lastSignalResetTime[id] = Date.now();
-                resetSignal(id);
-            }
+    
+    function resetSignal(id){
+        const oldPrice = state[id]?.lastPrice || 0;
+        state[id] = createFreshState(); state[id].lastPrice = oldPrice; state[id].prevPrice = oldPrice;
+        persistenceCounter[id]=0;
+        saveStateDebounced(); renderUIThrottled(id);
+    }
+    
+    function updateSignalLogic(id, price){
+        const s = state[id], p = CONFIG.pairs[id];
+        if(!s) return;
+        if(s.confirmed && s.orderExpiry && Date.now() > s.orderExpiry) { resetSignal(id); return; }
+        if(s.confirmed){
+            if((s.type==='buy' && (price>=s.tp || price<=s.sl)) || (s.type==='sell' && (price<=s.tp || price>=s.sl))) { lastSignalResetTime[id]=Date.now(); resetSignal(id); }
             return;
         }
-        if (!s.l1 && Date.now() - lastSignalResetTime[id] > CONFIG.signal.resetCooldownMs && s.prevPrice !== 0) {
-            if (Math.abs(price - s.prevPrice) < p.threshold * 0.8) { resetSignal(id); return; }
+        // Persistence: avoid micro retracement
+        if(!s.l1 && Date.now()-lastSignalResetTime[id] > CONFIG.signal.resetCooldownMs && s.prevPrice!==0){
+            if(Math.abs(price - s.prevPrice) < p.threshold * 0.6){ persistenceCounter[id]++; if(persistenceCounter[id]>=CONFIG.signal.minPersistenceCandles) resetSignal(id); return; }
+            else persistenceCounter[id]=0;
         }
         const diff = price - s.prevPrice;
-        if (s.prevPrice !== 0 && diff !== 0) s.trendScore += diff * 0.7;
-        const thresholdAdjusted = p.threshold * (s.l1 ? 0.9 : 1.0);
-        if (!s.confirmed && s.prevPrice !== 0 && Math.abs(diff) > thresholdAdjusted) {
-            const direction = diff > 0 ? 'buy' : 'sell';
-            if (!s.l1) { s.l1 = true; s.type = direction; saveState(); }
-            else if (!s.l2 && s.type === direction) { s.l2 = true; saveState(); }
-            else if (!s.l3 && s.l2 && s.type === direction) { lockSignalWithHTF(id, price, direction); }
-            else if (s.type !== direction) { resetSignal(id); }
+        if(s.prevPrice!==0 && diff!==0) s.trendScore += diff * 0.5;
+        const thresh = p.threshold * (s.l1?0.85:1.0);
+        if(!s.confirmed && s.prevPrice!==0 && Math.abs(diff) > thresh){
+            const direction = diff>0 ? 'buy':'sell';
+            if(!s.l1){ s.l1=true; s.type=direction; saveStateDebounced(); }
+            else if(!s.l2 && s.type===direction){ s.l2=true; saveStateDebounced(); }
+            else if(!s.l3 && s.l2 && s.type===direction){ lockSignalWithHTF(id, price, direction); }
+            else if(s.type!==direction){ resetSignal(id); }
         }
         renderUIThrottled(id);
     }
-
-    function resetSignal(id) {
-        const oldPrice = state[id]?.lastPrice || 0;
-        state[id] = createFreshState();
-        state[id].lastPrice = oldPrice;
-        state[id].prevPrice = oldPrice;
-        saveState();
-        renderUIThrottled(id);
+    
+    // ==================== SPIKE PROTECTION ====================
+    function isSpike(id, price){
+        const htf = htfData[id]; if(!htf || htf.atr<=0) return false;
+        const last = lastValidPrice[id]; if(last===0) return false;
+        const change = Math.abs(price - last);
+        const maxAllowed = htf.atr * CONFIG.signal.spikeATRMult;
+        if(change > maxAllowed && maxAllowed>0){ console.warn(`Spike blocked ${id} Δ=${change} ATR=${htf.atr}`); return true; }
+        return false;
     }
-
-    function renderUIThrottled(id) {
-        if (renderPending[id]) return;
-        renderPending[id] = true;
-        requestAnimationFrame(() => { renderUI(id); renderPending[id] = false; });
-    }
-
-    function renderUI(id) {
-        const s = state[id];
-        if (!s) return;
-        const isBuy = s.type === 'buy';
-        ['fd1','fd2','fd3'].forEach((fd, i) => { const dot = document.getElementById(`${fd}-${id}`); if(dot){ dot.className = 'fusion-dot'; if(s[`l${i+1}`] && s.confirmed) dot.classList.add(isBuy?'active-buy':'active-sell','pulse'); else if(s[`l${i+1}`]) dot.classList.add(isBuy?'active-buy':'active-sell'); } });
-        const sigText = document.getElementById(`signal-text-${id}`);
-        if(sigText){ if(!wsStatus[id] && dataSource[id]==='POLLING') sigText.innerText='POLL'; else if(!wsStatus[id]) sigText.innerText='NO FEED'; else if(s.confirmed) sigText.innerText=`${s.type.toUpperCase()}`; else if(s.l3) sigText.innerText='FVG'; else if(s.l2) sigText.innerText='CHoCH'; else if(s.l1) sigText.innerText='SWEEP'; else sigText.innerText='IDLE'; }
-        ['ml1','ml2','ml3'].forEach((ml,i)=>{ const dot=document.getElementById(`${ml}-${id}`); if(dot) dot.className = s[`l${i+1}`] ? 'mini-dot on' : 'mini-dot off'; });
-        const entryEl = document.getElementById(`entry-${id}`); if(entryEl) entryEl.innerText = s.confirmed ? `${formatPrice(s.entryDisplay,id)}` : '--';
-        const tpEl = document.getElementById(`tp-${id}`); if(tpEl) tpEl.innerText = s.confirmed ? formatPrice(s.tp,id) : '--';
-        const slEl = document.getElementById(`sl-${id}`); if(slEl) slEl.innerText = s.confirmed ? formatPrice(s.sl,id) : '--';
-    }
-
-    // ==================== WEBSOCKET & POLLING + UI ====================
-    function updateDisplay(id, price) {
-        const s = state[id];
-        if (!s || !isValidPrice(price)) return;
-        priceHistory[id].push(price);
-        if (priceHistory[id].length > CONFIG.ws.maxPriceHistory) priceHistory[id].shift();
-        s.prevPrice = s.lastPrice;
-        s.lastPrice = price;
+    
+    // ==================== UPDATE DISPLAY ====================
+    function updateDisplay(id, price){
+        if(!isValidPrice(price) || isSpike(id, price)) return;
+        lastValidPrice[id] = price;
+        const s = state[id]; if(!s) return;
+        priceHistory[id].push(price); if(priceHistory[id].length>CONFIG.ws.maxPriceHistory) priceHistory[id].shift();
+        s.prevPrice = s.lastPrice; s.lastPrice = price;
         updateHTFEngine(id, price);
-        const priceEl = document.getElementById(`price-${id}`); if(priceEl){ priceEl.innerText = formatPrice(price,id); if(s.prevPrice !== 0) priceEl.style.color = price >= s.prevPrice ? 'var(--terminal-green)' : 'var(--terminal-red)'; }
-        const sourceEl = document.getElementById(`source-${id}`); if(sourceEl) sourceEl.innerText = dataSource[id] === 'WS' ? '⚡ WS' : '📡 POLL';
-        const changeEl = document.getElementById(`change-${id}`); if(changeEl && s.prevPrice !== 0){ const diff = price - s.prevPrice; changeEl.innerText = `${diff >= 0 ? '+' : ''}${diff.toFixed(id === 'xau' ? 2 : 1)}`; changeEl.style.color = diff >= 0 ? 'var(--terminal-green)' : 'var(--terminal-red)'; }
+        if(dom.priceEl[id]) { dom.priceEl[id].textContent = formatPrice(price,id); if(s.prevPrice!==0) dom.priceEl[id].style.color = price>=s.prevPrice ? 'var(--terminal-green)' : 'var(--terminal-red)'; }
+        if(dom.changeEl[id] && s.prevPrice!==0) { const diff=price-s.prevPrice; dom.changeEl[id].textContent = `${diff>=0?'+':''}${diff.toFixed(id==='xau'?2:1)}`; dom.changeEl[id].style.color = diff>=0 ? 'var(--terminal-green)' : 'var(--terminal-red)'; }
         updateSignalLogic(id, price);
         renderUIThrottled(id);
     }
-
-    function connectWebSocket(id) { /* sama persis dengan asli, tanpa modifikasi karena tidak ada bug terkait */ 
-        const p = CONFIG.pairs[id]; if (!p) return;
-        if (wsConnections[id]) { try { wsConnections[id].close(); } catch(e) {} stopHeartbeat(id); }
-        const ws = new WebSocket(p.wsUrl);
-        ws.onopen = () => { wsStatus[id] = true; wsRetries[id] = 0; wsLastUpdate[id] = Date.now(); dataSource[id] = 'WS'; updateWSStatus(id); updateGlobalPulse(); startHeartbeat(id, ws); };
-        ws.onclose = () => { wsStatus[id] = false; updateWSStatus(id); updateGlobalPulse(); stopHeartbeat(id); const delay = Math.min(CONFIG.ws.reconnectBaseDelayMs * Math.pow(1.5, wsRetries[id]), CONFIG.ws.maxReconnectDelayMs); setTimeout(() => connectWebSocket(id), delay); wsRetries[id]++; };
-        ws.onerror = () => { wsStatus[id] = false; updateWSStatus(id); updateGlobalPulse(); };
-        ws.onmessage = (e) => { try { const data = JSON.parse(e.data); if (data.type === 'pong') return; let price = null; if (data.c) price = parseFloat(data.c); else if (data.p) price = parseFloat(data.p); if (price && isValidPrice(price)) { price += p.offset; wsLastUpdate[id] = Date.now(); if (!wsStatus[id]) { wsStatus[id] = true; updateWSStatus(id); updateGlobalPulse(); } if (dataSource[id] !== 'WS') { dataSource[id] = 'WS'; updateWSStatus(id); updateGlobalPulse(); } updateDisplay(id, price); } } catch(err) {} };
-        wsConnections[id] = ws;
+    
+    // ==================== RENDER ENGINE (Throttled + RAF merge) ====================
+    function renderUIThrottled(id){
+        if(renderFrameRequest[id]) return;
+        renderFrameRequest[id] = true;
+        requestAnimationFrame(()=>{ renderUI(id); renderFrameRequest[id]=false; });
     }
-    function startHeartbeat(id, ws) { if (wsHeartbeatInterval[id]) clearInterval(wsHeartbeatInterval[id]); wsHeartbeatInterval[id] = setInterval(() => { if (ws && ws.readyState === WebSocket.OPEN) try { ws.send(JSON.stringify({ type: 'ping' })); } catch(e) {} }, CONFIG.ws.heartbeatIntervalMs); }
-    function stopHeartbeat(id) { if (wsHeartbeatInterval[id]) { clearInterval(wsHeartbeatInterval[id]); wsHeartbeatInterval[id] = null; } }
-    function updateWSStatus(id) { const el = document.getElementById(`ws-status-${id}`); if(el){ if(dataSource[id]==='POLLING'){ el.textContent = '● POLLING 1s'; el.className = 'ws-status polling'; } else if(wsStatus[id]){ el.textContent = '● CONNECTED'; el.className = 'ws-status connected'; } else { el.textContent = '● RECONNECT'; el.className = 'ws-status disconnected'; } } renderUIThrottled(id); }
-    function updateGlobalPulse() { const pulse = document.getElementById('livePulse'); if(pulse){ if(dataSource.xau === 'POLLING' || dataSource.btc === 'POLLING') pulse.className = 'live-pulse polling'; else if(wsStatus.xau || wsStatus.btc) pulse.className = 'live-pulse connected'; else pulse.className = 'live-pulse'; } }
-    function saveState() { localStorage.setItem('bloomberg_fusion_v71', JSON.stringify({ xau: state.xau, btc: state.btc, version: '7.1' })); }
-    function loadState() { const saved = localStorage.getItem('bloomberg_fusion_v71'); if(saved) { try { const p = JSON.parse(saved); state.xau = p.xau || createFreshState(); state.btc = p.btc || createFreshState(); } catch(e) { resetStates(); } } else resetStates(); activePairId = localStorage.getItem('bloomberg_active_pair_v71') || CONFIG.defaultPair; }
-    function resetStates() { state.xau = createFreshState(); state.btc = createFreshState(); }
-
-    function generateCardHTML(id) {
-        const p = CONFIG.pairs[id];
-        return `<div class="card">
-            <div class="price-header"><div class="pair-info"><span class="pair-name">${p.symbol}</span><span id="ws-status-${id}" class="ws-status disconnected">● RECONNECT</span><span id="source-${id}" class="data-source-badge">⚡ WS</span></div><div class="price-display"><div class="price-value" id="price-${id}">0.00</div><div class="price-change" id="change-${id}">--</div></div></div>
-            <div class="signal-fusion-bar"><span class="signal-label">Signal</span><div class="signal-fusion-center"><div class="fusion-dot" id="fd1-${id}"></div><div class="fusion-line"></div><div class="fusion-dot" id="fd2-${id}"></div><div class="fusion-line"></div><div class="fusion-dot" id="fd3-${id}"></div></div><span class="signal-status-text" id="signal-text-${id}">IDLE</span></div>
-            <div class="levels-fusion"><div class="level-box entry" onclick="copyValue('${id}','entry')"><div class="lbl">Entry (Limit)</div><div class="val" id="entry-${id}">--</div></div><div class="level-box target" onclick="copyValue('${id}','tp')"><div class="lbl">Target</div><div class="val" id="tp-${id}">--</div></div><div class="level-box stop" onclick="copyValue('${id}','sl')"><div class="lbl">Stop</div><div class="val" id="sl-${id}">--</div></div></div>
-            <div class="analysis-row"><div class="analysis-panel"><div class="panel-title">Logic Engine</div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml1-${id}"></span>SWEEP</span><span class="metric-value" id="logic-l1-${id}"></span></div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml2-${id}"></span>CHoCH</span><span class="metric-value" id="logic-l2-${id}"></span></div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml3-${id}"></span>FVG</span><span class="metric-value" id="logic-l3-${id}"></span></div></div><div class="analysis-panel"><div class="panel-title">H1 Direction (4-6H Bias)</div><div class="metric-row"><span class="metric-label">STRUCTURE</span><span class="metric-value" id="trend-${id}">◆ NEUTRAL</span></div><div class="metric-row"><span class="metric-label">MOMENTUM</span><span class="metric-value" id="mom-${id}">◆ FLAT</span></div><div class="metric-row" style="flex-direction: column; align-items: flex-start; gap: 2px;"><span class="metric-label">CONTEXT</span><span class="metric-value" id="range-${id}" style="display: flex; flex-direction: column; gap: 2px; width: 100%;">--</span></div></div></div>
-            <div id="reject-${id}" class="reject-reason" style="padding:4px 8px; font-size:6px; color:var(--terminal-red);"></div>
-        </div>`;
+    
+    function renderUI(id){
+        const s = state[id]; if(!s) return;
+        const isBuy = s.type==='buy';
+        for(let i=0;i<3;i++){ const dot = dom.fusionDots[`${id}_${i}`]; if(dot){ dot.className='fusion-dot'; if(s[`l${i+1}`] && s.confirmed) dot.classList.add(isBuy?'active-buy':'active-sell','pulse'); else if(s[`l${i+1}`]) dot.classList.add(isBuy?'active-buy':'active-sell'); } }
+        if(dom.signalText[id]) dom.signalText[id].textContent = s.confirmed ? s.type.toUpperCase() : (s.l3?'FVG':(s.l2?'CHoCH':(s.l1?'SWEEP':'IDLE')));
+        for(let i=0;i<3;i++) if(dom.logicDots[`${id}_${i}`]) dom.logicDots[`${id}_${i}`].className = s[`l${i+1}`] ? 'mini-dot on' : 'mini-dot off';
+        if(dom.entryEl[id]) dom.entryEl[id].textContent = s.confirmed ? formatPrice(s.entryDisplay,id) : '--';
+        if(dom.tpEl[id]) dom.tpEl[id].textContent = s.confirmed ? formatPrice(s.tp,id) : '--';
+        if(dom.slEl[id]) dom.slEl[id].textContent = s.confirmed ? formatPrice(s.sl,id) : '--';
     }
-
-    function init() {
-        loadState();
-        Object.keys(CONFIG.pairs).forEach(id => { initHTFData(id); if (!state[id]) state[id] = createFreshState(); priceHistory[id] = []; });
-        const container = document.getElementById('terminals');
-        const fullHTML = `<div class="pair-card ${activePairId === 'xau' ? 'active' : ''}" id="card-xau">${generateCardHTML('xau')}</div><div class="pair-card ${activePairId === 'btc' ? 'active' : ''}" id="card-btc">${generateCardHTML('btc')}</div>`;
-        container.innerHTML = fullHTML;
-        Object.keys(CONFIG.pairs).forEach(id => { connectWebSocket(id); if (CONFIG.polling.enabled) startPolling(id); });
-        document.getElementById('switchPairBtn').onclick = () => { const keys = Object.keys(CONFIG.pairs); let idx = keys.indexOf(activePairId); activePairId = keys[(idx + 1) % keys.length]; localStorage.setItem('bloomberg_active_pair_v71', activePairId); document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol; document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active')); document.getElementById(`card-${activePairId}`).classList.add('active'); };
-        document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol;
-        setupTripleTapReset();
-        updateGlobalPulse();
+    
+    function renderHTFContext(id){
+        const d = htfData[id]; if(!d) return;
+        if(dom.trendEl[id]){ let txt='',cls=''; if(d.structure==='BULLISH'){ txt='▲ BULLISH'; cls='htf-struct-bull'; } else if(d.structure==='BEARISH'){ txt='▼ BEARISH'; cls='htf-struct-bear'; } else { txt='◆ RANGE'; cls='htf-struct-neutral'; } dom.trendEl[id].innerHTML = txt; dom.trendEl[id].className = `metric-value ${cls}`; }
+        if(dom.momEl[id]){ let mtxt='--'; let mcolor='var(--htf-neutral)'; if(d.momentum==='IMPULSIVE_UP'){ mtxt='▲ STRONG'; mcolor='var(--htf-bullish)'; } else if(d.momentum==='IMPULSIVE_DOWN'){ mtxt='▼ STRONG'; mcolor='var(--htf-bearish)'; } else if(d.momentum==='BULLISH'){ mtxt='▲ WEAK'; mcolor='var(--htf-weak)'; } else if(d.momentum==='BEARISH'){ mtxt='▼ WEAK'; mcolor='var(--htf-weak)'; } else mtxt='◆ FLAT'; dom.momEl[id].innerHTML = mtxt; dom.momEl[id].style.color=mcolor; }
+        if(dom.rangeEl[id]){ dom.rangeEl[id].innerHTML = ''; let phaseClass='phase-ranging', phaseText='RANGE'; if(d.phase==='TRENDING'){ phaseClass='phase-trending'; phaseText='TRENDING'; } else if(d.phase==='EXPANSION'){ phaseClass='phase-expansion'; phaseText='EXPANSION'; } else if(d.phase==='LOW_VOLATILITY'){ phaseClass='phase-lowvol'; phaseText='LOW VOL'; } const span=document.createElement('span'); span.className=`price-action-phase ${phaseClass}`; span.textContent=phaseText; dom.rangeEl[id].appendChild(span); const atrSpan=document.createElement('div'); atrSpan.style.cssText='font-size:7px;margin-top:3px;color:var(--text-dim)'; atrSpan.innerText=`ATR ${d.atr.toFixed(id==='xau'?2:0)}`; dom.rangeEl[id].appendChild(atrSpan); const confBar=document.createElement('div'); confBar.className='confidence-bar-inline'; const fill=document.createElement('div'); fill.className='confidence-fill-inline'; fill.style.width=`${d.confidence}%`; fill.style.backgroundColor=d.confidence>=65?'var(--htf-bullish)':(d.confidence>=40?'var(--htf-weak)':'var(--htf-bearish)'); confBar.appendChild(fill); dom.rangeEl[id].appendChild(confBar); const confTxt=document.createElement('div'); confTxt.style.cssText='font-size:6px;color:var(--text-dim);margin-top:2px'; confTxt.innerText=`CONF ${Math.round(d.confidence)}% | ${d.confidenceStatus}`; dom.rangeEl[id].appendChild(confTxt); }
     }
-
+    
+    // ==================== WEBSOCKET + POLLING + VISIBILITY ====================
+    function stopHeartbeat(id){ if(wsHeartbeatInterval[id]){ clearInterval(wsHeartbeatInterval[id]); wsHeartbeatInterval[id]=null; } }
+    function startHeartbeat(id, ws){ stopHeartbeat(id); if(!pageVisible) return; wsHeartbeatInterval[id]=setInterval(()=>{ if(ws && ws.readyState===WebSocket.OPEN) try{ ws.send(JSON.stringify({type:'ping'})); }catch(e){} }, CONFIG.ws.heartbeatIntervalMs); }
+    function clearReconnectTimer(id){ if(wsReconnectTimers[id]){ clearTimeout(wsReconnectTimers[id]); wsReconnectTimers[id]=null; } }
+    
+    function connectWebSocket(id){
+        if(!pageVisible) return;
+        clearReconnectTimer(id); if(wsConnections[id]) { try{ wsConnections[id].close(); }catch(e){} wsConnections[id]=null; }
+        const p=CONFIG.pairs[id]; if(!p) return;
+        const ws=new WebSocket(p.wsUrl);
+        ws.onopen=()=>{ wsStatus[id]=true; wsRetries[id]=0; wsLastUpdate[id]=Date.now(); dataSource[id]='WS'; updateWSStatus(id); updateGlobalPulse(); startHeartbeat(id,ws); };
+        ws.onclose=()=>{ wsStatus[id]=false; updateWSStatus(id); updateGlobalPulse(); stopHeartbeat(id); if(!pageVisible) return; const delay=Math.min(CONFIG.ws.reconnectBaseDelayMs*Math.pow(1.5,wsRetries[id]), CONFIG.ws.maxReconnectDelayMs); wsReconnectTimers[id]=setTimeout(()=>{ connectWebSocket(id); }, delay); wsRetries[id]++; };
+        ws.onerror=()=>{ wsStatus[id]=false; updateWSStatus(id); updateGlobalPulse(); };
+        ws.onmessage=(e)=>{ try{ const data=JSON.parse(e.data); if(data.type==='pong') return; let price=null; if(data.c) price=parseFloat(data.c); else if(data.p) price=parseFloat(data.p); if(isValidPrice(price)){ price+=p.offset; wsLastUpdate[id]=Date.now(); if(!wsStatus[id]){ wsStatus[id]=true; updateWSStatus(id); updateGlobalPulse(); } if(dataSource[id]!=='WS'){ dataSource[id]='WS'; updateWSStatus(id); updateGlobalPulse(); } updateDisplay(id, price); } } catch(err){} };
+        wsConnections[id]=ws;
+    }
+    
+    async function fetchPriceRest(id){ const p=CONFIG.pairs[id]; if(!p) return null; try{ const res=await fetch(p.restUrl); const data=await res.json(); let price=parseFloat(data.price); if(isValidPrice(price)) return price+p.offset; }catch(e){} return null; }
+    function startPollingIfNeeded(id){ if(pollingTimers[id]) clearInterval(pollingTimers[id]); pollingTimers[id]=setInterval(async()=>{ if(!pageVisible) return; const wsDead = !wsStatus[id] || (Date.now()-wsLastUpdate[id] > CONFIG.polling.wsDeadThresholdMs); if(wsDead){ if(dataSource[id]!=='POLLING'){ dataSource[id]='POLLING'; updateWSStatus(id); updateGlobalPulse(); } const price=await fetchPriceRest(id); if(isValidPrice(price)) updateDisplay(id, price); } else if(dataSource[id]!=='WS'){ dataSource[id]='WS'; updateWSStatus(id); updateGlobalPulse(); } }, CONFIG.polling.intervalMs); }
+    
+    function updateWSStatus(id){
+        if(dom.wsStatusEl[id]){ if(dataSource[id]==='POLLING'){ dom.wsStatusEl[id].textContent='● POLLING 1s'; dom.wsStatusEl[id].className='ws-status polling'; } else if(wsStatus[id]){ dom.wsStatusEl[id].textContent='● CONNECTED'; dom.wsStatusEl[id].className='ws-status connected'; } else { dom.wsStatusEl[id].textContent='● RECONNECT'; dom.wsStatusEl[id].className='ws-status disconnected'; } }
+        if(dom.sourceEl[id]) dom.sourceEl[id].textContent = dataSource[id]==='WS' ? '⚡ WS' : '📡 POLL';
+    }
+    function updateGlobalPulse(){ if(dom.livePulse){ if(dataSource.xau==='POLLING'||dataSource.btc==='POLLING') dom.livePulse.className='live-pulse polling'; else if(wsStatus.xau||wsStatus.btc) dom.livePulse.className='live-pulse connected'; else dom.livePulse.className='live-pulse'; } }
+    
+    // ==================== VISIBILITY API ====================
+    function handleVisibilityChange(){
+        pageVisible = !document.hidden;
+        if(pageVisible){ Object.keys(CONFIG.pairs).forEach(id=>{ if(!wsStatus[id] && !wsConnections[id]) connectWebSocket(id); if(CONFIG.polling.enabled) startPollingIfNeeded(id); startHeartbeat(id, wsConnections[id]); }); } else { Object.keys(CONFIG.pairs).forEach(id=>{ stopHeartbeat(id); if(pollingTimers[id]) clearInterval(pollingTimers[id]); }); }
+    }
+    
+    // ==================== CLEANUP ====================
+    function cleanupAll(){
+        Object.keys(CONFIG.pairs).forEach(id=>{ stopHeartbeat(id); clearReconnectTimer(id); if(pollingTimers[id]) clearInterval(pollingTimers[id]); if(wsConnections[id]) try{ wsConnections[id].close(); }catch(e){} });
+        if(saveStateTimer) clearTimeout(saveStateTimer);
+    }
+    window.addEventListener('beforeunload', cleanupAll);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // ==================== TRIPLE TAP RESET ====================
+    let tapCount=0, tapTimer=null;
+    function setupTripleTapReset(){ const header=document.getElementById('mainHeader'); if(header) header.addEventListener('click',()=>{ tapCount++; if(tapTimer) clearTimeout(tapTimer); if(tapCount===3){ resetAllData(); tapCount=0; } else tapTimer=setTimeout(()=>{ tapCount=0; },500); }); }
+    function resetAllData(){ Object.keys(CONFIG.pairs).forEach(id=>{ const price=state[id]?.lastPrice||0; state[id]=createFreshState(); state[id].lastPrice=price; state[id].prevPrice=price; initHTFData(id); priceHistory[id]=[]; lastSignalResetTime[id]=Date.now(); persistenceCounter[id]=0; renderUIThrottled(id); renderHTFContext(id); }); saveStateDebounced(); const toast=document.getElementById('toastMsg'); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),2000); if(navigator.vibrate) navigator.vibrate(50); }
+    
+    // ==================== DOM CACHE & INIT ====================
+    function buildCardHTML(id){ return `<div class="card"><div class="price-header"><div class="pair-info"><span class="pair-name">${CONFIG.pairs[id].symbol}</span><span id="ws-status-${id}" class="ws-status disconnected">● RECONNECT</span><span id="source-${id}" class="data-source-badge">⚡ WS</span></div><div class="price-display"><div class="price-value" id="price-${id}">0.00</div><div class="price-change" id="change-${id}">--</div></div></div><div class="signal-fusion-bar"><span class="signal-label">Signal</span><div class="signal-fusion-center"><div class="fusion-dot" id="fd1-${id}"></div><div class="fusion-line"></div><div class="fusion-dot" id="fd2-${id}"></div><div class="fusion-line"></div><div class="fusion-dot" id="fd3-${id}"></div></div><span class="signal-status-text" id="signal-text-${id}">IDLE</span></div><div class="levels-fusion"><div class="level-box entry" onclick="window.copyValue('${id}','entry')"><div class="lbl">Entry (Limit)</div><div class="val" id="entry-${id}">--</div></div><div class="level-box target" onclick="window.copyValue('${id}','tp')"><div class="lbl">Target</div><div class="val" id="tp-${id}">--</div></div><div class="level-box stop" onclick="window.copyValue('${id}','sl')"><div class="lbl">Stop</div><div class="val" id="sl-${id}">--</div></div></div><div class="analysis-row"><div class="analysis-panel"><div class="panel-title">Logic Engine</div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml1-${id}"></span>SWEEP</span><span class="metric-value"></span></div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml2-${id}"></span>CHoCH</span></div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml3-${id}"></span>FVG</span></div></div><div class="analysis-panel"><div class="panel-title">H1 Direction (4-6H Bias)</div><div class="metric-row"><span class="metric-label">STRUCTURE</span><span class="metric-value" id="trend-${id}">◆ NEUTRAL</span></div><div class="metric-row"><span class="metric-label">MOMENTUM</span><span class="metric-value" id="mom-${id}">◆ FLAT</span></div><div class="metric-row" style="flex-direction: column; align-items: flex-start; gap: 2px;"><span class="metric-label">CONTEXT</span><span class="metric-value" id="range-${id}" style="display: flex; flex-direction: column; gap: 2px; width: 100%;">--</span></div></div></div><div id="reject-${id}" class="reject-reason" style="padding:4px 8px; font-size:6px; color:var(--terminal-red);"></div></div>`; }
+    
+    function initDOM(){
+        dom.terminals = document.getElementById('terminals');
+        dom.livePulse = document.getElementById('livePulse');
+        dom.switchBtn = document.getElementById('switchPairBtn');
+        dom.switchLabel = document.getElementById('switchLabel');
+        const html = `<div class="pair-card ${activePairId==='xau'?'active':''}" id="card-xau">${buildCardHTML('xau')}</div><div class="pair-card ${activePairId==='btc'?'active':''}" id="card-btc">${buildCardHTML('btc')}</div>`;
+        dom.terminals.innerHTML = html;
+        for(let id of ['xau','btc']){
+            dom.priceEl[id] = document.getElementById(`price-${id}`);
+            dom.changeEl[id] = document.getElementById(`change-${id}`);
+            dom.wsStatusEl[id] = document.getElementById(`ws-status-${id}`);
+            dom.sourceEl[id] = document.getElementById(`source-${id}`);
+            dom.signalText[id] = document.getElementById(`signal-text-${id}`);
+            dom.entryEl[id] = document.getElementById(`entry-${id}`);
+            dom.tpEl[id] = document.getElementById(`tp-${id}`);
+            dom.slEl[id] = document.getElementById(`sl-${id}`);
+            dom.rejectEl[id] = document.getElementById(`reject-${id}`);
+            dom.trendEl[id] = document.getElementById(`trend-${id}`);
+            dom.momEl[id] = document.getElementById(`mom-${id}`);
+            dom.rangeEl[id] = document.getElementById(`range-${id}`);
+            for(let i=0;i<3;i++) dom.fusionDots[`${id}_${i}`] = document.getElementById(`fd${i+1}-${id}`);
+            for(let i=0;i<3;i++) dom.logicDots[`${id}_${i}`] = document.getElementById(`ml${i+1}-${id}`);
+        }
+        dom.switchBtn.onclick = () => { const keys = Object.keys(CONFIG.pairs); let idx = keys.indexOf(activePairId); activePairId = keys[(idx+1)%keys.length]; localStorage.setItem('bloomberg_active_pair_v71', activePairId); dom.switchLabel.innerText = CONFIG.pairs[activePairId].symbol; document.querySelectorAll('.pair-card').forEach(c=>c.classList.remove('active')); document.getElementById(`card-${activePairId}`).classList.add('active'); };
+        dom.switchLabel.innerText = CONFIG.pairs[activePairId].symbol;
+    }
+    
+    function init(){
+        loadState(); for(let id of ['xau','btc']){ if(!state[id]) state[id]=createFreshState(); initHTFData(id); priceHistory[id]=[]; persistenceCounter[id]=0; lastValidPrice[id]=0; }
+        initDOM(); for(let id of ['xau','btc']){ connectWebSocket(id); if(CONFIG.polling.enabled) startPollingIfNeeded(id); renderUIThrottled(id); renderHTFContext(id); }
+        setupTripleTapReset(); updateGlobalPulse(); handleVisibilityChange();
+    }
+    
     window.copyValue = async (id, type) => {
-        let value = '--';
-        const s = state[id];
-        if (type === 'entry' && s && s.confirmed) value = formatPrice(s.entryDisplay, id);
-        else if (type === 'tp' && s && s.confirmed) value = formatPrice(s.tp, id);
-        else if (type === 'sl' && s && s.confirmed) value = formatPrice(s.sl, id);
-        else { const el = document.getElementById(`${type}-${id}`); value = el ? el.innerText.split(' ')[0] : '--'; }
-        if (value !== '--') { try { await navigator.clipboard.writeText(value); if (navigator.vibrate) navigator.vibrate(30); } catch { const ta = document.createElement('textarea'); ta.value = value; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); } }
+        let val = '--'; const s = state[id];
+        if(type==='entry' && s?.confirmed) val = formatPrice(s.entryDisplay, id);
+        else if(type==='tp' && s?.confirmed) val = formatPrice(s.tp, id);
+        else if(type==='sl' && s?.confirmed) val = formatPrice(s.sl, id);
+        else { const el = document.getElementById(`${type}-${id}`); if(el) val = el.textContent.split(' ')[0]; }
+        if(val !== '--' && navigator.clipboard) { try{ await navigator.clipboard.writeText(val); if(navigator.vibrate) navigator.vibrate(30); }catch(e){} }
     };
-
     init();
+})();
 </script>
 </body>
 </html>
