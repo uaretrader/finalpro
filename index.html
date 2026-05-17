@@ -67,6 +67,8 @@
       margin-bottom: 8px;
       padding-bottom: 10px;
       border-bottom: 2px solid var(--accent-bloomberg);
+      /* Triple tap reset tidak memiliki efek visual */
+      cursor: default;
     }
 
     .brand h1 {
@@ -419,7 +421,7 @@
 </head>
 <body>
 <div class="container">
-  <header>
+  <header id="tripleTapHeader">
     <div class="brand">
       <h1>URA • TERMINAL</h1>
       <p>HTF PRECISION v5.0.0</p>
@@ -456,6 +458,70 @@
   let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
   let wsConnections = {};
   let lastHeartbeat = { xau: Date.now(), btc: Date.now() };
+
+  // ========== FITUR: AUTO RESET SIGNAL SETIAP 30 MENIT ==========
+  // Menyimpan timer ID untuk setiap pasangan agar dapat dibersihkan jika perlu
+  let autoResetTimers = { xau: null, btc: null };
+  
+  // Fungsi untuk menjadwalkan auto reset signal
+  function scheduleAutoReset(id) {
+    // Hapus timer yang sudah ada jika ada
+    if (autoResetTimers[id]) {
+      clearTimeout(autoResetTimers[id]);
+      autoResetTimers[id] = null;
+    }
+    // Jadwalkan reset setelah 30 menit (1800000 ms)
+    autoResetTimers[id] = setTimeout(() => {
+      // Reset signal hanya jika masih ada signal yang terkonfirmasi atau dalam progress
+      const s = state[id];
+      if (s && (s.confirmed || s.l1 || s.l2 || s.l3)) {
+        resetSignal(id);
+        // Opsional: kita bisa menambahkan indikator silent reset, tapi diminta tanpa efek visual
+        // console.log(`[AUTO RESET] Signal untuk ${id.toUpperCase()} di-reset otomatis setelah 30 menit`);
+      }
+      // Jadwalkan ulang setelah reset (cycle terus setiap 30 menit untuk monitoring kondisi)
+      scheduleAutoReset(id);
+    }, 30 * 60 * 1000); // 30 menit
+  }
+  
+  // Hentikan auto reset untuk pasangan tertentu (misal saat page unload, tapi tidak kritis)
+  function clearAutoReset(id) {
+    if (autoResetTimers[id]) {
+      clearTimeout(autoResetTimers[id]);
+      autoResetTimers[id] = null;
+    }
+  }
+
+  // ========== FITUR: TRIPLE TAP RESET (TANPA EFEK VISUAL) ==========
+  // Menghitung jumlah tap di header (dalam periode 500ms)
+  let tapCount = 0;
+  let tapTimeout = null;
+  const headerElement = document.getElementById('tripleTapHeader');
+  
+  function handleTripleTap() {
+    tapCount++;
+    if (tapTimeout) clearTimeout(tapTimeout);
+    tapTimeout = setTimeout(() => {
+      tapCount = 0;
+    }, 500);
+    
+    if (tapCount === 3) {
+      // Triple tap terdeteksi, reset semua signal (xau dan btc) tanpa efek visual
+      resetSignal('xau');
+      resetSignal('btc');
+      // Reset juga state sinyal agar bersih total
+      // Tidak ada efek visual, tidak ada notifikasi, tidak ada perubahan warna apapun
+      tapCount = 0;
+      if (tapTimeout) clearTimeout(tapTimeout);
+      // Opsional untuk debugging internal, tidak merubah UI
+      // console.log("TRIPLE TAP: Semua signal telah direset (tanpa efek visual)");
+    }
+  }
+  
+  // Pasang event listener untuk triple tap
+  if (headerElement) {
+    headerElement.addEventListener('click', handleTripleTap);
+  }
 
   // ==================== HTF ENGINE v5.0.0 ====================
   const HTF_TICK_PER_CANDLE = 120;
@@ -696,7 +762,16 @@
     else { s.sl = s.entry + risk; s.tp = s.entry - risk * 1.5; }
     saveState(id); updateSignalUI(id);
   }
-  function resetSignal(id) { const s = state[id]; s.l1 = s.l2 = s.l3 = s.confirmed = false; s.type = 'none'; s.entry = s.sl = s.tp = 0; saveState(id); updateSignalUI(id); }
+  function resetSignal(id) { 
+    const s = state[id]; 
+    s.l1 = s.l2 = s.l3 = s.confirmed = false; 
+    s.type = 'none'; 
+    s.entry = s.sl = s.tp = 0; 
+    // lastPrice tidak direset agar alur SWEEP/CHoCH tetap berjalan dengan acuan harga terakhir
+    saveState(id); 
+    updateSignalUI(id);
+    // Setelah reset, auto reset tetap akan berjalan kembali karena timer sudah dijadwalkan secara periodik.
+  }
 
   async function fetchXAUPrice() {
     try { const resp = await fetch('https://api.gold-api.com/price/XAU'); const data = await resp.json(); if (data.price > 0) updateXAUPrice(data.price); }
@@ -733,6 +808,10 @@
     document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
     document.getElementById('switchPairBtn').onclick = () => { activePairId = activePairId === 'xau' ? 'btc' : 'xau'; localStorage.setItem('ura_active_pair', activePairId); document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD'; document.querySelectorAll('.pair-card').forEach(c=>c.classList.remove('active')); document.getElementById(`card-${activePairId}`).classList.add('active'); };
     updateGlobalPulse(); setInterval(updateGlobalPulse, 1500);
+    
+    // Mulai auto reset signal setiap 30 menit untuk kedua pair
+    scheduleAutoReset('xau');
+    scheduleAutoReset('btc');
   }
 
   function cardHTML(id, label) {
