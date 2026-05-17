@@ -693,7 +693,7 @@
     s.l3 = true; s.confirmed = true; s.type = type; s.entry = entry;
     const risk = id === 'xau' ? 8 : entry * 0.004;
     if (type === 'buy') { s.sl = s.entry - risk; s.tp = s.entry + risk * 1.3; }
-    else { s.sl = s.entry + risk; s.tp = s.entry - risk * 1.5; }
+    else { s.sl = s.entry + risk; s.tp = s.entry - risk * 1.4; }
     saveState(id); updateSignalUI(id);
   }
   function resetSignal(id) { const s = state[id]; s.l1 = s.l2 = s.l3 = s.confirmed = false; s.type = 'none'; s.entry = s.sl = s.tp = 0; saveState(id); updateSignalUI(id); }
