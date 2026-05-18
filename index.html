@@ -1,840 +1,1264 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover, shrink-to-fit=yes">
-  <title>BLOOMBERG STYLE | PRECISION TERMINAL v5.0.0</title>
-  <style>
-    /* ========== DARK SILVER BLOOMBERG THEME ========== */
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>PRECISION TERMINAL v5.0.0</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
-    :root {
-      --bg-deep: #0C0E12;
-      --bg-panel: #14171C;
-      --bg-elevated: #1A1E24;
-      --bg-card: #1B2028;
-      --border-silver: rgba(255, 255, 255, 0.08);
-      --border-silver-light: rgba(255, 255, 255, 0.12);
-      --text-primary: #E8EDF2;
-      --text-secondary: #9CA3AF;
-      --text-muted: #6B7280;
-      --accent-bloomberg: #6B7280;
-      --accent-blue: #6B7280;
-      --success-bloom: #00D68F;
-      --danger-bloom: #FF4961;
-      --warning-bloom: #FFAA00;
-      --trend-bull: #00D68F;
-      --trend-bear: #FF4961;
-      --trend-neutral: #9CA3AF;
-      --phase-expand: #FF6B6B;
-      --phase-lowvol: #4ECDC4;
-    }
+        :root {
+            --bg: #1a1d21; 
+            --text: #e6e8ea;
+            --text-dim: #707a8a;
+            --accent: #f0b90b;
+            --success: #00FFFF; 
+            --danger: #FF5252; 
+            --feed-lightning: #FFEA00;
+            --border: rgba(255, 255, 255, 0.1);
+            --phase-trending: #00FF88;
+            --htf-bullish: #00FFFF;
+            --htf-bearish: #FF5252;
+            --htf-neutral: #707a8a;
+            --htf-weak: #f0b90b;
+            --phase-expansion: #FF6B6B;
+            --phase-lowvol: #4ECDC4;
+        }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Inter', sans-serif; 
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
 
-    body {
-      background: var(--bg-deep);
-      color: var(--text-primary);
-      font-family: 'Inter', sans-serif;
-      padding: 12px 10px;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
-      letter-spacing: -0.2px;
-    }
+        .container { max-width: 450px; width: 100%; }
 
-    /* CONTAINER UTAMA: fleksibel untuk split screen */
-    .container {
-      max-width: 520px;
-      width: 100%;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
 
-    /* HEADER ala Bloomberg */
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      margin-bottom: 8px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid var(--accent-bloomberg);
-      /* Triple tap reset tidak memiliki efek visual */
-      cursor: default;
-    }
+        .brand h1 { font-size: 1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+        .sys-status { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; text-align: right; color: var(--text-dim); }
+        
+        .pulse { 
+            display: inline-block; 
+            width: 7px; 
+            height: 7px; 
+            background: var(--feed-lightning); 
+            border-radius: 50%; 
+            margin-right: 5px; 
+            animation: blink 1.5s infinite; 
+        }
+        .pulse.connected {
+            background: var(--success);
+            box-shadow: 0 0 5px var(--success);
+        }
+        .pulse.disconnected {
+            background: var(--danger);
+            animation: blink 0.5s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    .brand h1 {
-      font-size: 0.6rem;
-      font-weight: 700;
-      letter-spacing: 1px;
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #FFD700 0%, #FFB347 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      text-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
-    }
+        .ws-status {
+            font-size: 0.5rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-top: 2px;
+            display: inline-block;
+        }
+        .ws-status.connected { color: var(--phase-trending); }
+        .ws-status.disconnected { color: var(--danger); animation: blink 1s infinite; }
 
-    .brand p {
-      font-size: 0.45rem;
-      color: var(--text-secondary);
-      letter-spacing: 0.5px;
-      font-weight: 500;
-    }
+        .switch-pair-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(255,255,255,0.03);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 10px;
+        }
+        .switch-pair-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
 
-    .sys-status {
-      text-align: right;
-      font-family: 'JetBrains Mono', monospace;
-    }
+        .pair-card { display: none; }
+        .pair-card.active { display: block; }
 
-    .sys-status div:first-child {
-      font-size: 0.5rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 4px;
-    }
+        .card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
 
-    .pulse {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--success-bloom);
-      box-shadow: 0 0 6px var(--success-bloom);
-      animation: pulseBloom 1.2s infinite;
-    }
+        .card-top { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            margin-bottom: 8px; 
+        }
+        .pair-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .pair { font-weight: 800; font-size: 1.1rem; letter-spacing: 1px; color: var(--text); }
+        .price { 
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 1.2rem; 
+            font-weight: 700; 
+            background: transparent;
+            padding: 4px 0;
+            text-align: right;
+            transition: color 0.1s ease;
+        }
 
-    @keyframes pulseBloom {
-      0% { opacity: 0.4; transform: scale(0.8);}
-      100% { opacity: 1; transform: scale(1.2);}
-    }
+        .signal-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .signal-dot-group { display: flex; gap: 12px; align-items: center; }
+        .dot { width: 8px; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
+        .dot.active { background: var(--success); }
+        .dot.active-down { background: var(--danger); }
 
-    #clock {
-      font-size: 0.45rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-      font-weight: 500;
-    }
+        .card-level-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .level-item { display: flex; flex-direction: column; cursor: pointer; }
+        .level-item:nth-child(1) { align-items: flex-start; text-align: left; }
+        .level-item:nth-child(2) { align-items: center; text-align: center; }
+        .level-item:nth-child(3) { align-items: flex-end; text-align: right; }
+        .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
+        .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
 
-    .switch-pair-btn {
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-silver-light);
-      color: var(--text-secondary);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 4px 12px;
-      border-radius: 20px;
-      cursor: pointer;
-      transition: all 0.2s;
-      backdrop-filter: blur(4px);
-      margin-left: 8px;
-      white-space: nowrap;
-    }
+        .analysis-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 8px; 
+        }
+        
+        .box-htf, .box-pa { 
+            background: transparent; 
+            border: 1px solid var(--border); 
+            padding: 10px 8px; 
+            border-radius: 4px; 
+            text-align: left;
+        }
+        
+        .label-sm { 
+            font-size: 0.55rem; 
+            color: var(--text-dim); 
+            text-transform: uppercase; 
+            margin-bottom: 8px; 
+            padding-bottom: 4px; 
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+        
+        .htf-row, .pa-row {
+            margin-bottom: 8px;
+            text-align: left;
+        }
+        .htf-row:last-child, .pa-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .htf-label, .pa-label {
+            font-size: 0.55rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: left;
+        }
+        
+        .htf-value, .pa-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.7rem;
+            margin-top: 2px;
+            text-align: center;
+        }
 
-    .switch-pair-btn:hover {
-      border-color: var(--accent-bloomberg);
-      color: var(--accent-bloomberg);
-      background: rgba(255, 215, 0, 0.08);
-    }
+        .context-bar {
+            width: 100%;
+            height: 2px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 1px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        .context-fill {
+            height: 100%;
+            transition: width 0.5s ease;
+            border-radius: 1px;
+        }
 
-    /* CARD PANEL - Grid responsif untuk split screen */
-    #terminals {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 12px;
-    }
-
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-silver);
-      border-radius: 16px;
-      padding: 14px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(2px);
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      height: fit-content;
-    }
-
-    .pair-card {
-      display: none;
-      width: 100%;
-    }
-
-    .pair-card.active {
-      display: block;
-      animation: fadeSlide 0.25s ease;
-    }
-
-    @keyframes fadeSlide {
-      from { opacity: 0; transform: translateY(6px);}
-      to { opacity: 1; transform: translateY(0);}
-    }
-
-    .card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-    }
-
-    .pair-info .pair {
-      font-weight: 800;
-      font-size: 1.2rem;
-      letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #E8EDF2 0%, #B0C4DE 100%);
-      background-clip: text;
-      -webkit-background-clip: text;
-      color: transparent;
-    }
-
-    .ws-status {
-      font-size: 0.5rem;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 20px;
-      background: rgba(0, 163, 255, 0.1);
-      color: var(--accent-blue);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .ws-status.connected {
-      color: var(--success-bloom);
-      background: rgba(0, 214, 143, 0.12);
-    }
-
-    .ws-status.disconnected {
-      color: var(--danger-bloom);
-      background: rgba(255, 73, 97, 0.1);
-      animation: blinkSoft 1s infinite;
-    }
-
-    @keyframes blinkSoft {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .price {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      letter-spacing: 0;
-      transition: color 0.08s linear;
-    }
-
-    .signal-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: rgba(20, 23, 28, 0.7);
-      border: 1px solid var(--border-silver);
-      border-radius: 40px;
-      padding: 6px 14px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
-      font-weight: 600;
-    }
-
-    .signal-dot-group {
-      display: flex;
-      gap: 12px;
-    }
-
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 2px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-silver);
-      transition: all 0.1s;
-    }
-
-    .dot.active {
-      background: var(--success-bloom);
-      box-shadow: 0 0 6px var(--success-bloom);
-      border-color: var(--success-bloom);
-    }
-
-    .dot.active-down {
-      background: var(--danger-bloom);
-      box-shadow: 0 0 6px var(--danger-bloom);
-      border-color: var(--danger-bloom);
-    }
-
-    /* LEVEL GRID */
-    .card-level-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      background: rgba(10, 12, 16, 0.4);
-      border-radius: 20px;
-      padding: 8px 6px;
-    }
-
-    .level-item {
-      display: flex;
-      flex-direction: column;
-      cursor: pointer;
-      transition: all 0.1s;
-      border-radius: 12px;
-      padding: 4px 2px;
-    }
-
-    .level-item:hover {
-      background: rgba(255, 215, 0, 0.05);
-    }
-
-    .level-label {
-      font-size: 0.5rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-    }
-
-    .level-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 700;
-      font-size: 0.8rem;
-    }
-
-    .box-htf-full {
-      background: rgba(12, 14, 18, 0.6);
-      border: 1px solid var(--border-silver);
-      border-radius: 14px;
-      padding: 12px 10px;
-      width: 100%;
-    }
-
-    .label-sm {
-      font-size: 0.55rem;
-      font-weight: 700;
-      color: var(--accent-blue);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 10px;
-      border-left: 3px solid var(--accent-bloomberg);
-      padding-left: 8px;
-    }
-
-    .htf-grid-full {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .htf-block {
-      flex: 1;
-      min-width: 80px;
-    }
-
-    .htf-label {
-      font-size: 0.5rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-
-    .htf-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.75rem;
-      font-weight: 700;
-    }
-
-    .trend-up { color: var(--trend-bull); }
-    .trend-down { color: var(--trend-bear); }
-    .trend-neutral { color: var(--trend-neutral); }
-    .trend-weak { color: var(--warning-bloom); }
-    .momentum-up { color: var(--trend-bull); }
-    .momentum-down { color: var(--trend-bear); }
-
-    .phase-tag {
-      font-size: 0.55rem;
-      padding: 2px 8px;
-      border-radius: 20px;
-      font-weight: 700;
-      display: inline-block;
-      margin-bottom: 4px;
-    }
-
-    .phase-trending-tag { background: rgba(0, 214, 143, 0.15); color: var(--trend-bull); border: 0.5px solid rgba(0,214,143,0.3);}
-    .phase-ranging-tag { background: rgba(255, 170, 0, 0.12); color: var(--warning-bloom);}
-    .phase-expansion-tag { background: rgba(255, 107, 107, 0.12); color: var(--phase-expand);}
-    .phase-lowvol-tag { background: rgba(78, 205, 196, 0.12); color: var(--phase-lowvol);}
-
-    .context-bar {
-      width: 100%;
-      height: 3px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 3px;
-      margin: 8px 0 4px;
-      overflow: hidden;
-    }
-
-    .context-fill {
-      height: 100%;
-      transition: width 0.3s;
-    }
-
-    .confidence-text {
-      font-size: 0.5rem;
-      text-align: right;
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
-
-    footer {
-      text-align: center;
-      font-size: 0.45rem;
-      color: var(--text-muted);
-      margin-top: 8px;
-      border-top: 1px solid var(--border-silver);
-      padding-top: 10px;
-      letter-spacing: 0.3px;
-    }
-
-    /* Penyesuaian untuk layar sangat kecil / split vertikal */
-    @media (max-width: 400px) {
-      body {
-        padding: 8px 6px;
-      }
-      .card {
-        padding: 10px;
-      }
-    }
-  </style>
+        footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; opacity: 0.6; }
+        
+        .trend-up { color: var(--success); }
+        .trend-down { color: var(--danger); }
+        .trend-neutral { color: var(--text-dim); }
+        .trend-weak { color: var(--htf-weak); }
+        .momentum-up { color: var(--success); }
+        .momentum-down { color: var(--danger); }
+        .phase-tag {
+            font-size: 0.5rem;
+            padding: 1px 5px;
+            border-radius: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+            margin-top: 2px;
+        }
+        .phase-trending-tag { background: rgba(0, 255, 136, 0.15); color: var(--phase-trending); border: 0.5px solid rgba(0, 255, 136, 0.3); }
+        .phase-ranging-tag { background: rgba(240, 185, 11, 0.1); color: var(--htf-weak); border: 0.5px solid rgba(240, 185, 11, 0.2); }
+        .phase-expansion-tag { background: rgba(255, 107, 107, 0.12); color: var(--phase-expansion); border: 0.5px solid rgba(255, 107, 107, 0.25); }
+        .phase-lowvol-tag { background: rgba(78, 205, 196, 0.1); color: var(--phase-lowvol); border: 0.5px solid rgba(78, 205, 196, 0.2); }
+    </style>
 </head>
 <body>
+
 <div class="container">
-  <header id="tripleTapHeader">
-    <div class="brand">
-      <h1>URA • TERMINAL</h1>
-      <p>HTF PRECISION v5.0.0</p>
-    </div>
-    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
-      <div class="sys-status">
-        <div><span class="pulse" id="globalPulse"></span>LIVE</div>
-        <div id="clock">--:--:-- UTC</div>
-      </div>
-      <button id="switchPairBtn" class="switch-pair-btn">
-        <span id="switchLabel">XAUUSD</span>
-      </button>
-    </div>
-  </header>
+    <header>
+        <div class="brand">
+            <h1>uradvisor</h1>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">HTF PRECISION v5.0.0</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="sys-status">
+                <div><span class="pulse" id="globalPulse"></span>LIVE</div>
+                <div id="clock">00:00:00 UTC</div>
+            </div>
+            <button id="switchPairBtn" class="switch-pair-btn">
+                <span id="switchLabel">XAUUSD</span>
+            </button>
+        </div>
+    </header>
 
-  <div id="terminals"></div>
+    <div id="terminals"></div>
 
-  <footer>
-    [ BLOOMBERG SILVER ENGINE ]: OHLC H2-H4 + PIVOT FRACTAL + DISPLACEMENT + ADAPTIVE ATR<br>
-    [ METHOD ]: SWEEP + CHoCH + FVG + HTF_CONTEXT_FILTER
-  </footer>
+    <footer>
+        [ HTF ENGINE ]: OHLC H1 + PIVOT FRACTAL + DISPLACEMENT + ADAPTIVE ATR<br>
+        [ METHOD ]: SWEEP + CHoCH + FVG + HTF_CONTEXT_FILTER
+    </footer>
 </div>
 
 <script>
-  // ==================== CONFIGURATION ====================
-  const btcConfig = {
-    id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade',
-    offset: 0, threshold: 8, isTicker: false
-  };
+    // ==================== CONFIGURATION ====================
+    const btcConfig = {
+        id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade', 
+        offset: 0, threshold: 6, isTicker: false
+    };
 
-  let state = { xau: null, btc: null };
-  let wsStatus = { xau: true, btc: false };
-  let wsRetries = { xau: 0, btc: 0 };
-  let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
-  let wsConnections = {};
-  let lastHeartbeat = { xau: Date.now(), btc: Date.now() };
+    // STATE MANAGEMENT (UNCHANGED)
+    let state = { xau: null, btc: null };
+    let wsStatus = { xau: true, btc: false };
+    let wsRetries = { xau: 0, btc: 0 };
+    let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
+    let wsConnections = {};
+    let lastHeartbeat = { xau: Date.now(), btc: Date.now() };
 
-  // ========== FITUR: AUTO RESET SIGNAL SETIAP 30 MENIT ==========
-  // Menyimpan timer ID untuk setiap pasangan agar dapat dibersihkan jika perlu
-  let autoResetTimers = { xau: null, btc: null };
-  
-  // Fungsi untuk menjadwalkan auto reset signal
-  function scheduleAutoReset(id) {
-    // Hapus timer yang sudah ada jika ada
-    if (autoResetTimers[id]) {
-      clearTimeout(autoResetTimers[id]);
-      autoResetTimers[id] = null;
+    // ==================== OPTIMIZED HTF DIRECTION ENGINE v5.0.0 ====================
+    const HTF_TICK_PER_CANDLE = 8;
+    const HTF_PIVOT_LOOKBACK = 2;
+    const HTF_MOMENTUM_LOOKBACK = 4;
+    const HTF_RANGE_LOOKBACK = 10;
+
+    let htfData = {
+        xau: {
+            ohlcCandles: [],
+            currentCandle: null,
+            tickCounter: 0,
+            swings: [],
+            pivotHighs: [],
+            pivotLows: [],
+            structure: 'NEUTRAL',
+            momentum: 'STABLE',
+            momentumStrength: 'NONE',
+            phase: 'RANGE',
+            atr: 0,
+            confidence: 0
+        },
+        btc: {
+            ohlcCandles: [],
+            currentCandle: null,
+            tickCounter: 0,
+            swings: [],
+            pivotHighs: [],
+            pivotLows: [],
+            structure: 'NEUTRAL',
+            momentum: 'STABLE',
+            momentumStrength: 'NONE',
+            phase: 'RANGE',
+            atr: 0,
+            confidence: 0
+        }
+    };
+
+    // Seed initial candles for smoother startup
+    function seedHTFData(id, basePrice) {
+        const data = htfData[id];
+        const volatility = id === 'xau' ? 0.3 : 30;
+        for (let i = 0; i < 20; i++) {
+            const open = basePrice + (Math.random() - 0.5) * volatility * 2;
+            const close = basePrice + (Math.random() - 0.5) * volatility * 2;
+            const high = Math.max(open, close) + Math.random() * volatility;
+            const low = Math.min(open, close) - Math.random() * volatility;
+            data.ohlcCandles.push({
+                open, high, low, close,
+                closed: true,
+                body: Math.abs(close - open),
+                range: high - low,
+                isBullish: close >= open,
+                upperWick: close >= open ? high - close : high - open,
+                lowerWick: close >= open ? open - low : close - low
+            });
+        }
     }
-    // Jadwalkan reset setelah 30 menit (1800000 ms)
-    autoResetTimers[id] = setTimeout(() => {
-      // Reset signal hanya jika masih ada signal yang terkonfirmasi atau dalam progress
-      const s = state[id];
-      if (s && (s.confirmed || s.l1 || s.l2 || s.l3)) {
-        resetSignal(id);
-        // Opsional: kita bisa menambahkan indikator silent reset, tapi diminta tanpa efek visual
-        // console.log(`[AUTO RESET] Signal untuk ${id.toUpperCase()} di-reset otomatis setelah 30 menit`);
-      }
-      // Jadwalkan ulang setelah reset (cycle terus setiap 30 menit untuk monitoring kondisi)
-      scheduleAutoReset(id);
-    }, 30 * 60 * 1000); // 30 menit
-  }
-  
-  // Hentikan auto reset untuk pasangan tertentu (misal saat page unload, tapi tidak kritis)
-  function clearAutoReset(id) {
-    if (autoResetTimers[id]) {
-      clearTimeout(autoResetTimers[id]);
-      autoResetTimers[id] = null;
-    }
-  }
 
-  // ========== FITUR: TRIPLE TAP RESET (TANPA EFEK VISUAL) ==========
-  // Menghitung jumlah tap di header (dalam periode 500ms)
-  let tapCount = 0;
-  let tapTimeout = null;
-  const headerElement = document.getElementById('tripleTapHeader');
-  
-  function handleTripleTap() {
-    tapCount++;
-    if (tapTimeout) clearTimeout(tapTimeout);
-    tapTimeout = setTimeout(() => {
-      tapCount = 0;
-    }, 500);
+    // ==================== 1. OPTIMIZED CANDLE ENGINE (Pseudo OHLC H1) ====================
+    function buildOHLCCandle(id, price) {
+        const data = htfData[id];
+        data.tickCounter++;
+
+        if (!data.currentCandle || data.tickCounter >= HTF_TICK_PER_CANDLE) {
+            if (data.currentCandle) {
+                data.currentCandle.closed = true;
+                data.ohlcCandles.push(data.currentCandle);
+                if (data.ohlcCandles.length > 100) data.ohlcCandles.shift();
+            }
+            data.tickCounter = 0;
+            data.currentCandle = {
+                open: price, high: price, low: price, close: price,
+                closed: false, body: 0, range: 0, isBullish: true,
+                upperWick: 0, lowerWick: 0
+            };
+        } else {
+            data.currentCandle.high = Math.max(data.currentCandle.high, price);
+            data.currentCandle.low = Math.min(data.currentCandle.low, price);
+            data.currentCandle.close = price;
+            data.currentCandle.range = data.currentCandle.high - data.currentCandle.low;
+            data.currentCandle.body = Math.abs(data.currentCandle.close - data.currentCandle.open);
+            data.currentCandle.isBullish = data.currentCandle.close >= data.currentCandle.open;
+            data.currentCandle.upperWick = data.currentCandle.isBullish ? 
+                data.currentCandle.high - data.currentCandle.close : 
+                data.currentCandle.high - data.currentCandle.open;
+            data.currentCandle.lowerWick = data.currentCandle.isBullish ? 
+                data.currentCandle.open - data.currentCandle.low : 
+                data.currentCandle.close - data.currentCandle.low;
+        }
+    }
+
+    // ==================== 2. OPTIMIZED STRUCTURE ENGINE (Pivot Fractal) ====================
+    function detectPivotFractals(id) {
+        const data = htfData[id];
+        const candles = data.ohlcCandles.filter(c => c.closed);
+        if (candles.length < HTF_PIVOT_LOOKBACK * 2 + 1) return;
+
+        data.pivotHighs = [];
+        data.pivotLows = [];
+
+        for (let i = HTF_PIVOT_LOOKBACK; i < candles.length - HTF_PIVOT_LOOKBACK; i++) {
+            const current = candles[i];
+            let isPivotHigh = true;
+            let isPivotLow = true;
+
+            for (let j = 1; j <= HTF_PIVOT_LOOKBACK; j++) {
+                if (candles[i - j].high >= current.high) isPivotHigh = false;
+                if (candles[i + j].high >= current.high) isPivotHigh = false;
+                if (candles[i - j].low <= current.low) isPivotLow = false;
+                if (candles[i + j].low <= current.low) isPivotLow = false;
+            }
+
+            if (isPivotHigh) data.pivotHighs.push({ index: i, price: current.high, candle: current });
+            if (isPivotLow) data.pivotLows.push({ index: i, price: current.low, candle: current });
+        }
+
+        data.swings = [];
+        const allPivots = [...data.pivotHighs.map(p => ({ ...p, type: 'H' })), 
+                          ...data.pivotLows.map(p => ({ ...p, type: 'L' }))];
+        allPivots.sort((a, b) => a.index - b.index);
+
+        let lastType = null;
+        allPivots.forEach(pivot => {
+            if (pivot.type !== lastType) {
+                data.swings.push({ val: pivot.price, type: pivot.type, index: pivot.index });
+                lastType = pivot.type;
+            }
+        });
+
+        detectStructure(id);
+    }
+
+    function detectStructure(id) {
+        const data = htfData[id];
+        const swings = data.swings;
+        if (swings.length < 4) return;
+
+        const recentSwings = swings.slice(-4);
+        const highs = recentSwings.filter(s => s.type === 'H').map(s => s.val);
+        const lows = recentSwings.filter(s => s.type === 'L').map(s => s.val);
+
+        if (highs.length >= 2 && lows.length >= 2) {
+            const last2Highs = highs.slice(-2);
+            const last2Lows = lows.slice(-2);
+
+            const isHH = last2Highs[1] > last2Highs[0];
+            const isHL = last2Lows[1] > last2Lows[0];
+            const isLH = last2Highs[1] < last2Highs[0];
+            const isLL = last2Lows[1] < last2Lows[0];
+
+            if (isHH && isHL) {
+                data.structure = 'BULLISH';
+            } else if (isLH && isLL) {
+                data.structure = 'BEARISH';
+            } else if ((isHH && !isHL) || (!isLH && isLL) || (!isHH && !isHL && !isLH && !isLL)) {
+                data.structure = 'RANGE';
+            } else {
+                data.structure = 'TRANSITIONAL';
+            }
+        }
+    }
+
+    // ==================== 3. OPTIMIZED MOMENTUM ENGINE (Displacement Analysis) ====================
+    function detectMomentum(id) {
+        const data = htfData[id];
+        const candles = data.ohlcCandles.filter(c => c.closed);
+        if (candles.length < HTF_MOMENTUM_LOOKBACK) return;
+
+        const recentCandles = candles.slice(-HTF_MOMENTUM_LOOKBACK);
+        let bullishDisplacement = 0;
+        let bearishDisplacement = 0;
+        let totalBodyDominance = 0;
+
+        recentCandles.forEach(candle => {
+            const bodyRatio = candle.body / (candle.range || 0.0001);
+            const isDisplacement = candle.range > (data.atr * 0.7);
+            const isBodyDominant = bodyRatio > 0.55;
+            const upperWickRatio = candle.upperWick / (candle.range || 0.0001);
+            const lowerWickRatio = candle.lowerWick / (candle.range || 0.0001);
+
+            totalBodyDominance += bodyRatio;
+
+            if (candle.isBullish && isBodyDominant && isDisplacement && upperWickRatio < 0.25) {
+                bullishDisplacement++;
+            } else if (!candle.isBullish && isBodyDominant && isDisplacement && lowerWickRatio < 0.25) {
+                bearishDisplacement++;
+            }
+        });
+
+        const avgBodyDominance = totalBodyDominance / HTF_MOMENTUM_LOOKBACK;
+
+        if (bullishDisplacement >= 3) {
+            data.momentum = 'IMPULSIVE_UP';
+            data.momentumStrength = 'STRONG';
+        } else if (bearishDisplacement >= 3) {
+            data.momentum = 'IMPULSIVE_DOWN';
+            data.momentumStrength = 'STRONG';
+        } else if (bullishDisplacement >= 2 && avgBodyDominance > 0.6) {
+            data.momentum = 'IMPULSIVE_UP';
+            data.momentumStrength = 'MODERATE';
+        } else if (bearishDisplacement >= 2 && avgBodyDominance > 0.6) {
+            data.momentum = 'IMPULSIVE_DOWN';
+            data.momentumStrength = 'MODERATE';
+        } else if (bullishDisplacement >= 1) {
+            data.momentum = 'BULLISH';
+            data.momentumStrength = 'WEAK';
+        } else if (bearishDisplacement >= 1) {
+            data.momentum = 'BEARISH';
+            data.momentumStrength = 'WEAK';
+        } else {
+            data.momentum = 'STABLE';
+            data.momentumStrength = 'NONE';
+        }
+    }
+
+    // ==================== 4. OPTIMIZED MARKET PHASE ENGINE ====================
+    function detectMarketPhase(id) {
+        const data = htfData[id];
+        const candles = data.ohlcCandles.filter(c => c.closed);
+        if (candles.length < HTF_RANGE_LOOKBACK) return;
+
+        const recentCandles = candles.slice(-HTF_RANGE_LOOKBACK);
+        
+        let overlapCount = 0;
+        let expansionCount = 0;
+        const ranges = [];
+
+        for (let i = 1; i < recentCandles.length; i++) {
+            const prev = recentCandles[i - 1];
+            const curr = recentCandles[i];
+            
+            const prevMid = (prev.high + prev.low) / 2;
+            const currMid = (curr.high + curr.low) / 2;
+            const midDistance = Math.abs(currMid - prevMid);
+            
+            if (midDistance < (data.atr * 0.4)) {
+                overlapCount++;
+            }
+            
+            if (curr.range > (data.atr * 1.2)) {
+                expansionCount++;
+            }
+            
+            ranges.push(curr.range);
+        }
+
+        const avgRange = ranges.reduce((a, b) => a + b, 0) / ranges.length;
+        const rangeVolatility = Math.max(...ranges) - Math.min(...ranges);
+
+        const isTrending = data.structure === 'BULLISH' || data.structure === 'BEARISH';
+        const hasMomentum = data.momentumStrength === 'STRONG' || data.momentumStrength === 'MODERATE';
+        const lowOverlap = overlapCount <= 3;
+
+        if (isTrending && hasMomentum && lowOverlap && expansionCount >= 2) {
+            data.phase = 'TRENDING';
+        } else if (expansionCount >= 3 && rangeVolatility > (data.atr * 0.5)) {
+            data.phase = 'EXPANSION';
+        } else if (overlapCount >= 6 && avgRange < (data.atr * 0.7)) {
+            data.phase = 'LOW_VOLATILITY';
+        } else {
+            data.phase = 'RANGE';
+        }
+    }
+
+    // ==================== 5. ADAPTIVE ATR CALCULATION ====================
+    function calculateATR(id) {
+        const data = htfData[id];
+        const candles = data.ohlcCandles.filter(c => c.closed);
+        if (candles.length < 14) return;
+
+        const trueRanges = [];
+        for (let i = 1; i < candles.length; i++) {
+            const high = candles[i].high;
+            const low = candles[i].low;
+            const prevClose = candles[i - 1].close;
+            
+            const tr1 = high - low;
+            const tr2 = Math.abs(high - prevClose);
+            const tr3 = Math.abs(low - prevClose);
+            
+            trueRanges.push(Math.max(tr1, tr2, tr3));
+        }
+
+        const recentTR = trueRanges.slice(-14);
+        data.atr = recentTR.reduce((a, b) => a + b, 0) / recentTR.length;
+    }
+
+    // ==================== HTF CONFIDENCE CALCULATION ====================
+    function calculateHTFConfidence(id) {
+        const data = htfData[id];
+        let confidence = 0;
+
+        if (data.structure === 'BULLISH' || data.structure === 'BEARISH') {
+            confidence += 40;
+        } else if (data.structure === 'TRANSITIONAL') {
+            confidence += 15;
+        }
+
+        switch (data.momentumStrength) {
+            case 'STRONG': confidence += 35; break;
+            case 'MODERATE': confidence += 25; break;
+            case 'WEAK': confidence += 10; break;
+            default: confidence += 0;
+        }
+
+        switch (data.phase) {
+            case 'TRENDING': confidence += 25; break;
+            case 'EXPANSION': confidence += 15; break;
+            case 'LOW_VOLATILITY': confidence += 5; break;
+            default: confidence += 0;
+        }
+
+        const isAligned = 
+            (data.structure === 'BULLISH' && data.momentum.includes('UP')) ||
+            (data.structure === 'BEARISH' && data.momentum.includes('DOWN'));
+        
+        if (!isAligned && data.structure !== 'NEUTRAL' && data.structure !== 'RANGE') {
+            confidence = Math.min(confidence, 35);
+        }
+
+        data.confidence = Math.max(0, Math.min(100, confidence));
+    }
+
+    // ==================== MAIN HTF ENGINE UPDATE ====================
+    function updateHTFEngine(id, price) {
+        const data = htfData[id];
+
+        buildOHLCCandle(id, price);
+        calculateATR(id);
+        detectPivotFractals(id);
+        detectMomentum(id);
+        detectMarketPhase(id);
+        calculateHTFConfidence(id);
+
+        updateHTFUI(id);
+    }
+
+    // ==================== HTF UI RENDERING ====================
+    function updateHTFUI(id) {
+        const data = htfData[id];
+
+        // === HTF TREND (Structure) ===
+        const htfTrendEl = document.getElementById(`htf-trend-${id}`);
+        if (htfTrendEl) {
+            let trendText = '';
+            let trendClass = '';
+
+            switch (data.structure) {
+                case 'BULLISH':
+                    trendText = '▲ BULLISH';
+                    trendClass = 'trend-up';
+                    break;
+                case 'BEARISH':
+                    trendText = '▼ BEARISH';
+                    trendClass = 'trend-down';
+                    break;
+                case 'TRANSITIONAL':
+                    trendText = '◆ TRANS';
+                    trendClass = 'trend-weak';
+                    break;
+                case 'RANGE':
+                    trendText = '◆ RANGE';
+                    trendClass = 'trend-neutral';
+                    break;
+                default:
+                    trendText = '◆ NEUTRAL';
+                    trendClass = 'trend-neutral';
+            }
+
+            htfTrendEl.className = `htf-value ${trendClass}`;
+            htfTrendEl.innerText = trendText;
+        }
+
+        // === HTF MOMENTUM ===
+        const htfMomentumEl = document.getElementById(`htf-momentum-${id}`);
+        if (htfMomentumEl) {
+            let momText = '';
+            let momClass = '';
+
+            switch (data.momentum) {
+                case 'IMPULSIVE_UP':
+                    momText = data.momentumStrength === 'STRONG' ? '▲ STRONG' : '▲ MODERATE';
+                    momClass = 'momentum-up';
+                    break;
+                case 'IMPULSIVE_DOWN':
+                    momText = data.momentumStrength === 'STRONG' ? '▼ STRONG' : '▼ MODERATE';
+                    momClass = 'momentum-down';
+                    break;
+                case 'BULLISH':
+                    momText = '▲ WEAK';
+                    momClass = 'trend-weak';
+                    break;
+                case 'BEARISH':
+                    momText = '▼ WEAK';
+                    momClass = 'trend-weak';
+                    break;
+                default:
+                    momText = '◆ FLAT';
+                    momClass = 'trend-neutral';
+            }
+
+            htfMomentumEl.className = `htf-value ${momClass}`;
+            htfMomentumEl.innerText = momText;
+        }
+
+        // === HTF PHASE + ATR + CONFIDENCE (Rendered in HTF box) ===
+        const htfPhaseEl = document.getElementById(`htf-phase-${id}`);
+        if (htfPhaseEl) {
+            let phaseText = '';
+            let phaseClass = '';
+            
+            switch (data.phase) {
+                case 'TRENDING':
+                    phaseText = 'TRENDING';
+                    phaseClass = 'phase-trending-tag';
+                    break;
+                case 'EXPANSION':
+                    phaseText = 'EXPANSION';
+                    phaseClass = 'phase-expansion-tag';
+                    break;
+                case 'LOW_VOLATILITY':
+                    phaseText = 'LOW VOL';
+                    phaseClass = 'phase-lowvol-tag';
+                    break;
+                default:
+                    phaseText = 'RANGE';
+                    phaseClass = 'phase-ranging-tag';
+            }
+            
+            htfPhaseEl.innerHTML = `
+                <span class="phase-tag ${phaseClass}">${phaseText}</span>
+                <div style="font-size:0.5rem;color:var(--text-dim);margin-top:2px;text-align:center;">ATR ${data.atr.toFixed(2)}</div>
+                <div class="context-bar">
+                    <div class="context-fill" style="width:${data.confidence}%;background:${data.confidence >= 70 ? 'var(--success)' : data.confidence >= 40 ? 'var(--htf-weak)' : 'var(--danger)'}"></div>
+                </div>
+                <div style="font-size:0.45rem;color:var(--text-dim);margin-top:1px;text-align:center;">CONF ${Math.round(data.confidence)}%</div>
+            `;
+        }
+    }
+
+    // ==================== PRICE ACTION (UNCHANGED - EMA SMOOTHED) ====================
+    let paEma = { xau: 0, btc: 0 };
+    let paEmaAlpha = 0.2;
+
+    function updatePA(id, price) {
+        const s = state[id];
+        
+        if (paEma[id] === 0) {
+            paEma[id] = price;
+        } else {
+            paEma[id] = (price * paEmaAlpha) + (paEma[id] * (1 - paEmaAlpha));
+        }
+        
+        if (s.lastPrice !== 0) {
+            const emaDiff = paEma[id] - s.lastPrice;
+            s.trendScore += emaDiff * 0.5;
+        }
+        
+        const maxTrend = id === 'xau' ? 5 : 500;
+        if (s.trendScore > maxTrend) s.trendScore = maxTrend;
+        if (s.trendScore < -maxTrend) s.trendScore = -maxTrend;
+        
+        updatePAUI(id);
+    }
     
-    if (tapCount === 3) {
-      // Triple tap terdeteksi, reset semua signal (xau dan btc) tanpa efek visual
-      resetSignal('xau');
-      resetSignal('btc');
-      // Reset juga state sinyal agar bersih total
-      // Tidak ada efek visual, tidak ada notifikasi, tidak ada perubahan warna apapun
-      tapCount = 0;
-      if (tapTimeout) clearTimeout(tapTimeout);
-      // Opsional untuk debugging internal, tidak merubah UI
-      // console.log("TRIPLE TAP: Semua signal telah direset (tanpa efek visual)");
+    function updatePAUI(id) {
+        const s = state[id];
+        let p = (id === 'xau') ? { trendThresh: 0.8, momThresh: 0.08 } : { trendThresh: 50, momThresh: 10 };
+        
+        const trendPaEl = document.getElementById(`trend-${id}`);
+        if (trendPaEl) {
+            if (s.trendScore > p.trendThresh) {
+                trendPaEl.innerText = "BULLISH";
+                trendPaEl.style.color = "var(--success)";
+            } else if (s.trendScore < -p.trendThresh) {
+                trendPaEl.innerText = "BEARISH";
+                trendPaEl.style.color = "var(--danger)";
+            } else {
+                trendPaEl.innerText = "NEUTRAL";
+                trendPaEl.style.color = "var(--text-dim)";
+            }
+        }
+        
+        const momPaEl = document.getElementById(`mom-${id}`);
+        if (momPaEl && s.lastPrice !== 0) {
+            const prevPrice = state[id].lastPrice;
+            const diff = s.lastPrice - prevPrice;
+            const absDiff = Math.abs(diff);
+            const direction = diff > 0 ? "UPWARD" : "DOWNWARD";
+            const strength = absDiff > p.momThresh ? "STRONG " : "";
+            momPaEl.innerHTML = strength + direction;
+            momPaEl.style.color = diff > 0 ? "var(--success)" : "var(--danger)";
+        }
     }
-  }
-  
-  // Pasang event listener untuk triple tap
-  if (headerElement) {
-    headerElement.addEventListener('click', handleTripleTap);
-  }
 
-  // ==================== HTF ENGINE v5.0.0 ====================
-  const HTF_TICK_PER_CANDLE = 120;
-  const HTF_PIVOT_LOOKBACK = 2;
-  const HTF_MOMENTUM_LOOKBACK = 4;
-  const HTF_RANGE_LOOKBACK = 10;
-
-  let htfData = {
-    xau: { ohlcCandles: [], currentCandle: null, tickCounter: 0, swings: [], pivotHighs: [], pivotLows: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', phase: 'RANGE', atr: 0, confidence: 0 },
-    btc: { ohlcCandles: [], currentCandle: null, tickCounter: 0, swings: [], pivotHighs: [], pivotLows: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', phase: 'RANGE', atr: 0, confidence: 0 }
-  };
-
-  function seedHTFData(id, basePrice) {
-    const data = htfData[id];
-    const volatility = id === 'xau' ? 2.0 : 400;
-    for (let i = 0; i < 20; i++) {
-      const open = basePrice + (Math.random() - 0.5) * volatility * 2;
-      const close = basePrice + (Math.random() - 0.5) * volatility * 2;
-      const high = Math.max(open, close) + Math.random() * volatility;
-      const low = Math.min(open, close) - Math.random() * volatility;
-      data.ohlcCandles.push({ open, high, low, close, closed: true, body: Math.abs(close - open), range: high - low, isBullish: close >= open, upperWick: close >= open ? high - close : high - open, lowerWick: close >= open ? open - low : close - low });
+    // ==================== SIGNAL LOGIC (UNCHANGED) ====================
+    function createFreshState() {
+        return { 
+            lastPrice: 0, trendScore: 0, 
+            l1: false, l2: false, l3: false, 
+            confirmed: false, type: 'none', 
+            entry: 0, sl: 0, tp: 0
+        };
     }
-  }
 
-  function buildOHLCCandle(id, price) {
-    const data = htfData[id];
-    data.tickCounter++;
-    if (!data.currentCandle || data.tickCounter >= HTF_TICK_PER_CANDLE) {
-      if (data.currentCandle) { data.currentCandle.closed = true; data.ohlcCandles.push(data.currentCandle); if (data.ohlcCandles.length > 100) data.ohlcCandles.shift(); }
-      data.tickCounter = 0;
-      data.currentCandle = { open: price, high: price, low: price, close: price, closed: false, body: 0, range: 0, isBullish: true, upperWick: 0, lowerWick: 0 };
-    } else {
-      data.currentCandle.high = Math.max(data.currentCandle.high, price);
-      data.currentCandle.low = Math.min(data.currentCandle.low, price);
-      data.currentCandle.close = price;
-      data.currentCandle.range = data.currentCandle.high - data.currentCandle.low;
-      data.currentCandle.body = Math.abs(data.currentCandle.close - data.currentCandle.open);
-      data.currentCandle.isBullish = data.currentCandle.close >= data.currentCandle.open;
-      data.currentCandle.upperWick = data.currentCandle.isBullish ? data.currentCandle.high - data.currentCandle.close : data.currentCandle.high - data.currentCandle.open;
-      data.currentCandle.lowerWick = data.currentCandle.isBullish ? data.currentCandle.open - data.currentCandle.low : data.currentCandle.close - data.currentCandle.low;
+    function loadState(id) {
+        const saved = localStorage.getItem(`ura_state_${id}`);
+        if (saved) {
+            try { return JSON.parse(saved); } catch(e) { return createFreshState(); }
+        }
+        return createFreshState();
     }
-  }
 
-  function detectPivotFractals(id) {
-    const data = htfData[id];
-    const candles = data.ohlcCandles.filter(c => c.closed);
-    if (candles.length < HTF_PIVOT_LOOKBACK * 2 + 1) return;
-    data.pivotHighs = []; data.pivotLows = [];
-    for (let i = HTF_PIVOT_LOOKBACK; i < candles.length - HTF_PIVOT_LOOKBACK; i++) {
-      let isPivotHigh = true, isPivotLow = true;
-      for (let j = 1; j <= HTF_PIVOT_LOOKBACK; j++) {
-        if (candles[i - j].high >= candles[i].high) isPivotHigh = false;
-        if (candles[i + j].high >= candles[i].high) isPivotHigh = false;
-        if (candles[i - j].low <= candles[i].low) isPivotLow = false;
-        if (candles[i + j].low <= candles[i].low) isPivotLow = false;
-      }
-      if (isPivotHigh) data.pivotHighs.push({ index: i, price: candles[i].high, candle: candles[i] });
-      if (isPivotLow) data.pivotLows.push({ index: i, price: candles[i].low, candle: candles[i] });
+    function saveState(id) {
+        const toSave = {
+            lastPrice: state[id].lastPrice,
+            trendScore: state[id].trendScore,
+            l1: state[id].l1, l2: state[id].l2, l3: state[id].l3,
+            confirmed: state[id].confirmed,
+            type: state[id].type,
+            entry: state[id].entry, sl: state[id].sl, tp: state[id].tp
+        };
+        localStorage.setItem(`ura_state_${id}`, JSON.stringify(toSave));
     }
-    const allPivots = [...data.pivotHighs.map(p => ({ ...p, type: 'H' })), ...data.pivotLows.map(p => ({ ...p, type: 'L' }))];
-    allPivots.sort((a, b) => a.index - b.index);
-    data.swings = []; let lastType = null;
-    allPivots.forEach(pivot => { if (pivot.type !== lastType) { data.swings.push({ val: pivot.price, type: pivot.type, index: pivot.index }); lastType = pivot.type; } });
-    const swings = data.swings;
-    if (swings.length >= 4) {
-      const recent = swings.slice(-4);
-      const highs = recent.filter(s => s.type === 'H').map(s => s.val);
-      const lows = recent.filter(s => s.type === 'L').map(s => s.val);
-      if (highs.length >= 2 && lows.length >= 2) {
-        const isHH = highs[1] > highs[0], isHL = lows[1] > lows[0], isLH = highs[1] < highs[0], isLL = lows[1] < lows[0];
-        if (isHH && isHL) data.structure = 'BULLISH';
-        else if (isLH && isLL) data.structure = 'BEARISH';
-        else data.structure = 'RANGE';
-      } else data.structure = 'RANGE';
+
+    function updateSignal(id, price) {
+        const s = state[id];
+        let p = (id === 'xau') ? { threshold: 0.05 } : btcConfig;
+        
+        if (s.confirmed) {
+            if (s.type === 'buy' && (price >= s.tp || price <= s.sl)) resetSignal(id);
+            else if (s.type === 'sell' && (price <= s.tp || price >= s.sl)) resetSignal(id);
+            return;
+        }
+        
+        const diff = price - s.lastPrice;
+        updatePA(id, price);
+        
+        if (!s.confirmed && s.lastPrice !== 0 && Math.abs(diff) > p.threshold) {
+            const direction = diff > 0 ? 'buy' : 'sell';
+            if (!s.l1) { 
+                s.l1 = true; s.type = direction; saveState(id); updateSignalUI(id);
+            } else if (!s.l2) { 
+                s.l2 = true; saveState(id); updateSignalUI(id);
+            } else { 
+                lockSignal(id, price, direction); 
+            }
+        }
+        
+        s.lastPrice = price;
+        saveState(id);
     }
-  }
-
-  function calculateATR(id) {
-    const data = htfData[id];
-    const candles = data.ohlcCandles.filter(c => c.closed);
-    if (candles.length < 14) return;
-    const trueRanges = [];
-    for (let i = 1; i < candles.length; i++) {
-      const tr1 = candles[i].high - candles[i].low;
-      const tr2 = Math.abs(candles[i].high - candles[i-1].close);
-      const tr3 = Math.abs(candles[i].low - candles[i-1].close);
-      trueRanges.push(Math.max(tr1, tr2, tr3));
-    }
-    const recent = trueRanges.slice(-14);
-    data.atr = recent.reduce((a,b)=>a+b,0)/recent.length;
-  }
-
-  function detectMomentum(id) {
-    const data = htfData[id];
-    const candles = data.ohlcCandles.filter(c => c.closed);
-    if (candles.length < HTF_MOMENTUM_LOOKBACK) return;
-    const recent = candles.slice(-HTF_MOMENTUM_LOOKBACK);
-    let bullish = 0, bearish = 0;
-    recent.forEach(c => {
-      const bodyRatio = c.body / (c.range || 0.0001);
-      const isDisp = c.range > (data.atr * 1.0);
-      if (c.isBullish && bodyRatio > 0.55 && isDisp && (c.upperWick / (c.range||1) < 0.15)) bullish++;
-      if (!c.isBullish && bodyRatio > 0.55 && isDisp && (c.lowerWick / (c.range||1) < 0.15)) bearish++;
-    });
-    if (bullish >= 3) { data.momentum = 'IMPULSIVE_UP'; data.momentumStrength = 'STRONG'; }
-    else if (bearish >= 3) { data.momentum = 'IMPULSIVE_DOWN'; data.momentumStrength = 'STRONG'; }
-    else if (bullish >= 1) { data.momentum = 'BULLISH'; data.momentumStrength = 'WEAK'; }
-    else if (bearish >= 1) { data.momentum = 'BEARISH'; data.momentumStrength = 'WEAK'; }
-    else { data.momentum = 'STABLE'; data.momentumStrength = 'NONE'; }
-  }
-
-  function detectMarketPhase(id) {
-    const data = htfData[id];
-    const candles = data.ohlcCandles.filter(c => c.closed);
-    if (candles.length < HTF_RANGE_LOOKBACK) return;
-    let overlap = 0, expansion = 0;
-    for (let i = 1; i < candles.length; i++) {
-      const prev = candles[i-1], curr = candles[i];
-      const midDist = Math.abs(((prev.high+prev.low)/2) - ((curr.high+curr.low)/2));
-      if (midDist < (data.atr * 0.4)) overlap++;
-      if (curr.range > (data.atr * 1.2)) expansion++;
-    }
-    const trending = data.structure === 'BULLISH' || data.structure === 'BEARISH';
-    const hasMom = data.momentumStrength === 'STRONG' || data.momentumStrength === 'MODERATE';
-    if (trending && hasMom && expansion >= 2) data.phase = 'TRENDING';
-    else if (expansion >= 3) data.phase = 'EXPANSION';
-    else if (overlap >= 6) data.phase = 'LOW_VOLATILITY';
-    else data.phase = 'RANGE';
-  }
-
-  function calculateHTFConfidence(id) {
-    const data = htfData[id];
-    let conf = 0;
-    if (data.structure === 'BULLISH' || data.structure === 'BEARISH') conf += 40;
-    if (data.momentumStrength === 'STRONG') conf += 35;
-    else if (data.momentumStrength === 'MODERATE') conf += 25;
-    if (data.phase === 'TRENDING') conf += 25;
-    data.confidence = Math.min(100, conf);
-  }
-
-  function updateHTFEngine(id, price) {
-    buildOHLCCandle(id, price);
-    calculateATR(id);
-    detectPivotFractals(id);
-    detectMomentum(id);
-    detectMarketPhase(id);
-    calculateHTFConfidence(id);
-    updateHTFUI(id);
-  }
-
-  function updateHTFUI(id) {
-    const data = htfData[id];
-    const trendEl = document.getElementById(`htf-trend-${id}`);
-    if (trendEl) {
-      let txt = '', cls = '';
-      if (data.structure === 'BULLISH') { txt = '▲ BULLISH'; cls = 'trend-up'; }
-      else if (data.structure === 'BEARISH') { txt = '▼ BEARISH'; cls = 'trend-down'; }
-      else if (data.structure === 'RANGE') { txt = '◆ RANGE'; cls = 'trend-neutral'; }
-      else { txt = '◆ NEUTRAL'; cls = 'trend-neutral'; }
-      trendEl.className = `htf-value ${cls}`; trendEl.innerText = txt;
-    }
-    const momEl = document.getElementById(`htf-momentum-${id}`);
-    if (momEl) {
-      let txt = '', cls = '';
-      if (data.momentum === 'IMPULSIVE_UP') { txt = '▲ STRONG MOM'; cls = 'momentum-up'; }
-      else if (data.momentum === 'IMPULSIVE_DOWN') { txt = '▼ STRONG MOM'; cls = 'momentum-down'; }
-      else if (data.momentum === 'BULLISH') { txt = '▲ WEAK MOM'; cls = 'trend-weak'; }
-      else if (data.momentum === 'BEARISH') { txt = '▼ WEAK MOM'; cls = 'trend-weak'; }
-      else { txt = '◆ FLAT'; cls = 'trend-neutral'; }
-      momEl.className = `htf-value ${cls}`; momEl.innerText = txt;
-    }
-    const phaseEl = document.getElementById(`htf-phase-${id}`);
-    if (phaseEl) {
-      let phaseClass = '';
-      if (data.phase === 'TRENDING') phaseClass = 'phase-trending-tag';
-      else if (data.phase === 'EXPANSION') phaseClass = 'phase-expansion-tag';
-      else if (data.phase === 'LOW_VOLATILITY') phaseClass = 'phase-lowvol-tag';
-      else phaseClass = 'phase-ranging-tag';
-      phaseEl.innerHTML = `<span class="phase-tag ${phaseClass}">${data.phase}</span>`;
-    }
-    const atrEl = document.getElementById(`htf-atr-${id}`);
-    if (atrEl) atrEl.innerText = data.atr.toFixed(2);
-    const confFill = document.getElementById(`conf-fill-${id}`);
-    if (confFill) {
-      confFill.style.width = `${data.confidence}%`;
-      confFill.style.background = data.confidence >= 70 ? 'var(--success-bloom)' : (data.confidence >= 40 ? 'var(--warning-bloom)' : 'var(--danger-bloom)');
-    }
-    const confText = document.getElementById(`conf-text-${id}`);
-    if (confText) confText.innerText = `CONFIDENCE ${Math.round(data.confidence)}%`;
-  }
-
-  function createFreshState() { return { lastPrice: 0, trendScore: 0, l1: false, l2: false, l3: false, confirmed: false, type: 'none', entry: 0, sl: 0, tp: 0 }; }
-  function loadState(id) { const saved = localStorage.getItem(`ura_state_${id}`); return saved ? JSON.parse(saved) : createFreshState(); }
-  function saveState(id) { localStorage.setItem(`ura_state_${id}`, JSON.stringify(state[id])); }
-
-  function updateSignal(id, price) {
-    const s = state[id];
-    const thresh = id === 'xau' ? 0.05 : 6;
-    if (s.confirmed) {
-      if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) || (s.type === 'sell' && (price <= s.tp || price >= s.sl))) resetSignal(id);
-      return;
-    }
-    const diff = price - s.lastPrice;
-    if (!s.confirmed && s.lastPrice !== 0 && Math.abs(diff) > thresh) {
-      const dir = diff > 0 ? 'buy' : 'sell';
-      if (!s.l1) { s.l1 = true; s.type = dir; saveState(id); updateSignalUI(id); }
-      else if (!s.l2) { s.l2 = true; saveState(id); updateSignalUI(id); }
-      else { lockSignal(id, price, dir); }
-    }
-    s.lastPrice = price;
-    saveState(id);
-  }
-
-  function updateSignalUI(id) {
-    const s = state[id];
-    const l1 = document.getElementById(`l1-${id}`); if(l1) l1.className = s.l1 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
-    const l2 = document.getElementById(`l2-${id}`); if(l2) l2.className = s.l2 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
-    const l3 = document.getElementById(`l3-${id}`); if(l3) l3.className = s.l3 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
-    const sigTxt = document.getElementById(`signal-text-${id}`);
-    if (sigTxt) {
-      if (s.confirmed) sigTxt.innerText = s.type.toUpperCase();
-      else if (s.l3) sigTxt.innerText = 'FVG';
-      else if (s.l2) sigTxt.innerText = 'CHoCH';
-      else if (s.l1) sigTxt.innerText = 'SWEEP';
-      else sigTxt.innerText = 'IDLE';
-      sigTxt.style.color = s.confirmed ? (s.type === 'buy' ? 'var(--success-bloom)' : 'var(--danger-bloom)') : 'var(--accent-bloomberg)';
-    }
-    const entryEl = document.getElementById(`entry-${id}`); if(entryEl) entryEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-    const tpEl = document.getElementById(`tp-${id}`); if(tpEl) tpEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
-    const slEl = document.getElementById(`sl-${id}`); if(slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
-  }
-
-  function lockSignal(id, entry, type) {
-    const s = state[id];
-    s.l3 = true; s.confirmed = true; s.type = type; s.entry = entry;
-    const risk = id === 'xau' ? 8 : entry * 0.004;
-    if (type === 'buy') { s.sl = s.entry - risk; s.tp = s.entry + risk * 1.3; }
-    else { s.sl = s.entry + risk; s.tp = s.entry - risk * 1.5; }
-    saveState(id); updateSignalUI(id);
-  }
-  function resetSignal(id) { 
-    const s = state[id]; 
-    s.l1 = s.l2 = s.l3 = s.confirmed = false; 
-    s.type = 'none'; 
-    s.entry = s.sl = s.tp = 0; 
-    // lastPrice tidak direset agar alur SWEEP/CHoCH tetap berjalan dengan acuan harga terakhir
-    saveState(id); 
-    updateSignalUI(id);
-    // Setelah reset, auto reset tetap akan berjalan kembali karena timer sudah dijadwalkan secara periodik.
-  }
-
-  async function fetchXAUPrice() {
-    try { const resp = await fetch('https://api.gold-api.com/price/XAU'); const data = await resp.json(); if (data.price > 0) updateXAUPrice(data.price); }
-    catch { fetch('https://api.exchangerate.host/convert?from=XAU&to=USD&amount=1').then(r=>r.json()).then(d=>{ if(d.result) updateXAUPrice(d.result); }); }
-  }
-  function updateXAUPrice(price) {
-    if (!price) return;
-    const priceEl = document.getElementById('price-xau');
-    if (priceEl) { const old = state.xau.lastPrice; priceEl.innerText = price.toFixed(2); if (old && old !== price) { priceEl.style.color = price > old ? "var(--success-bloom)" : "var(--danger-bloom)"; setTimeout(()=>priceEl.style.color="", 150); } }
-    updateHTFEngine('xau', price); updateSignal('xau', price);
-  }
-
-  function connectWebSocketBTC() {
-    if (wsConnections.btc) wsConnections.btc.close();
-    const ws = new WebSocket(btcConfig.wsUrl);
-    ws.onopen = () => { wsStatus.btc = true; wsRetries.btc = 0; updateWSStatus('btc'); updateGlobalPulse(); };
-    ws.onclose = () => { wsStatus.btc = false; updateWSStatus('btc'); updateGlobalPulse(); setTimeout(connectWebSocketBTC, 5000); };
-    ws.onmessage = (e) => { const data = JSON.parse(e.data); const price = parseFloat(data.p); if (price && !isNaN(price)) { const priceEl = document.getElementById('price-btc'); if (priceEl) { const old = state.btc.lastPrice; priceEl.innerText = price.toFixed(2); if (old && old !== price) { priceEl.style.color = price > old ? "var(--success-bloom)" : "var(--danger-bloom)"; setTimeout(()=>priceEl.style.color="",150); } } updateHTFEngine('btc', price); updateSignal('btc', price); } };
-    wsConnections.btc = ws;
-  }
-  function updateWSStatus(id) { const el = document.getElementById(`ws-status-${id}`); if(el) { el.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`; el.innerText = wsStatus[id] ? '● CONNECTED' : '○ RECONNECT'; } }
-  function updateGlobalPulse() { const pulse = document.getElementById('globalPulse'); if(pulse) pulse.style.background = (wsStatus.btc || true) ? 'var(--success-bloom)' : 'var(--danger-bloom)'; }
-
-  function init() {
-    state.xau = loadState('xau'); state.btc = loadState('btc');
-    seedHTFData('xau', 4680); seedHTFData('btc', 59000);
-    const container = document.getElementById('terminals');
-    container.innerHTML = `
-        <div class="pair-card ${activePairId === 'xau' ? 'active' : ''}" id="card-xau"><div class="card">${cardHTML('xau','XAUUSD')}</div></div>
-        <div class="pair-card ${activePairId === 'btc' ? 'active' : ''}" id="card-btc"><div class="card">${cardHTML('btc','BTCUSD')}</div></div>`;
-    updateSignalUI('xau'); updateHTFUI('xau'); updateSignalUI('btc'); updateHTFUI('btc');
-    fetchXAUPrice(); setInterval(fetchXAUPrice, 2500);
-    connectWebSocketBTC();
-    document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
-    document.getElementById('switchPairBtn').onclick = () => { activePairId = activePairId === 'xau' ? 'btc' : 'xau'; localStorage.setItem('ura_active_pair', activePairId); document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD'; document.querySelectorAll('.pair-card').forEach(c=>c.classList.remove('active')); document.getElementById(`card-${activePairId}`).classList.add('active'); };
-    updateGlobalPulse(); setInterval(updateGlobalPulse, 1500);
     
-    // Mulai auto reset signal setiap 30 menit untuk kedua pair
-    scheduleAutoReset('xau');
-    scheduleAutoReset('btc');
-  }
+    function updateSignalUI(id) {
+        const s = state[id];
+        
+        const l1Dot = document.getElementById(`l1-${id}`);
+        if (l1Dot) l1Dot.className = s.l1 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
+        
+        const l2Dot = document.getElementById(`l2-${id}`);
+        if (l2Dot) l2Dot.className = s.l2 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
+        
+        const l3Dot = document.getElementById(`l3-${id}`);
+        if (l3Dot) l3Dot.className = s.l3 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
+        
+        const signalText = document.getElementById(`signal-text-${id}`);
+        if (signalText) {
+            if (!wsStatus[id] && id === 'btc') {
+                signalText.innerText = 'NO FEED';
+                signalText.style.color = 'var(--danger)';
+            } else if (s.confirmed) {
+                signalText.innerText = s.type.toUpperCase();
+                signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)';
+            } else if (s.l3) {
+                signalText.innerText = 'FVG';
+                signalText.style.color = 'var(--accent)';
+            } else if (s.l2) {
+                signalText.innerText = 'CHoCH';
+                signalText.style.color = 'var(--accent)';
+            } else if (s.l1) {
+                signalText.innerText = 'SWEEP';
+                signalText.style.color = 'var(--feed-lightning)';
+            } else {
+                signalText.innerText = 'IDLE';
+                signalText.style.color = 'var(--text-dim)';
+            }
+        }
+        
+        const entryEl = document.getElementById(`entry-${id}`);
+        if (entryEl) entryEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
+        
+        const tpEl = document.getElementById(`tp-${id}`);
+        if (tpEl) tpEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
+        
+        const slEl = document.getElementById(`sl-${id}`);
+        if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+    }
 
-  function cardHTML(id, label) {
-    return `
-        <div class="card-top"><div><span class="pair">${label}</span><div class="ws-status" id="ws-status-${id}">● CONNECTED</div></div><span class="price" id="price-${id}">0.00</span></div>
-        <div class="signal-bar"><span>SIGNAL</span><div class="signal-dot-group"><div class="dot" id="l1-${id}"></div><div class="dot" id="l2-${id}"></div><div class="dot" id="l3-${id}"></div></div><span id="signal-text-${id}">IDLE</span></div>
-        <div class="card-level-grid"><div class="level-item" onclick="copyValue('${id}','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-${id}">--</span></div><div class="level-item" onclick="copyValue('${id}','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-${id}" style="color:var(--success-bloom)">--</span></div><div class="level-item" onclick="copyValue('${id}','sl')"><span class="level-label">S-Loss</span><span class="level-value" id="sl-${id}" style="color:var(--danger-bloom)">--</span></div></div>
-        <div class="box-htf-full">
-            <div class="label-sm">HTF CONTEXT</div>
-            <div class="htf-grid-full">
-                <div class="htf-block"><div class="htf-label">STRUCTURE</div><div class="htf-value" id="htf-trend-${id}">◆ NEUTRAL</div></div>
-                <div class="htf-block"><div class="htf-label">MOMENTUM</div><div class="htf-value" id="htf-momentum-${id}">◆ FLAT</div></div>
-                <div class="htf-block"><div class="htf-label">PHASE</div><div class="htf-value" id="htf-phase-${id}"><span class="phase-tag phase-ranging-tag">RANGE</span></div></div>
-                <div class="htf-block"><div class="htf-label">ATR</div><div class="htf-value" id="htf-atr-${id}">0.00</div></div>
+    function lockSignal(id, entry, type) {
+        const s = state[id];
+        const offset = type === 'buy' ? -3 : +3;
+        const adjustedEntry = entry + offset;
+        
+        s.l3 = true;
+        s.confirmed = true;
+        s.type = type;
+        s.entry = adjustedEntry;
+        
+        const risk = id === 'xau' ? 8 : entry * 0.0020;
+        
+        if (type === 'buy') {
+            s.sl = adjustedEntry - risk;
+            s.tp = adjustedEntry + (risk * 1.3);
+        } else {
+            s.sl = adjustedEntry + risk;
+            s.tp = adjustedEntry - (risk * 1.5);
+        }
+        
+        saveState(id);
+        updateSignalUI(id);
+        updatePAUI(id);
+    }
+
+    function resetSignal(id) {
+        const s = state[id];
+        s.l1 = false; s.l2 = false; s.l3 = false;
+        s.confirmed = false; s.type = 'none';
+        s.entry = 0; s.sl = 0; s.tp = 0;
+        s.trendScore = 0;
+        saveState(id);
+        updateSignalUI(id);
+        updatePAUI(id);
+    }
+
+    // ==================== UI HELPERS ====================
+    function updateWSStatus(id) {
+        const el = document.getElementById(`ws-status-${id}`);
+        if (el) {
+            if (id === 'xau') {
+                el.textContent = '● CONNECTED (API)';
+                el.className = 'ws-status connected';
+            } else {
+                el.textContent = wsStatus[id] ? '● CONNECTED' : '○ RECONNECTING...';
+                el.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`;
+            }
+        }
+    }
+
+    function updateGlobalPulse() {
+        const pulseEl = document.getElementById('globalPulse');
+        if (pulseEl) {
+            pulseEl.className = (wsStatus.btc || true) ? 'pulse connected' : 'pulse disconnected';
+        }
+    }
+
+    // ==================== FETCH XAU PRICE ====================
+    let lastXAUPrice = 0;
+    function fetchXAUPrice() {
+        fetch('https://api.gold-api.com/price/XAU')
+            .then(response => {
+                if (!response.ok) throw new Error('API error');
+                return response.json();
+            })
+            .then(data => {
+                let price = data.price || data.USD || (data.rates && data.rates.USD);
+                if (price > 0) updateXAUPrice(price);
+            })
+            .catch(() => {
+                fetch('https://api.exchangerate.host/convert?from=XAU&to=USD&amount=1')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.result && data.result > 0) updateXAUPrice(data.result);
+                    })
+                    .catch(err => console.error('XAU fetch error:', err));
+            });
+    }
+    
+    function updateXAUPrice(price) {
+        if (price && price > 0 && !isNaN(price)) {
+            lastXAUPrice = price;
+            
+            const priceEl = document.getElementById(`price-xau`);
+            if (priceEl) {
+                const oldPrice = state.xau.lastPrice;
+                priceEl.innerText = price.toFixed(2);
+                if (oldPrice !== 0 && oldPrice !== price) {
+                    priceEl.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
+                    setTimeout(() => { if (priceEl) priceEl.style.color = ""; }, 150);
+                }
+            }
+            
+            updateHTFEngine('xau', price);
+            updateSignal('xau', price);
+        }
+    }
+
+    // ==================== INITIALIZATION ====================
+    function init() {
+        state.xau = loadState('xau');
+        state.btc = loadState('btc');
+        
+        // Seed HTF data
+        seedHTFData('xau', 4695);
+        seedHTFData('btc', 60030);
+        calculateATR('xau');
+        calculateATR('btc');
+        
+        const container = document.getElementById('terminals');
+        container.innerHTML = '';
+        
+        // Card XAU
+        container.innerHTML += `
+            <div class="pair-card ${activePairId === 'xau' ? 'active' : ''}" id="card-xau">
+                <div class="card">
+                    <div class="card-top">
+                        <div class="pair-info">
+                            <span class="pair">XAUUSD</span>
+                            <span id="ws-status-xau" class="ws-status connected">● CONNECTED (API)</span>
+                        </div>
+                        <span class="price" id="price-xau">0.00</span>
+                    </div>
+                    
+                    <div class="signal-bar">
+                        <span>SIGNAL</span>
+                        <div class="signal-dot-group">
+                            <div class="dot" id="l1-xau"></div>
+                            <div class="dot" id="l2-xau"></div>
+                            <div class="dot" id="l3-xau"></div>
+                        </div>
+                        <span id="signal-text-xau">IDLE</span>
+                    </div>
+                    
+                    <div class="card-level-grid">
+                        <div class="level-item" onclick="copyValue('xau','entry')">
+                            <span class="level-label">Entry</span>
+                            <span class="level-value" id="entry-xau">--</span>
+                        </div>
+                        <div class="level-item" onclick="copyValue('xau','tp')">
+                            <span class="level-label">Target</span>
+                            <span class="level-value" id="tp-xau" style="color:var(--success)">--</span>
+                        </div>
+                        <div class="level-item" onclick="copyValue('xau','sl')">
+                            <span class="level-label">S-Loss</span>
+                            <span class="level-value" id="sl-xau" style="color:var(--danger)">--</span>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-grid">
+                        <div class="box-htf">
+                            <div class="label-sm">HTF CONTEXT (H1)</div>
+                            <div class="htf-row">
+                                <div class="htf-label">STRUCTURE</div>
+                                <div class="htf-value" id="htf-trend-xau">◆ NEUTRAL</div>
+                            </div>
+                            <div class="htf-row">
+                                <div class="htf-label">MOMENTUM</div>
+                                <div class="htf-value" id="htf-momentum-xau">◆ FLAT</div>
+                            </div>
+                            <div class="htf-row">
+                                <div class="htf-label">PHASE</div>
+                                <div class="htf-value" id="htf-phase-xau">--</div>
+                            </div>
+                        </div>
+                        <div class="box-pa">
+                            <div class="label-sm">PRICE ACTION</div>
+                            <div class="pa-row">
+                                <div class="pa-label">TREND</div>
+                                <div class="pa-value" id="trend-xau">SCANNING</div>
+                            </div>
+                            <div class="pa-row">
+                                <div class="pa-label">MOMENTUM</div>
+                                <div class="pa-value" id="mom-xau">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="context-bar"><div class="context-fill" id="conf-fill-${id}" style="width:0%"></div></div>
-            <div class="confidence-text" id="conf-text-${id}">CONFIDENCE 0%</div>
-        </div>`;
-  }
+        `;
+        
+        // Card BTC
+        container.innerHTML += `
+            <div class="pair-card ${activePairId === 'btc' ? 'active' : ''}" id="card-btc">
+                <div class="card">
+                    <div class="card-top">
+                        <div class="pair-info">
+                            <span class="pair">BTCUSD</span>
+                            <span id="ws-status-btc" class="ws-status disconnected">○ RECONNECTING...</span>
+                        </div>
+                        <span class="price" id="price-btc">0.00</span>
+                    </div>
+                    
+                    <div class="signal-bar">
+                        <span>SIGNAL</span>
+                        <div class="signal-dot-group">
+                            <div class="dot" id="l1-btc"></div>
+                            <div class="dot" id="l2-btc"></div>
+                            <div class="dot" id="l3-btc"></div>
+                        </div>
+                        <span id="signal-text-btc">IDLE</span>
+                    </div>
+                    
+                    <div class="card-level-grid">
+                        <div class="level-item" onclick="copyValue('btc','entry')">
+                            <span class="level-label">Entry</span>
+                            <span class="level-value" id="entry-btc">--</span>
+                        </div>
+                        <div class="level-item" onclick="copyValue('btc','tp')">
+                            <span class="level-label">Target</span>
+                            <span class="level-value" id="tp-btc" style="color:var(--success)">--</span>
+                        </div>
+                        <div class="level-item" onclick="copyValue('btc','sl')">
+                            <span class="level-label">S-Loss</span>
+                            <span class="level-value" id="sl-btc" style="color:var(--danger)">--</span>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-grid">
+                        <div class="box-htf">
+                            <div class="label-sm">HTF CONTEXT (H1)</div>
+                            <div class="htf-row">
+                                <div class="htf-label">STRUCTURE</div>
+                                <div class="htf-value" id="htf-trend-btc">◆ NEUTRAL</div>
+                            </div>
+                            <div class="htf-row">
+                                <div class="htf-label">MOMENTUM</div>
+                                <div class="htf-value" id="htf-momentum-btc">◆ FLAT</div>
+                            </div>
+                            <div class="htf-row">
+                                <div class="htf-label">PHASE</div>
+                                <div class="htf-value" id="htf-phase-btc">--</div>
+                            </div>
+                        </div>
+                        <div class="box-pa">
+                            <div class="label-sm">PRICE ACTION</div>
+                            <div class="pa-row">
+                                <div class="pa-label">TREND</div>
+                                <div class="pa-value" id="trend-btc">SCANNING</div>
+                            </div>
+                            <div class="pa-row">
+                                <div class="pa-label">MOMENTUM</div>
+                                <div class="pa-value" id="mom-btc">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        updateSignalUI('xau');
+        updatePAUI('xau');
+        updateHTFUI('xau');
+        updateSignalUI('btc');
+        updatePAUI('btc');
+        updateHTFUI('btc');
+        
+        fetchXAUPrice();
+        setInterval(fetchXAUPrice, 2000);
+        
+        connectWebSocketBTC();
+        
+        document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
+        document.getElementById('switchPairBtn').onclick = () => {
+            activePairId = activePairId === 'xau' ? 'btc' : 'xau';
+            localStorage.setItem('ura_active_pair', activePairId);
+            document.getElementById('switchLabel').innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
+            document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active'));
+            document.getElementById(`card-${activePairId}`).classList.add('active');
+        };
+        
+        updateGlobalPulse();
+        setInterval(() => updateGlobalPulse(), 1000);
+    }
 
-  window.copyValue = (id, type) => { const val = document.getElementById(`${type}-${id}`).innerText; if (val !== '--') { navigator.clipboard.writeText(val); if (navigator.vibrate) navigator.vibrate(50); } };
-  setInterval(()=>{ const clk=document.getElementById('clock'); if(clk) clk.innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC"; }, 1000);
-  init();
+    // ==================== WEBSOCKET BTC ====================
+    function connectWebSocketBTC() {
+        if (wsConnections.btc) {
+            try { wsConnections.btc.close(); } catch(e) {}
+        }
+        
+        try {
+            const ws = new WebSocket(btcConfig.wsUrl);
+            
+            ws.onopen = () => {
+                wsStatus.btc = true;
+                wsRetries.btc = 0;
+                lastHeartbeat.btc = Date.now();
+                updateWSStatus('btc');
+                updateGlobalPulse();
+                updateSignalUI('btc');
+            };
+            
+            ws.onclose = () => {
+                wsStatus.btc = false;
+                updateWSStatus('btc');
+                updateGlobalPulse();
+                updateSignalUI('btc');
+                const delay = Math.min(1000 * Math.pow(2, wsRetries.btc), 30000);
+                wsRetries.btc++;
+                setTimeout(connectWebSocketBTC, delay);
+            };
+            
+            ws.onerror = () => {
+                wsStatus.btc = false;
+                updateWSStatus('btc');
+                updateGlobalPulse();
+                updateSignalUI('btc');
+            };
+            
+            ws.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    const price = parseFloat(data.p) + btcConfig.offset;
+                    if (price && price > 0 && !isNaN(price)) {
+                        lastHeartbeat.btc = Date.now();
+                        if (!wsStatus.btc) {
+                            wsStatus.btc = true;
+                            updateWSStatus('btc');
+                            updateGlobalPulse();
+                            updateSignalUI('btc');
+                        }
+                        const priceEl = document.getElementById(`price-btc`);
+                        if (priceEl) {
+                            const oldPrice = state.btc.lastPrice;
+                            priceEl.innerText = price.toFixed(2);
+                            if (oldPrice !== 0 && oldPrice !== price) {
+                                priceEl.style.color = price >= oldPrice ? "var(--success)" : "var(--danger)";
+                                setTimeout(() => { if (priceEl) priceEl.style.color = ""; }, 150);
+                            }
+                        }
+                        updateHTFEngine('btc', price);
+                        updateSignal('btc', price);
+                    }
+                } catch(err) {
+                    console.error(`Parse error for BTC:`, err);
+                }
+            };
+            
+            wsConnections.btc = ws;
+        } catch(err) {
+            wsStatus.btc = false;
+            updateWSStatus('btc');
+            updateGlobalPulse();
+            updateSignalUI('btc');
+            setTimeout(connectWebSocketBTC, 5000);
+        }
+    }
+
+    window.copyValue = (id, type) => {
+        const val = document.getElementById(`${type}-${id}`).innerText;
+        if (val !== '--') {
+            navigator.clipboard.writeText(val);
+            if (navigator.vibrate) navigator.vibrate(50);
+        }
+    };
+
+    setInterval(() => {
+        const clk = document.getElementById('clock');
+        if (clk) clk.innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC";
+    }, 1000);
+    
+    init();
 </script>
 </body>
 </html>
