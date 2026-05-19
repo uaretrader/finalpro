@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>URA FUSION v8.1 | HTF-Integrated Precision Signal (Optimized Frequency)</title>
+    <title>URA FUSION v8.2 | HTF-Integrated Precision Signal (Optimized Frequency)</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -235,7 +235,7 @@
 <body>
 <div class="container">
     <header id="mainHeader">
-        <div class="brand"><h1>URA</h1><span class="version">v8.1</span></div>
+        <div class="brand"><h1>URA</h1><span class="version">v8.2</span></div>
         <div class="header-right">
             <div style="display: flex; align-items: center; gap: 6px; font-size: 8px; background: rgba(0,0,0,0.3); padding: 4px 8px;">
                 <span id="livePulse" class="live-pulse"></span><span>LIVE</span>
@@ -244,7 +244,7 @@
         </div>
     </header>
     <div id="terminals"></div>
-    <footer>URA FUSION v8.1 | SMART MONEY + HTF CONFIRMATION | FREQ OPTIMIZED | REAL-TIME ALIGNMENT</footer>
+    <footer>URA FUSION v8.2 | SMART MONEY + HTF CONFIRMATION | FREQ OPTIMIZED | REAL-TIME ALIGNMENT</footer>
 </div>
 
 <div id="toastMsg" class="toast-message">✓ ALL RESET</div>
@@ -253,7 +253,7 @@
     const CONFIG = {
         pairs: {
             xau: { name: 'XAUUSD', symbol: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 4, risk: 15, rr: 1.8, threshold: 0.6 },
-            btc: { name: 'BTCUSD', symbol: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0, risk: 0.0020, rr: 2, threshold: 8 }
+            btc: { name: 'BTCUSD', symbol: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0, risk: 0.0020, rr: 2, threshold: 14 }
         },
         defaultPair: 'xau',
         htf: {
@@ -273,7 +273,7 @@
         signal: {
             minTrendScoreTrigger: 0.03,
             l2ConfirmationThreshold: 1.2,
-            resetCooldownMs: 8000,
+            resetCooldownMs: 10000,
             forceAlignProbability: 0.65
         }
     };
@@ -311,9 +311,10 @@
     function resetAllData() {
         Object.keys(CONFIG.pairs).forEach(id => {
             const currentPrice = state[id]?.lastPrice || 0;
+            const currentPrevPrice = state[id]?.prevPrice || currentPrice;
             state[id] = createFreshState();
             state[id].lastPrice = currentPrice;
-            state[id].prevPrice = currentPrice;
+            state[id].prevPrice = currentPrevPrice;
             
             initHTFData(id);
             lastSignalResetTime[id] = Date.now();
@@ -384,7 +385,7 @@
     function calculateAdaptiveATR(id) {
         const data = htfData[id];
         const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < 4) { data.atr = 0.15; data.atrReliability = 'NONE'; return; }
+        if (candles.length < 4) { data.atr = id === 'btc' ? 50 : 0.15; data.atrReliability = 'NONE'; return; }
         let totalTR = 0;
         for (let i = 1; i < candles.length; i++) {
             const tr = Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - candles[i-1].close), Math.abs(candles[i].low - candles[i-1].close));
@@ -392,7 +393,7 @@
         }
         data.atr = totalTR / (candles.length-1);
         data.atrReliability = candles.length >= 20 ? 'HIGH' : 'MEDIUM';
-        const latestPrice = candles[candles.length-1]?.close || data.currentCandle?.close || 100;
+        const latestPrice = candles[candles.length-1]?.close || data.currentCandle?.close || (id === 'btc' ? 50000 : 100);
         data.atrPercent = (data.atr / latestPrice) * 100;
     }
 
@@ -443,8 +444,8 @@
             return;
         }
         const recent = candles.slice(-6);
-        const atr = data.atr > 0 ? data.atr : 0.2;
-        const threshold = Math.max(atr * 0.55, 0.04);
+        const atr = data.atr > 0 ? data.atr : (id === 'btc' ? 50 : 0.2);
+        const threshold = Math.max(atr * 0.55, id === 'btc' ? 30 : 0.04);
         let buyPressure=0, sellPressure=0, valid=0;
         for(let c of recent){
             const bodyRatio = c.body / (c.range||0.0001);
@@ -558,38 +559,135 @@
 
     function validateSignalWithHTF(id, direction, price) {
         const htf = htfData[id];
-        if (!htf || htf.confidenceStatus === 'INVALID' || htf.confidence < CONFIG.htf.confidenceThreshold.minToAllow) {
-            return { valid: false, reason: `HTF_NOT_READY (${htf?.confidenceStatus || 'NO_DATA'})`, confidence: htf?.confidence || 0, priority: 'REJECT', sizeMult: 0 };
+        const isBTC = (id === 'btc');
+        const minConfidence = isBTC ? 25 : 35;
+        
+        if (!htf) {
+            return { valid: true, reason: 'HTF_INIT', confidence: 40, priority: 'MEDIUM', sizeMult: 0.7 };
+        }
+        
+        if (htf.confidenceStatus === 'INVALID' || htf.confidence < minConfidence) {
+            if (isBTC && htf.confidence >= 20) {
+                return { 
+                    valid: true, 
+                    reason: 'LOW_CONF_ALLOWED_BTC', 
+                    confidence: Math.max(35, htf.confidence * 0.8), 
+                    priority: 'LOW', 
+                    sizeMult: 0.5 
+                };
+            }
+            return { 
+                valid: false, 
+                reason: `HTF_NOT_READY (${htf?.confidenceStatus || 'NO_DATA'})`, 
+                confidence: htf?.confidence || 0, 
+                priority: 'REJECT', 
+                sizeMult: 0 
+            };
         }
         
         if (direction === 'sell' && htf.structure === 'BULLISH') {
-            return { valid: false, reason: `COUNTER_TREND: BULLISH_HTF vs SELL`, confidence: htf.confidence, priority: 'REJECT', sizeMult: 0 };
+            if (isBTC && htf.momentumStrength === 'WEAK') {
+                return { 
+                    valid: true, 
+                    reason: 'BTC_CTR_WEAK', 
+                    confidence: Math.min(65, htf.confidence * 0.7), 
+                    priority: 'LOW_MED', 
+                    sizeMult: 0.55 
+                };
+            }
+            return { 
+                valid: false, 
+                reason: `COUNTER_TREND: BULLISH_HTF vs SELL`, 
+                confidence: htf.confidence, 
+                priority: 'REJECT', 
+                sizeMult: 0 
+            };
         }
+        
         if (direction === 'buy' && htf.structure === 'BEARISH') {
-            return { valid: false, reason: `COUNTER_TREND: BEARISH_HTF vs BUY`, confidence: htf.confidence, priority: 'REJECT', sizeMult: 0 };
+            if (isBTC && htf.momentumStrength === 'WEAK') {
+                return { 
+                    valid: true, 
+                    reason: 'BTC_CTR_WEAK', 
+                    confidence: Math.min(65, htf.confidence * 0.7), 
+                    priority: 'LOW_MED', 
+                    sizeMult: 0.55 
+                };
+            }
+            return { 
+                valid: false, 
+                reason: `COUNTER_TREND: BEARISH_HTF vs BUY`, 
+                confidence: htf.confidence, 
+                priority: 'REJECT', 
+                sizeMult: 0 
+            };
         }
         
-        const structMatch = (direction === 'buy' && htf.structure === 'BULLISH') || (direction === 'sell' && htf.structure === 'BEARISH');
-        const momMatch = (direction === 'buy' && (htf.momentum === 'IMPULSIVE_UP' || htf.momentum === 'BULLISH')) || (direction === 'sell' && (htf.momentum === 'IMPULSIVE_DOWN' || htf.momentum === 'BEARISH'));
+        const structMatch = (direction === 'buy' && (htf.structure === 'BULLISH' || htf.structure === 'TRANSITIONAL')) || 
+                            (direction === 'sell' && (htf.structure === 'BEARISH' || htf.structure === 'TRANSITIONAL'));
+        const momMatch = (direction === 'buy' && (htf.momentum === 'IMPULSIVE_UP' || htf.momentum === 'BULLISH' || htf.momentumStrength === 'MODERATE')) || 
+                         (direction === 'sell' && (htf.momentum === 'IMPULSIVE_DOWN' || htf.momentum === 'BEARISH' || htf.momentumStrength === 'MODERATE'));
         
-        if (structMatch && momMatch && htf.confidence >= 55) {
-            return { valid: true, reason: 'FULL_ALIGN', confidence: Math.min(100, htf.confidence * 1.05), priority: 'HIGH', sizeMult: 1.0 };
+        if (structMatch && momMatch && htf.confidence >= (isBTC ? 45 : 55)) {
+            return { 
+                valid: true, 
+                reason: 'FULL_ALIGN', 
+                confidence: Math.min(100, htf.confidence * 1.05), 
+                priority: 'HIGH', 
+                sizeMult: 1.0 
+            };
         }
-        if (structMatch && htf.confidence >= 60) {
-            return { valid: true, reason: 'STRUCT_ALIGN', confidence: htf.confidence * 0.92, priority: 'MEDIUM_HIGH', sizeMult: 0.9 };
+        
+        if (structMatch && htf.confidence >= (isBTC ? 50 : 60)) {
+            return { 
+                valid: true, 
+                reason: 'STRUCT_ALIGN', 
+                confidence: htf.confidence * 0.92, 
+                priority: 'MEDIUM_HIGH', 
+                sizeMult: 0.9 
+            };
         }
-        if (htf.structure === 'RANGE' && momMatch && htf.confidence >= 50) {
+        
+        if (htf.structure === 'RANGE' && momMatch && htf.confidence >= (isBTC ? 40 : 50)) {
             const breakoutStrength = (htf.momentum === 'IMPULSIVE_UP' || htf.momentum === 'IMPULSIVE_DOWN') ? 1.0 : 0.7;
-            return { valid: true, reason: 'RANGE_BREAKOUT', confidence: htf.confidence * 0.88, priority: 'MEDIUM', sizeMult: 0.75 * breakoutStrength };
-        }
-        if (momMatch && htf.confidence >= 55 && (htf.structure !== 'BEARISH' || direction === 'sell') && (htf.structure !== 'BULLISH' || direction === 'buy')) {
-            return { valid: true, reason: 'MOMENTUM_DRIVEN', confidence: htf.confidence * 0.8, priority: 'LOW_MED', sizeMult: 0.6 };
+            return { 
+                valid: true, 
+                reason: 'RANGE_BREAKOUT', 
+                confidence: htf.confidence * 0.88, 
+                priority: 'MEDIUM', 
+                sizeMult: 0.75 * breakoutStrength 
+            };
         }
         
-        return { valid: false, reason: `${htf.structure}_${htf.momentum}_vs_${direction.toUpperCase()}`, confidence: htf.confidence, priority: 'REJECT', sizeMult: 0 };
+        if (momMatch && htf.confidence >= (isBTC ? 45 : 55)) {
+            return { 
+                valid: true, 
+                reason: 'MOMENTUM_DRIVEN', 
+                confidence: htf.confidence * 0.8, 
+                priority: 'LOW_MED', 
+                sizeMult: 0.6 
+            };
+        }
+        
+        if (isBTC && htf.confidence >= 30) {
+            return { 
+                valid: true, 
+                reason: 'BTC_DEFAULT', 
+                confidence: Math.min(50, htf.confidence * 0.9), 
+                priority: 'LOW', 
+                sizeMult: 0.5 
+            };
+        }
+        
+        return { 
+            valid: false, 
+            reason: `${htf.structure}_${htf.momentum}_vs_${direction.toUpperCase()}`, 
+            confidence: htf.confidence, 
+            priority: 'REJECT', 
+            sizeMult: 0 
+        };
     }
 
-    // ==================== REVISI FIX 1: ANTI-FLICKER LOCKING EXECUTION ====================
     function lockSignalWithHTF(id, direction, price) {
         const s = state[id];
         const p = CONFIG.pairs[id];
@@ -600,7 +698,6 @@
         const currentPrice = s.lastPrice || price;
         const validation = validateSignalWithHTF(id, direction, currentPrice);
         
-        // JIKA HTF REJECT: Tampilkan log dan biarkan state mundur halus ke Stage 1/2 (Jangan di-clear total)
         if (!validation.valid) {
             s.lastReject = validation.reason; 
             const rejectSpan = document.getElementById(`reject-${id}`);
@@ -608,12 +705,12 @@
                 rejectSpan.innerText = `⛔ ${validation.reason}`; 
                 setTimeout(() => { if (rejectSpan) rejectSpan.innerText = ''; }, 3000); 
             }
-            return false; // Kembalikan false agar updateSignalLogic menangani penurunan Stage secara aman
+            return false;
         }
         
-        let bufferDistance = htf.atr > 0 && htf.atr < 100 ? htf.atr * 0.28 : p.threshold * 0.35;
-        bufferDistance = Math.max(bufferDistance, (id === 'xau' ? 0.35 : 5.0));
-        bufferDistance = Math.min(bufferDistance, (id === 'xau' ? 2.5 : 80.0));
+        let bufferDistance = htf.atr > 0 && htf.atr < (id === 'btc' ? 1000 : 100) ? htf.atr * 0.28 : p.threshold * 0.35;
+        bufferDistance = Math.max(bufferDistance, (id === 'xau' ? 0.35 : 20.0));
+        bufferDistance = Math.min(bufferDistance, (id === 'xau' ? 2.5 : 300.0));
         
         let entryPrice = 0, stopLoss = 0, takeProfit = 0;
         let riskAmount = Math.max(p.risk * (validation.sizeMult || 1.0), bufferDistance * 0.25);
@@ -632,7 +729,6 @@
         
         if (entryPrice <= 0 || stopLoss <= 0 || takeProfit <= 0) return false;
         
-        // LOCKING TOTAL STATE: Sukses Mengunci Sinyal
         s.l3 = true;
         s.confirmed = true;
         s.type = direction;
@@ -654,7 +750,6 @@
         return true;
     }
 
-    // ==================== REVISI FIX 2: ENGINE PENYARINGAN NOISE & SIGNAL STATE PROTECTOR ====================
     function updateSignalLogic(id, price) {
         const s = state[id];
         const p = CONFIG.pairs[id];
@@ -662,92 +757,117 @@
         
         if (!s || !p) return;
         
-        // 1. ABSOLUTE LOCK: Jika sinyal terkonfirmasi (Confirmed), amankan! Jangan biarkan kalkulasi tick merusak level UI
         if (s.confirmed) {
-            if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) || 
-                (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
-                lastSignalResetTime[id] = Date.now();
-                resetSignal(id); // Reset hanya boleh dieksekusi jika harga real-time menyentuh target TP atau SL asli
+            if (s.entry > 0 && s.sl > 0 && s.tp > 0) {
+                if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) || 
+                    (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
+                    lastSignalResetTime[id] = Date.now();
+                    resetSignal(id);
+                }
             }
             return;
         }
         
-        // 2. SMOOTH COOLDOWN
-        if (!s.l1 && Date.now() - lastSignalResetTime[id] > CONFIG.signal.resetCooldownMs && s.prevPrice !== 0) {
-            if (Math.abs(price - s.prevPrice) < p.threshold * 0.8) {
-                resetSignal(id);
-                return;
-            }
-        }
-        
-        // 3. FILTER GERBANG AWAL: Deteksi & Blokir Counter Trend Makro Sejak Awal
-        if (htf && htf.structure && htf.confidence >= 40) {
-            const currentTrend = price - s.prevPrice;
-            if (htf.structure === 'BULLISH' && currentTrend < -p.threshold * 0.7) return; // Hiraukan spike turun saat HTF Bullish
-            if (htf.structure === 'BEARISH' && currentTrend > p.threshold * 0.7) return; // Hiraukan spike naik saat HTF Bearish
+        if (s.prevPrice === 0 || s.prevPrice === undefined) {
+            s.prevPrice = price;
+            s.lastPrice = price;
+            return;
         }
         
         const diff = price - s.prevPrice;
-        if (s.prevPrice !== 0 && diff !== 0) {
-            s.trendScore += diff * 0.7;
-            s.trendScore = Math.max(-10, Math.min(10, s.trendScore));
+        
+        if (Math.abs(diff) > 0.01) {
+            const momentumFactor = (id === 'btc') ? 1.5 : 0.7;
+            s.trendScore += diff * momentumFactor;
+            s.trendScore = Math.max(-15, Math.min(15, s.trendScore));
         }
         
-        // 4. ALGORITMA MULTI-STAGE ANTI-FLICKER DETECTOR
-        const thresholdAdjusted = p.threshold * (s.l1 ? 0.9 : 1.0);
+        let thresholdAdjusted = p.threshold;
+        if (id === 'btc') {
+            thresholdAdjusted = p.threshold * (s.l1 ? 0.8 : 1.2);
+        } else {
+            thresholdAdjusted = p.threshold * (s.l1 ? 0.9 : 1.0);
+        }
         
-        if (!s.confirmed && s.prevPrice !== 0 && Math.abs(diff) > thresholdAdjusted) {
+        const timeSinceLastReset = Date.now() - lastSignalResetTime[id];
+        const isInCooldown = timeSinceLastReset < CONFIG.signal.resetCooldownMs;
+        
+        if (!isInCooldown && !s.confirmed && Math.abs(diff) > thresholdAdjusted) {
             const direction = diff > 0 ? 'buy' : 'sell';
             
-            if (htf && htf.structure && htf.confidence >= 35) {
-                if ((direction === 'buy' && htf.structure === 'BEARISH') || (direction === 'sell' && htf.structure === 'BULLISH')) {
-                    s.trendScore = 0;
-                    if (s.l1 || s.l2) resetSignal(id);
-                    return;
+            let htfValid = true;
+            if (htf && htf.confidence >= 30) {
+                if ((direction === 'buy' && htf.structure === 'BEARISH') || 
+                    (direction === 'sell' && htf.structure === 'BULLISH')) {
+                    if (Math.abs(diff) < thresholdAdjusted * 1.5) {
+                        htfValid = false;
+                        s.trendScore = s.trendScore * 0.5;
+                    }
                 }
             }
             
-            // PROSES EKSEKUSI STAGE BERTAHAP
-            if (!s.l1) {
-                s.l1 = true;
-                s.type = direction;
-                saveState();
-                console.log(`[URA Engine] Stage 1 (Sweep) Berhasil Dikunci: ${direction.toUpperCase()}`);
-            } else if (!s.l2 && s.type === direction) {
-                s.l2 = true;
-                saveState();
-                console.log(`[URA Engine] Stage 2 (CHoCH) Berhasil Dikunci: ${direction.toUpperCase()}`);
-            } else if (!s.l3 && s.l2 && s.type === direction) {
-                // Eksekusi Tahap Akhir (Stage 3 Limit Order Placement)
-                const executed = lockSignalWithHTF(id, direction, price);
-                
-                // ANTI-FLICKER REMEDY: Jika eksekusi gagal (misal validasi HTF drop mendadak), 
-                // JANGAN panggil resetSignal()! Turunkan status ke Stage 1 secara halus agar visual di UI tidak hilang berkedip.
-                if (!executed) {
-                    s.l1 = true;  // Pertahankan Stage 1 (Liquidity Sweep)
-                    s.l2 = false; // Turunkan Stage 2 agar sistem mencari titik pemicu ulang secara organik
+            if (htfValid) {
+                if (!s.l1) {
+                    s.l1 = true;
                     s.type = direction;
-                    s.trendScore = s.trendScore * 0.5; // Reduksi skor tren separuh
+                    s.signalTimestamp = Date.now();
                     saveState();
+                    console.log(`[${id.toUpperCase()}] Stage 1: ${direction.toUpperCase()} | diff: ${diff.toFixed(2)}`);
+                } 
+                else if (s.l1 && !s.l2 && s.type === direction) {
+                    const confirmationNeeded = (id === 'btc') ? 2 : 1;
+                    if (Math.abs(s.trendScore) > (id === 'btc' ? 3 : 2)) {
+                        s.l2 = true;
+                        saveState();
+                        console.log(`[${id.toUpperCase()}] Stage 2: CHoCH ${direction.toUpperCase()} | trendScore: ${s.trendScore.toFixed(2)}`);
+                    }
                 }
-            } else if (s.type !== direction) {
-                resetSignal(id); // Reset total hanya berlaku jika harga berbalik arah secara ekstrem (Buy ke Sell / sebaliknya)
+                else if (s.l1 && s.l2 && !s.l3 && s.type === direction) {
+                    const executed = lockSignalWithHTF(id, direction, price);
+                    if (!executed) {
+                        s.l2 = false;
+                        s.trendScore = s.trendScore * 0.7;
+                        saveState();
+                        console.log(`[${id.toUpperCase()}] Stage 3 failed, back to Stage 1`);
+                    }
+                }
+            }
+        } 
+        else if (s.l1 && !s.confirmed && Math.abs(s.trendScore) < 0.3) {
+            const timeoutDuration = (id === 'btc') ? 8000 : 6000;
+            if (Date.now() - s.signalTimestamp > timeoutDuration) {
+                resetSignal(id);
+                console.log(`[${id.toUpperCase()}] Signal timeout, reset`);
             }
         }
         
-        // 5. TIMEOUT PEMBERSIHAN PASAR MATI (Ditingkatkan dari 3 detik ke 6 detik untuk meredam noise sideways)
-        if (s.l1 && !s.confirmed && Math.abs(s.trendScore) < 0.4 && Date.now() - lastSignalResetTime[id] > 6000) {
-            resetSignal(id);
+        if (s.l1 && s.type && ((s.type === 'buy' && diff < -thresholdAdjusted * 1.2) ||
+            (s.type === 'sell' && diff > thresholdAdjusted * 1.2))) {
+            if (Math.abs(diff) > thresholdAdjusted * 2) {
+                resetSignal(id);
+                console.log(`[${id.toUpperCase()}] Direction change detected, reset`);
+            }
         }
+        
+        s.prevPrice = price;
+        s.lastPrice = price;
     }
 
-    function resetSignal(id){
+    function resetSignal(id) {
         const oldPrice = state[id]?.lastPrice || 0;
+        const oldPrevPrice = state[id]?.prevPrice || oldPrice;
+        
         state[id] = createFreshState();
+        
         state[id].lastPrice = oldPrice;
-        state[id].prevPrice = oldPrice;
+        state[id].prevPrice = oldPrevPrice;
+        
+        lastSignalResetTime[id] = Date.now();
+        
         saveState();
         renderUI(id);
+        
+        console.log(`[${id.toUpperCase()}] Signal reset, price preserved: ${oldPrice.toFixed(2)}`);
     }
 
     function renderUI(id){
@@ -845,18 +965,22 @@
         if(el){ el.textContent = wsStatus[id] ? '● CONNECTED' : '● RECONNECT'; el.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`; }
         renderUI(id);
     }
+    
     function updateGlobalPulse(){
         const pulse = document.getElementById('livePulse');
         if(pulse) pulse.className = `live-pulse ${(wsStatus.xau||wsStatus.btc) ? 'connected' : ''}`;
     }
-    function saveState(){ localStorage.setItem('ura_fusion_v81', JSON.stringify({ xau: state.xau, btc: state.btc })); }
+    
+    function saveState(){ localStorage.setItem('ura_fusion_v82', JSON.stringify({ xau: state.xau, btc: state.btc })); }
+    
     function loadState(){
-        const saved = localStorage.getItem('ura_fusion_v81');
+        const saved = localStorage.getItem('ura_fusion_v82');
         if(saved){
             try{ const p=JSON.parse(saved); state.xau=p.xau||createFreshState(); state.btc=p.btc||createFreshState(); }catch(e){ resetStates(); }
         } else resetStates();
-        activePairId = localStorage.getItem('ura_active_pair_v81') || CONFIG.defaultPair;
+        activePairId = localStorage.getItem('ura_active_pair_v82') || CONFIG.defaultPair;
     }
+    
     function resetStates(){ state.xau=createFreshState(); state.btc=createFreshState(); }
 
     function init(){
@@ -873,7 +997,7 @@
             const keys = Object.keys(CONFIG.pairs);
             let idx = keys.indexOf(activePairId);
             activePairId = keys[(idx+1)%keys.length];
-            localStorage.setItem('ura_active_pair_v81', activePairId);
+            localStorage.setItem('ura_active_pair_v82', activePairId);
             document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol;
             document.querySelectorAll('.pair-card').forEach(c=>c.classList.remove('active'));
             document.getElementById(`card-${activePairId}`).classList.add('active');
@@ -884,11 +1008,14 @@
         updateGlobalPulse();
         setInterval(()=>updateGlobalPulse(),1000);
     }
+    
     function generateCardHTML(id){
         const p = CONFIG.pairs[id];
         return `<div class="card"><div class="price-header"><div class="pair-info"><span class="pair-name">${p.symbol}</span><span id="ws-status-${id}" class="ws-status disconnected">● RECONNECT</span></div><div class="price-display"><div class="price-value" id="price-${id}">0.00</div><div class="price-change" id="change-${id}">--</div></div></div><div class="signal-fusion-bar"><span class="signal-label">SIGNAL</span><div class="signal-fusion-center"><div class="fusion-dot" id="fd1-${id}"></div><div class="fusion-line"></div><div class="fusion-dot" id="fd2-${id}"></div><div class="fusion-line"></div><div class="fusion-dot" id="fd3-${id}"></div></div><span class="signal-status-text" id="signal-text-${id}">IDLE</span></div><div class="levels-fusion"><div class="level-box entry" onclick="window.copyValue('${id}','entry')"><div class="lbl">Entry</div><div class="val" id="entry-${id}">--</div></div><div class="level-box target" onclick="window.copyValue('${id}','tp')"><div class="lbl">Target</div><div class="val" id="tp-${id}">--</div></div><div class="level-box stop" onclick="window.copyValue('${id}','sl')"><div class="lbl">Stop</div><div class="val" id="sl-${id}">--</div></div></div><div class="analysis-row"><div class="analysis-panel"><div class="panel-title">LOGIC ENGINE</div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml1-${id}"></span>LIQUIDITY</span><span class="metric-value" id="logic-l1-${id}"></span></div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml2-${id}"></span>CHoCH</span><span class="metric-value" id="logic-l2-${id}"></span></div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml3-${id}"></span>VALUE GAP</span><span class="metric-value" id="logic-l3-${id}"></span></div></div><div class="analysis-panel"><div class="panel-title">HTF DIRECTION</div><div class="metric-row"><span class="metric-label">STRUCTURE</span><span class="metric-value" id="trend-${id}">--</span></div><div class="metric-row"><span class="metric-label">MOMENTUM</span><span class="metric-value" id="mom-${id}">--</span></div><div class="metric-row" style="flex-direction:column; align-items:flex-start;"><span class="metric-label">CONTEXT</span><span id="range-${id}" style="width:100%"></span></div></div></div><div class="signal-quality-panel" id="quality-${id}"><span class="quality-badge">WAITING HTF</span></div><div id="reject-${id}" class="reject-reason" style="padding:4px 8px;"></div></div>`;
     }
+    
     window.copyValue = (id,type)=>{ const v = document.getElementById(`${type}-${id}`).innerText; if(v!=='--'){ navigator.clipboard.writeText(v); if(navigator.vibrate) navigator.vibrate(30); } };
+    
     init();
 </script>
 </body>
