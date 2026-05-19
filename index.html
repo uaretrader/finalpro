@@ -47,7 +47,6 @@
 
         .container { max-width: 500px; width: 100%; }
 
-        /* HEADER - tanpa efek highlight */
         header {
             display: flex;
             justify-content: space-between;
@@ -87,7 +86,6 @@
         }
         .switch-pair-btn:hover { border-color: var(--accent); background: rgba(176, 176, 184, 0.08); }
 
-        /* CARD */
         .pair-card { display: none; }
         .pair-card.active { display: block; }
 
@@ -116,7 +114,6 @@
         .price-value { font-size: 20px; font-weight: 800; letter-spacing: 1px; line-height: 1; }
         .price-change { font-size: 8px; margin-top: 2px; }
 
-        /* SIGNAL FUSION BAR */
         .signal-fusion-bar {
             display: grid; grid-template-columns: 1fr auto 1fr;
             align-items: center; padding: 8px 12px;
@@ -141,7 +138,6 @@
         .fusion-line { width: 40px; height: 1px; background: var(--border-bright); }
         .signal-status-text { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; text-align: right; }
 
-        /* LEVELS */
         .levels-fusion {
             display: grid; grid-template-columns: repeat(3, 1fr);
             gap: 1px; background: var(--border);
@@ -157,10 +153,9 @@
         .level-box.target .val { color: var(--terminal-green); }
         .level-box.stop .val { color: var(--terminal-red); }
 
-        /* ANALYSIS ROW - LOGIC ENGINE diperkecil, HTF diperpanjang */
         .analysis-row {
             display: grid; 
-            grid-template-columns: 0.7fr 1.3fr;  /* logic engine 0.7, HTF 1.3 */
+            grid-template-columns: 0.7fr 1.3fr;
             gap: 1px; 
             background: var(--border);
         }
@@ -177,7 +172,6 @@
         .mini-dot.on { background: var(--terminal-green); }
         .mini-dot.off { background: rgba(176,176,184,0.1); }
 
-        /* HTF STYLES */
         .htf-struct-bull { color: var(--terminal-green); }
         .htf-struct-bear { color: var(--terminal-red); }
         .htf-struct-neutral { color: var(--text-dim); }
@@ -216,7 +210,6 @@
             padding: 8px; opacity: 0.6; letter-spacing: 1px;
         }
 
-        /* TOAST NOTIFICATION */
         .toast-message {
             position: fixed;
             bottom: 30px;
@@ -236,9 +229,7 @@
             white-space: nowrap;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
-        .toast-message.show {
-            opacity: 1;
-        }
+        .toast-message.show { opacity: 1; }
     </style>
 </head>
 <body>
@@ -259,11 +250,10 @@
 <div id="toastMsg" class="toast-message">✓ ALL RESET</div>
 
 <script>
-    // ==================== KONFIGURASI OPTIMASI FREKUENSI ====================
     const CONFIG = {
         pairs: {
-            xau: { name: 'XAUUSD', symbol: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 2, risk: 15, rr: 1.8, threshold: 0.8 },
-            btc: { name: 'BTCUSD', symbol: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0, risk: 0.0030, rr: 1.6, threshold: 16 }
+            xau: { name: 'XAUUSD', symbol: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 4, risk: 15, rr: 1.8, threshold: 0.6 },
+            btc: { name: 'BTCUSD', symbol: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0, risk: 0.0020, rr: 2, threshold: 8 }
         },
         defaultPair: 'xau',
         htf: {
@@ -288,7 +278,6 @@
         }
     };
 
-    // ==================== STATE ====================
     let state = { xau: null, btc: null };
     let wsStatus = { xau: false, btc: false };
     let wsRetries = { xau: 0, btc: 0 };
@@ -296,11 +285,8 @@
     let wsConnections = {};
     let priceHistory = { xau: [], btc: [] };
     let lastSignalResetTime = { xau: 0, btc: 0 };
-
-    // HTF Data Storage
     let htfData = { xau: null, btc: null };
 
-    // ==================== TRIPLE TAP RESET ====================
     let tapCount = 0;
     let tapTimeout = null;
     
@@ -310,9 +296,7 @@
         
         header.addEventListener('click', () => {
             tapCount++;
-            
             if (tapTimeout) clearTimeout(tapTimeout);
-            
             if (tapCount === 3) {
                 resetAllData();
                 tapCount = 0;
@@ -343,16 +327,12 @@
         
         const toast = document.getElementById('toastMsg');
         toast.classList.add('show');
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 2000);
+        setTimeout(() => { toast.classList.remove('show'); }, 2000);
         
         if(navigator.vibrate) navigator.vibrate(50);
-        
         console.log('[URA] All data reset via triple tap');
     }
 
-    // ==================== FRESH STATE ====================
     function createFreshState() {
         return {
             lastPrice: 0, prevPrice: 0, trendScore: 0,
@@ -363,31 +343,16 @@
         };
     }
 
-    // ==================== HTF INIT ====================
     function initHTFData(id) {
         htfData[id] = {
-            ohlcCandles: [],
-            currentCandle: null,
-            tickCounter: 0,
-            swings: [],
-            pivotHighs: [],
-            pivotLows: [],
-            structure: 'NEUTRAL',
-            momentum: 'STABLE',
-            momentumStrength: 'NONE',
-            momentumConfidence: 0,
-            phase: 'RANGE',
-            atr: 0,
-            atrPercent: 0,
-            atrReliability: 'NONE',
-            confidence: 0,
-            confidenceStatus: 'INVALID',
-            lastStructureBreak: 0,
-            lastUpdate: 0
+            ohlcCandles: [], currentCandle: null, tickCounter: 0, swings: [],
+            pivotHighs: [], pivotLows: [], structure: 'NEUTRAL', momentum: 'STABLE',
+            momentumStrength: 'NONE', momentumConfidence: 0, phase: 'RANGE',
+            atr: 0, atrPercent: 0, atrReliability: 'NONE', confidence: 0,
+            confidenceStatus: 'INVALID', lastStructureBreak: 0, lastUpdate: 0
         };
     }
 
-    // ==================== 1. CANDLE BUILDER ====================
     function buildOHLCCandle(id, price) {
         const data = htfData[id];
         if (!data) return;
@@ -416,12 +381,10 @@
         data.lastUpdate = Date.now();
     }
 
-    // ==================== ATR ADAPTIF ====================
     function calculateAdaptiveATR(id) {
         const data = htfData[id];
         const candles = data.ohlcCandles.filter(c => c.closed);
         if (candles.length < 4) { data.atr = 0.15; data.atrReliability = 'NONE'; return; }
-        const period = Math.min(10, candles.length);
         let totalTR = 0;
         for (let i = 1; i < candles.length; i++) {
             const tr = Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - candles[i-1].close), Math.abs(candles[i].low - candles[i-1].close));
@@ -433,7 +396,6 @@
         data.atrPercent = (data.atr / latestPrice) * 100;
     }
 
-    // ==================== PIVOT & STRUCTURE ====================
     function detectPivotsAndStructure(id) {
         const data = htfData[id];
         const candles = data.ohlcCandles.filter(c => c.closed);
@@ -473,7 +435,6 @@
         } else data.structure = 'TRANSITIONAL';
     }
 
-    // ==================== MOMENTUM ====================
     function detectAccurateMomentum(id) {
         const data = htfData[id];
         const candles = data.ohlcCandles.filter(c=>c.closed);
@@ -595,239 +556,83 @@
         updateSignalQualityUI(id);
     }
 
-    // ==================== PERBAIKAN FUNGSI VALIDASI HTF (BIAS MUTLAK) ====================
     function validateSignalWithHTF(id, direction, price) {
         const htf = htfData[id];
-        const s = state[id];
-        
-        // Jika HTF belum siap, tolak sinyal (tidak boleh trading tanpa HTF)
         if (!htf || htf.confidenceStatus === 'INVALID' || htf.confidence < CONFIG.htf.confidenceThreshold.minToAllow) {
-            return { 
-                valid: false, 
-                reason: `HTF_NOT_READY (${htf?.confidenceStatus || 'NO_DATA'})`, 
-                confidence: htf?.confidence || 0,
-                priority: 'REJECT',
-                sizeMult: 0
-            };
+            return { valid: false, reason: `HTF_NOT_READY (${htf?.confidenceStatus || 'NO_DATA'})`, confidence: htf?.confidence || 0, priority: 'REJECT', sizeMult: 0 };
         }
         
-        // ========== ATURAN MUTLAK: ANTI-COUNTER TREND ==========
-        // 1. Tidak boleh SELL saat HTF BULLISH
         if (direction === 'sell' && htf.structure === 'BULLISH') {
-            return { 
-                valid: false, 
-                reason: `COUNTER_TREND: BULLISH_HTF vs SELL`, 
-                confidence: htf.confidence,
-                priority: 'REJECT',
-                sizeMult: 0
-            };
+            return { valid: false, reason: `COUNTER_TREND: BULLISH_HTF vs SELL`, confidence: htf.confidence, priority: 'REJECT', sizeMult: 0 };
         }
-        
-        // 2. Tidak boleh BUY saat HTF BEARISH
         if (direction === 'buy' && htf.structure === 'BEARISH') {
-            return { 
-                valid: false, 
-                reason: `COUNTER_TREND: BEARISH_HTF vs BUY`, 
-                confidence: htf.confidence,
-                priority: 'REJECT',
-                sizeMult: 0
-            };
+            return { valid: false, reason: `COUNTER_TREND: BEARISH_HTF vs BUY`, confidence: htf.confidence, priority: 'REJECT', sizeMult: 0 };
         }
         
-        // ========== VALIDASI BERDASARKAN STRUKTUR HTF ==========
-        const structMatch = (direction === 'buy' && htf.structure === 'BULLISH') || 
-                            (direction === 'sell' && htf.structure === 'BEARISH');
-        const momMatch = (direction === 'buy' && (htf.momentum === 'IMPULSIVE_UP' || htf.momentum === 'BULLISH')) || 
-                         (direction === 'sell' && (htf.momentum === 'IMPULSIVE_DOWN' || htf.momentum === 'BEARISH'));
+        const structMatch = (direction === 'buy' && htf.structure === 'BULLISH') || (direction === 'sell' && htf.structure === 'BEARISH');
+        const momMatch = (direction === 'buy' && (htf.momentum === 'IMPULSIVE_UP' || htf.momentum === 'BULLISH')) || (direction === 'sell' && (htf.momentum === 'IMPULSIVE_DOWN' || htf.momentum === 'BEARISH'));
         
-        // KASUS 1: FULL ALIGNMENT (Struktur + Momentum)
         if (structMatch && momMatch && htf.confidence >= 55) {
-            return { 
-                valid: true, 
-                reason: 'FULL_ALIGN', 
-                confidence: Math.min(100, htf.confidence * 1.05), 
-                priority: 'HIGH', 
-                sizeMult: 1.0 
-            };
+            return { valid: true, reason: 'FULL_ALIGN', confidence: Math.min(100, htf.confidence * 1.05), priority: 'HIGH', sizeMult: 1.0 };
         }
-        
-        // KASUS 2: STRUKTUR ALIGN (Momentum belum 100% siap tapi struktur mendukung)
         if (structMatch && htf.confidence >= 60) {
-            return { 
-                valid: true, 
-                reason: 'STRUCT_ALIGN', 
-                confidence: htf.confidence * 0.92, 
-                priority: 'MEDIUM_HIGH', 
-                sizeMult: 0.9 
-            };
+            return { valid: true, reason: 'STRUCT_ALIGN', confidence: htf.confidence * 0.92, priority: 'MEDIUM_HIGH', sizeMult: 0.9 };
         }
-        
-        // KASUS 3: BREAKOUT DARI RANGE (valid jika momentum kuat dan struktur netral)
         if (htf.structure === 'RANGE' && momMatch && htf.confidence >= 50) {
             const breakoutStrength = (htf.momentum === 'IMPULSIVE_UP' || htf.momentum === 'IMPULSIVE_DOWN') ? 1.0 : 0.7;
-            return { 
-                valid: true, 
-                reason: 'RANGE_BREAKOUT', 
-                confidence: htf.confidence * 0.88, 
-                priority: 'MEDIUM', 
-                sizeMult: 0.75 * breakoutStrength 
-            };
+            return { valid: true, reason: 'RANGE_BREAKOUT', confidence: htf.confidence * 0.88, priority: 'MEDIUM', sizeMult: 0.75 * breakoutStrength };
         }
-        
-        // KASUS 4: MOMENTUM DOMINAN (hanya saat struktur mendukung atau netral dengan konfidensi tinggi)
         if (momMatch && htf.confidence >= 55 && (htf.structure !== 'BEARISH' || direction === 'sell') && (htf.structure !== 'BULLISH' || direction === 'buy')) {
-            return { 
-                valid: true, 
-                reason: 'MOMENTUM_DRIVEN', 
-                confidence: htf.confidence * 0.8, 
-                priority: 'LOW_MED', 
-                sizeMult: 0.6 
-            };
+            return { valid: true, reason: 'MOMENTUM_DRIVEN', confidence: htf.confidence * 0.8, priority: 'LOW_MED', sizeMult: 0.6 };
         }
         
-        // KASUS 5: PENOLAKAN (semua kondisi lain ditolak)
-        return { 
-            valid: false, 
-            reason: `${htf.structure}_${htf.momentum}_vs_${direction.toUpperCase()} (CONF:${Math.round(htf.confidence)}%)`, 
-            confidence: htf.confidence,
-            priority: 'REJECT',
-            sizeMult: 0
-        };
+        return { valid: false, reason: `${htf.structure}_${htf.momentum}_vs_${direction.toUpperCase()}`, confidence: htf.confidence, priority: 'REJECT', sizeMult: 0 };
     }
 
-    // ==================== PERBAIKAN FUNGSI LIMIT ORDER (BUY DI DISKON, SELL DI PREMIUM) ====================
+    // ==================== REVISI FIX 1: ANTI-FLICKER LOCKING EXECUTION ====================
     function lockSignalWithHTF(id, direction, price) {
         const s = state[id];
         const p = CONFIG.pairs[id];
         const htf = htfData[id];
         
-        if (!s || !p || !htf) {
-            resetSignal(id);
-            return false;
-        }
+        if (!s || !p || !htf) return false;
         
-        // Gunakan harga running terbaru (s.lastPrice) untuk akurasi
         const currentPrice = s.lastPrice || price;
-        
-        // Validasi dengan HTF terlebih dahulu
         const validation = validateSignalWithHTF(id, direction, currentPrice);
         
-        // Jika validasi gagal, reset dan reject
+        // JIKA HTF REJECT: Tampilkan log dan biarkan state mundur halus ke Stage 1/2 (Jangan di-clear total)
         if (!validation.valid) {
-            if (s) { 
-                s.lastReject = validation.reason; 
-            }
+            s.lastReject = validation.reason; 
             const rejectSpan = document.getElementById(`reject-${id}`);
             if (rejectSpan) { 
                 rejectSpan.innerText = `⛔ ${validation.reason}`; 
-                setTimeout(() => { 
-                    if (rejectSpan) rejectSpan.innerText = ''; 
-                }, 2500); 
+                setTimeout(() => { if (rejectSpan) rejectSpan.innerText = ''; }, 3000); 
             }
-            resetSignal(id);
-            return false;
+            return false; // Kembalikan false agar updateSignalLogic menangani penurunan Stage secara aman
         }
         
-        // ========== KALKULASI LIMIT ORDER DENGAN ATR BUFFER ==========
-        // Hitung buffer volatilitas
-        let bufferDistance = 0;
-        if (htf.atr > 0 && htf.atr < 100) { // Validasi ATR yang realistis
-            bufferDistance = htf.atr * 0.28; // 28% dari ATR untuk buffer
-        } else {
-            // Fallback ke threshold pair jika ATR belum siap
-            bufferDistance = p.threshold * 0.35;
-        }
-        
-        // Batasi buffer agar tidak terlalu kecil/ekstrim
+        let bufferDistance = htf.atr > 0 && htf.atr < 100 ? htf.atr * 0.28 : p.threshold * 0.35;
         bufferDistance = Math.max(bufferDistance, (id === 'xau' ? 0.35 : 5.0));
         bufferDistance = Math.min(bufferDistance, (id === 'xau' ? 2.5 : 80.0));
         
-        let entryPrice = 0;
-        let stopLoss = 0;
-        let takeProfit = 0;
-        let riskAmount = 0;
+        let entryPrice = 0, stopLoss = 0, takeProfit = 0;
+        let riskAmount = Math.max(p.risk * (validation.sizeMult || 1.0), bufferDistance * 0.25);
         
-        // Kalkulasi level berdasarkan arah sinyal (LIMIT ORDER)
         if (direction === 'buy') {
-            // BUY LIMIT: Entry di BAWAH harga running (area diskon)
             entryPrice = currentPrice - bufferDistance;
-            
-            // Proteksi: Entry tidak boleh negatif atau terlalu rendah
-            entryPrice = Math.max(entryPrice, currentPrice - bufferDistance * 1.5);
-            
-            // Hitung risk dengan persentase yang sudah disesuaikan
-            let baseRisk = p.risk;
-            if (validation.sizeMult) baseRisk *= validation.sizeMult;
-            
-            // Pastikan risk tidak terlalu besar
-            riskAmount = Math.min(baseRisk, bufferDistance * 0.65);
-            riskAmount = Math.max(riskAmount, bufferDistance * 0.25);
-            
-            // SL di BAWAH Entry
             stopLoss = entryPrice - riskAmount;
-            
-            // TP di ATAS Entry
             takeProfit = entryPrice + (riskAmount * p.rr);
-            
-            // VALIDASI FINAL: Pastikan TP > Entry > SL untuk BUY
-            if (!(takeProfit > entryPrice && entryPrice > stopLoss)) {
-                console.warn(`[URA] Invalid BUY levels: TP=${takeProfit.toFixed(2)} ENTRY=${entryPrice.toFixed(2)} SL=${stopLoss.toFixed(2)}`);
-                resetSignal(id);
-                return false;
-            }
-            
-            // Proteksi tambahan: Entry tidak boleh terlalu dekat dengan current price
-            if (Math.abs(currentPrice - entryPrice) < bufferDistance * 0.3) {
-                console.warn(`[URA] Entry terlalu dekat dengan harga pasar: ${Math.abs(currentPrice - entryPrice).toFixed(2)}`);
-                resetSignal(id);
-                return false;
-            }
-            
+            if (!(takeProfit > entryPrice && entryPrice > stopLoss)) return false;
         } else if (direction === 'sell') {
-            // SELL LIMIT: Entry di ATAS harga running (area premium)
             entryPrice = currentPrice + bufferDistance;
-            
-            // Hitung risk dengan persentase yang sudah disesuaikan
-            let baseRisk = p.risk;
-            if (validation.sizeMult) baseRisk *= validation.sizeMult;
-            
-            // Pastikan risk tidak terlalu besar
-            riskAmount = Math.min(baseRisk, bufferDistance * 0.65);
-            riskAmount = Math.max(riskAmount, bufferDistance * 0.25);
-            
-            // SL di ATAS Entry
             stopLoss = entryPrice + riskAmount;
-            
-            // TP di BAWAH Entry
             takeProfit = entryPrice - (riskAmount * p.rr);
-            
-            // VALIDASI FINAL: Pastikan SL > Entry > TP untuk SELL
-            if (!(stopLoss > entryPrice && entryPrice > takeProfit)) {
-                console.warn(`[URA] Invalid SELL levels: SL=${stopLoss.toFixed(2)} ENTRY=${entryPrice.toFixed(2)} TP=${takeProfit.toFixed(2)}`);
-                resetSignal(id);
-                return false;
-            }
-            
-            // Proteksi tambahan: Entry tidak boleh terlalu dekat dengan current price
-            if (Math.abs(entryPrice - currentPrice) < bufferDistance * 0.3) {
-                console.warn(`[URA] Entry terlalu dekat dengan harga pasar: ${Math.abs(entryPrice - currentPrice).toFixed(2)}`);
-                resetSignal(id);
-                return false;
-            }
-        } else {
-            // Invalid direction
-            resetSignal(id);
-            return false;
+            if (!(stopLoss > entryPrice && entryPrice > takeProfit)) return false;
         }
         
-        // Proteksi akhir: Pastikan semua level memiliki nilai positif
-        if (entryPrice <= 0 || stopLoss <= 0 || takeProfit <= 0) {
-            console.error(`[URA] Invalid level values: ENTRY=${entryPrice} SL=${stopLoss} TP=${takeProfit}`);
-            resetSignal(id);
-            return false;
-        }
+        if (entryPrice <= 0 || stopLoss <= 0 || takeProfit <= 0) return false;
         
-        // ========== EKSEKUSI SINYAL ==========
+        // LOCKING TOTAL STATE: Sukses Mengunci Sinyal
         s.l3 = true;
         s.confirmed = true;
         s.type = direction;
@@ -837,26 +642,19 @@
         s.signalTimestamp = Date.now();
         s.htfConfidence = validation.confidence;
         s.htfReason = validation.reason;
-        
-        // Simpan buffer yang digunakan untuk debugging
         s.bufferUsed = bufferDistance;
         s.riskUsed = riskAmount;
         
         saveState();
         
-        // Update UI
         const sigTxt = document.getElementById(`signal-text-${id}`);
-        if (sigTxt) {
-            sigTxt.innerHTML = `${direction.toUpperCase()}  | ${Math.round(validation.confidence)}%`;
-        }
+        if (sigTxt) sigTxt.innerHTML = `${direction.toUpperCase()} | ${Math.round(validation.confidence)}%`;
         
-        // Tampilkan notifikasi sinyal (opsional)
-        console.log(`[URA] SIGNAL EXECUTED: ${direction.toUpperCase()} | ENTRY:${entryPrice.toFixed(2)} SL:${stopLoss.toFixed(2)} TP:${takeProfit.toFixed(2)} | ${validation.reason}`);
-        
+        console.log(`[URA] LOCKED SIGNAL: ${direction.toUpperCase()} | ENTRY: ${entryPrice.toFixed(2)} | TS: ${Date.now()}`);
         return true;
     }
 
-    // ==================== PERBAIKAN FUNGSI SIGNAL LOGIC (DENGAN HTF BIAS CHECK) ====================
+    // ==================== REVISI FIX 2: ENGINE PENYARINGAN NOISE & SIGNAL STATE PROTECTOR ====================
     function updateSignalLogic(id, price) {
         const s = state[id];
         const p = CONFIG.pairs[id];
@@ -864,18 +662,17 @@
         
         if (!s || !p) return;
         
-        // ========== CEK RESET COOLDOWN ==========
+        // 1. ABSOLUTE LOCK: Jika sinyal terkonfirmasi (Confirmed), amankan! Jangan biarkan kalkulasi tick merusak level UI
         if (s.confirmed) {
-            // Cek apakah sinyal sudah mencapai TP atau SL
             if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) || 
                 (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
                 lastSignalResetTime[id] = Date.now();
-                resetSignal(id);
+                resetSignal(id); // Reset hanya boleh dieksekusi jika harga real-time menyentuh target TP atau SL asli
             }
             return;
         }
         
-        // ========== RESET COOLDOWN PERIODE ==========
+        // 2. SMOOTH COOLDOWN
         if (!s.l1 && Date.now() - lastSignalResetTime[id] > CONFIG.signal.resetCooldownMs && s.prevPrice !== 0) {
             if (Math.abs(price - s.prevPrice) < p.threshold * 0.8) {
                 resetSignal(id);
@@ -883,95 +680,63 @@
             }
         }
         
-        // ========== HTF BIAS CHECK SEBELUM MEMBANGUN SINYAL ==========
-        // Cek apakah pergerakan harga melawan HTF
+        // 3. FILTER GERBANG AWAL: Deteksi & Blokir Counter Trend Makro Sejak Awal
         if (htf && htf.structure && htf.confidence >= 40) {
             const currentTrend = price - s.prevPrice;
-            
-            if (htf.structure === 'BULLISH' && currentTrend < -p.threshold * 0.7) {
-                // Pergerakan turun signifikan saat HTF BULLISH → RESET (counter trend)
-                resetSignal(id);
-                return;
-            }
-            
-            if (htf.structure === 'BEARISH' && currentTrend > p.threshold * 0.7) {
-                // Pergerakan naik signifikan saat HTF BEARISH → RESET (counter trend)
-                resetSignal(id);
-                return;
-            }
+            if (htf.structure === 'BULLISH' && currentTrend < -p.threshold * 0.7) return; // Hiraukan spike turun saat HTF Bullish
+            if (htf.structure === 'BEARISH' && currentTrend > p.threshold * 0.7) return; // Hiraukan spike naik saat HTF Bearish
         }
         
-        // ========== UPDATE TREND SCORE ==========
         const diff = price - s.prevPrice;
         if (s.prevPrice !== 0 && diff !== 0) {
             s.trendScore += diff * 0.7;
-            // Batasi trend score agar tidak infinity
             s.trendScore = Math.max(-10, Math.min(10, s.trendScore));
         }
         
-        // ========== DETEKSI SINYAL MULTI-STAGE ==========
+        // 4. ALGORITMA MULTI-STAGE ANTI-FLICKER DETECTOR
         const thresholdAdjusted = p.threshold * (s.l1 ? 0.9 : 1.0);
         
         if (!s.confirmed && s.prevPrice !== 0 && Math.abs(diff) > thresholdAdjusted) {
             const direction = diff > 0 ? 'buy' : 'sell';
             
-            // ========== HTF BIAS VALIDATION UNTUK SETIAP STAGE ==========
-            // Cek apakah arah sinyal yang terdeteksi sejalan dengan HTF
             if (htf && htf.structure && htf.confidence >= 35) {
-                // TOLAK sinyal jika melawan HTF structure
-                if ((direction === 'buy' && htf.structure === 'BEARISH') ||
-                    (direction === 'sell' && htf.structure === 'BULLISH')) {
-                    // Reset trend score dan abort pembentukan sinyal
+                if ((direction === 'buy' && htf.structure === 'BEARISH') || (direction === 'sell' && htf.structure === 'BULLISH')) {
                     s.trendScore = 0;
                     if (s.l1 || s.l2) resetSignal(id);
                     return;
                 }
-                
-                // Untuk RANGE, beri kesempatan tapi dengan lebih selektif
-                if (htf.structure === 'RANGE' && htf.momentumStrength !== 'STRONG') {
-                    if (Math.abs(diff) < thresholdAdjusted * 1.2) {
-                        // Pergerakan terlalu kecil dalam range
-                        return;
-                    }
-                }
             }
             
-            // ========== PROSES BUILDING SIGNAL STAGE ==========
+            // PROSES EKSEKUSI STAGE BERTAHAP
             if (!s.l1) {
                 s.l1 = true;
                 s.type = direction;
                 saveState();
-                
-                // Log untuk debugging
-                console.log(`[URA] Stage 1 (Liquidity) triggered: ${direction.toUpperCase()} | Price: ${price.toFixed(2)}`);
-                
+                console.log(`[URA Engine] Stage 1 (Sweep) Berhasil Dikunci: ${direction.toUpperCase()}`);
             } else if (!s.l2 && s.type === direction) {
                 s.l2 = true;
                 saveState();
-                
-                console.log(`[URA] Stage 2 (CHoCH) confirmed: ${direction.toUpperCase()} | Price: ${price.toFixed(2)}`);
-                
+                console.log(`[URA Engine] Stage 2 (CHoCH) Berhasil Dikunci: ${direction.toUpperCase()}`);
             } else if (!s.l3 && s.l2 && s.type === direction) {
-                // Stage 3: Coba eksekusi sinyal dengan LIMIT ORDER
+                // Eksekusi Tahap Akhir (Stage 3 Limit Order Placement)
                 const executed = lockSignalWithHTF(id, direction, price);
                 
+                // ANTI-FLICKER REMEDY: Jika eksekusi gagal (misal validasi HTF drop mendadak), 
+                // JANGAN panggil resetSignal()! Turunkan status ke Stage 1 secara halus agar visual di UI tidak hilang berkedip.
                 if (!executed) {
-                    // Eksekusi gagal, reset stage L1/L2
-                    s.l1 = false;
-                    s.l2 = false;
-                    s.trendScore = 0;
+                    s.l1 = true;  // Pertahankan Stage 1 (Liquidity Sweep)
+                    s.l2 = false; // Turunkan Stage 2 agar sistem mencari titik pemicu ulang secara organik
+                    s.type = direction;
+                    s.trendScore = s.trendScore * 0.5; // Reduksi skor tren separuh
                     saveState();
                 }
-                
             } else if (s.type !== direction) {
-                // Arah sinyal berubah, reset semua stage
-                resetSignal(id);
+                resetSignal(id); // Reset total hanya berlaku jika harga berbalik arah secara ekstrem (Buy ke Sell / sebaliknya)
             }
         }
         
-        // ========== EKSTRA: RESET JIKA TREND SCORE TERLALU RENDAH ==========
-        if (s.l1 && !s.confirmed && Math.abs(s.trendScore) < 0.5 && Date.now() - lastSignalResetTime[id] > 3000) {
-            // Tidak ada momentum yang cukup, reset sinyal
+        // 5. TIMEOUT PEMBERSIHAN PASAR MATI (Ditingkatkan dari 3 detik ke 6 detik untuk meredam noise sideways)
+        if (s.l1 && !s.confirmed && Math.abs(s.trendScore) < 0.4 && Date.now() - lastSignalResetTime[id] > 6000) {
             resetSignal(id);
         }
     }
@@ -1008,9 +773,7 @@
             else sigText.innerText='IDLE';
         }
         ['ml1','ml2','ml3'].forEach((ml,i)=>{ const dot=document.getElementById(`${ml}-${id}`); if(dot) dot.className = s[`l${i+1}`] ? 'mini-dot on' : 'mini-dot off'; });
-        const l1el=document.getElementById(`logic-l1-${id}`); if(l1el) l1el.innerText = s.l1 ? '' : '';
-        const l2el=document.getElementById(`logic-l2-${id}`); if(l2el) l2el.innerText = s.l2 ? '' : '';
-        const l3el=document.getElementById(`logic-l3-${id}`); if(l3el) l3el.innerText = s.l3 ? '' : '';
+        
         const entryEl=document.getElementById(`entry-${id}`); if(entryEl) entryEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
         const tpEl=document.getElementById(`tp-${id}`); if(tpEl) tpEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
         const slEl=document.getElementById(`sl-${id}`); if(slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
@@ -1054,7 +817,6 @@
         renderUI(id);
     }
 
-    // WEBSOCKET & INIT
     function connectWebSocket(id){
         const p = CONFIG.pairs[id];
         if(!p) return;
@@ -1119,7 +881,6 @@
         document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol;
         
         setupTripleTapReset();
-        
         updateGlobalPulse();
         setInterval(()=>updateGlobalPulse(),1000);
     }
