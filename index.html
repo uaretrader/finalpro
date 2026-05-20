@@ -464,7 +464,7 @@
 
         function lockSignal(id, entry, type) {
             const s=state[id];
-            const offset = (type==='buy' ? -3 : +3);   // offset ±3 seperti fix.html
+            const offset = (type==='buy' ? -5 : +5);   // offset ±3 seperti fix.html
             const adjustedEntry=entry+offset;
             s.l3=true; s.confirmed=true; s.type=type; s.entry=adjustedEntry;
             const risk = (id==='xau') ? 8 : (entry * 0.0030);  // XAU risk 8, BTC risk 0.3% (fix.html)
