@@ -271,7 +271,7 @@
 
     <footer>
         ⚡ XAU: Binance Futures WebSocket (real-time)<br>
-        ⚡ BTC: Exponential backoff + Risk 0.2% + Offset ±3 + PA 0.5x (fix.html spec)<br>
+        ⚡ BTC: Exponential backoff + Risk 0.3% + Offset ±3 + PA 0.5x (fix.html spec)<br>
         📌 Triple tap pada kartu pair → Reset sinyal aktif
     </footer>
 </div>
@@ -428,7 +428,7 @@
         }
 
         // ==================== SIGNAL LOGIC (XAU mengikuti fix.html style: threshold 0.1, risk 8, offset ±3, PA multiplier 0.5) ====================
-        // BTC juga menggunakan parameter fix.html: risk 0.2%, offset ±3, PA multiplier 0.5, threshold 8
+        // BTC juga menggunakan parameter fix.html: risk 0.3%, offset ±3, PA multiplier 0.5, threshold 8
         function createFreshState() {
             return { lastPrice:0, trendScore:0, l1:false, l2:false, l3:false, confirmed:false, type:'none', entry:0, sl:0, tp:0 };
         }
@@ -469,9 +469,9 @@
             const offset = (type==='buy' ? -3 : +3);   // offset ±3 seperti fix.html
             const adjustedEntry=entry+offset;
             s.l3=true; s.confirmed=true; s.type=type; s.entry=adjustedEntry;
-            const risk = (id==='xau') ? 8 : (entry * 0.0020);  // XAU risk 8, BTC risk 0.2% (fix.html)
+            const risk = (id==='xau') ? 8 : (entry * 0.0030);  // XAU risk 8, BTC risk 0.3% (fix.html)
             if(type==='buy'){ s.sl=adjustedEntry-risk; s.tp=adjustedEntry+(risk*1.3); }
-            else { s.sl=adjustedEntry+risk; s.tp=adjustedEntry-(risk*2.5); }
+            else { s.sl=adjustedEntry+risk; s.tp=adjustedEntry-(risk*1.8); }
             saveState(id); updateSignalUI(id);
         }
 
