@@ -2,47 +2,64 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>URA FUSION v8.2 | HTF-Integrated Precision Signal (Optimized Frequency)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>uradvisor v6.2 — HYBRID ENGINE (XAU WS + BTC FIX)</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
-        :root {
-            --bg: #0a0a0c;
-            --bg-panel: #0f0f12;
-            --bg-card: #0d0d11;
-            --text: #c0c0c8;
-            --text-bright: #e8e8ee;
-            --text-dim: #8a8a96;
-            --accent: #b0b0b8;
-            --success: #a8a8b0;
-            --danger: #c8c8d0;
-            --warning: #d4d4dc;
-            --info: #9898a0;
-            --terminal-green: #00e5a0;
-            --terminal-red: #ff4466;
-            --terminal-orange: #ffaa44;
-            --terminal-blue: #44aaff;
-            --border: rgba(176, 176, 184, 0.06);
-            --border-bright: rgba(176, 176, 184, 0.18);
-            --grid-line: rgba(176, 176, 184, 0.04);
-            --quality-high: #00e5a0;
-            --quality-med: #ffaa44;
-            --quality-low: #ff4466;
+        :root, [data-theme="dark"] {
+            --bg: #0A0E15;
+            --bg-secondary: #11161E;
+            --bg-tertiary: #1A2330;
+            --text: #EDF2F7;
+            --text-dim: #9CA3AF;
+            --text-tertiary: #6B7280;
+            --accent: #f0b90b;
+            --success: #10B981;
+            --danger: #EF4444;
+            --feed-lightning: #F59E0B;
+            --border: #2A3646;
+            --phase-trending: #00FF88;
+            --htf-bullish: #06B6D4;
+            --htf-bearish: #FF5252;
+            --htf-neutral: #6B7280;
+            --htf-weak: #F59E0B;
+            --phase-expansion: #FF6B6B;
+            --phase-lowvol: #4ECDC4;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        [data-theme="light"] {
+            --bg: #F7F8FA;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: #EEF1F5;
+            --text: #1F2937;
+            --text-dim: #4B5563;
+            --text-tertiary: #6B7280;
+            --accent: #D97706;
+            --success: #059669;
+            --danger: #DC2626;
+            --feed-lightning: #D97706;
+            --border: #D1D5DB;
+            --phase-trending: #10B981;
+            --htf-bullish: #0891B2;
+            --htf-bearish: #DC2626;
+            --htf-neutral: #6B7280;
+            --htf-weak: #D97706;
+            --phase-expansion: #F97316;
+            --phase-lowvol: #14B8A6;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body { 
             background: var(--bg); 
             color: var(--text); 
-            font-family: 'JetBrains Mono', monospace;
-            padding: 8px;
+            font-family: 'Inter', sans-serif; 
+            padding: 12px;
             display: flex;
             justify-content: center;
             min-height: 100vh;
-            font-size: 11px;
-            letter-spacing: 0.02em;
+            transition: background 0.2s, color 0.2s;
         }
 
         .container { max-width: 500px; width: 100%; }
@@ -51,972 +68,524 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-bottom: 2px solid var(--accent);
-            padding: 8px 12px;
-            margin-bottom: 6px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
-        .brand { display: flex; align-items: baseline; gap: 8px; pointer-events: none; }
-        .brand h1 { font-size: 14px; font-weight: 800; color: var(--text-bright); letter-spacing: 2px; }
-        .brand .version { font-size: 8px; color: var(--text-dim); letter-spacing: 1px; }
-
-        .header-right { display: flex; align-items: center; gap: 10px; pointer-events: none; }
-        .header-right button { pointer-events: auto; }
-
-        .live-pulse {
-            display: inline-block; width: 6px; height: 6px;
-            background: var(--terminal-red); border-radius: 50%;
-            animation: pulseBlink 1.5s infinite;
+        .brand h1 { font-size: 1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+        .brand p { font-size: 0.5rem; color: var(--text-dim); }
+        
+        .sys-status { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; text-align: right; color: var(--text-dim); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        
+        .pulse { 
+            display: inline-block; 
+            width: 7px; 
+            height: 7px; 
+            background: var(--feed-lightning); 
+            border-radius: 50%; 
+            margin-right: 5px; 
+            animation: blink 1.5s infinite; 
         }
-        .live-pulse.connected { background: var(--terminal-green); box-shadow: 0 0 6px rgba(0,229,160,0.6); }
-        @keyframes pulseBlink {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.8); }
+        .pulse.connected { background: var(--success); box-shadow: 0 0 5px var(--success); animation: pulse 2s infinite; }
+        .pulse.disconnected { background: var(--danger); animation: blink 0.5s infinite; }
+        
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
+
+        .ws-status {
+            font-size: 0.55rem;
+            padding: 2px 8px;
+            border-radius: 20px;
+            background: var(--bg-tertiary);
+            font-weight: 600;
         }
+        .ws-status.connected { color: var(--success); border-left: 2px solid var(--success); }
+        .ws-status.disconnected { color: var(--danger); animation: blink 1s infinite; }
 
         .switch-pair-btn {
-            background: var(--bg-card); border: 1px solid var(--border-bright);
-            color: var(--accent); font-family: 'JetBrains Mono', monospace;
-            font-size: 13px; font-weight: 700; padding: 5px 14px;
-            cursor: pointer; transition: all 0.15s ease;
-            text-transform: uppercase; letter-spacing: 1.5px;
-            pointer-events: auto;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--bg-tertiary);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
-        .switch-pair-btn:hover { border-color: var(--accent); background: rgba(176, 176, 184, 0.08); }
+        .switch-pair-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-        .pair-card { display: none; }
+        .pair-card { display: none; margin-bottom: 10px; }
         .pair-card.active { display: block; }
 
         .card {
-            background: var(--bg-card);
+            background: var(--bg-secondary);
             border: 1px solid var(--border);
-            margin-bottom: 6px;
-            border-radius: 0px;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
         }
 
-        .price-header {
-            display: grid; grid-template-columns: auto 1fr;
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--grid-line);
-            background: rgba(0,0,0,0.2);
+        .card-top { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            margin-bottom: 12px; 
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .pair-info { display: flex; flex-direction: column; gap: 4px; }
+        .pair { font-weight: 800; font-size: 1.1rem; letter-spacing: 1px; color: var(--text); }
+        .price { 
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 1.3rem; 
+            font-weight: 700; 
+            background: transparent;
+            padding: 4px 0;
+            text-align: right;
+            transition: color 0.1s ease;
         }
 
-        .pair-info { display: flex; flex-direction: column; gap: 2px; }
-        .pair-name { font-size: 15px; font-weight: 800; color: var(--text-bright); letter-spacing: 1.5px; }
-        .ws-status { font-size: 8px; font-weight: 600; letter-spacing: 0.5px; }
-        .ws-status.connected { color: var(--terminal-green); }
-        .ws-status.disconnected { color: var(--terminal-red); animation: blink 1s infinite; }
-        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
-
-        .price-display { text-align: right; }
-        .price-value { font-size: 20px; font-weight: 800; letter-spacing: 1px; line-height: 1; }
-        .price-change { font-size: 8px; margin-top: 2px; }
-
-        .signal-fusion-bar {
-            display: grid; grid-template-columns: 1fr auto 1fr;
-            align-items: center; padding: 8px 12px;
-            border-bottom: 1px solid var(--grid-line);
-            background: rgba(0,0,0,0.15);
-            gap: 10px;
-        }
-        .signal-label { font-size: 12px; font-weight: 700; letter-spacing: 2px; color: var(--text-dim); }
-        .signal-fusion-center { display: flex; align-items: center; gap: 6px; justify-content: center; }
-        .fusion-dot {
-            width: 4px; height: 4px; border-radius: 1px;
-            background: rgba(176,176,184,0.2);
-            transition: all 0.2s ease;
-        }
-        .fusion-dot.active-buy { background: var(--terminal-green); box-shadow: 0 0 6px rgba(0,229,160,0.5); }
-        .fusion-dot.active-sell { background: var(--terminal-red); box-shadow: 0 0 6px rgba(255,68,102,0.5); }
-        .fusion-dot.pulse { animation: fusionPulse 0.8s infinite; }
-        @keyframes fusionPulse {
-            0%,100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.8); opacity: 0.6; }
-        }
-        .fusion-line { width: 40px; height: 1px; background: var(--border-bright); }
-        .signal-status-text { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; text-align: right; }
-
-        .levels-fusion {
-            display: grid; grid-template-columns: repeat(3, 1fr);
-            gap: 1px; background: var(--border);
-        }
-        .level-box {
-            background: var(--bg-panel); padding: 8px 10px;
-            cursor: pointer; text-align: center; transition: background 0.1s;
-        }
-        .level-box:hover { background: rgba(176,176,184,0.02); }
-        .level-box .lbl { font-size: 7px; letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 3px; }
-        .level-box .val { font-size: 14px; font-weight: 800; }
-        .level-box.entry .val { color: var(--text-bright); }
-        .level-box.target .val { color: var(--terminal-green); }
-        .level-box.stop .val { color: var(--terminal-red); }
-
-        .analysis-row {
-            display: grid; 
-            grid-template-columns: 0.7fr 1.3fr;
-            gap: 1px; 
-            background: var(--border);
-        }
-        .analysis-panel { background: var(--bg-panel); padding: 8px 10px; }
-        .panel-title {
-            font-size: 7px; letter-spacing: 1.5px; color: var(--text-dim);
-            margin-bottom: 6px; padding-bottom: 3px; border-bottom: 1px solid var(--grid-line);
-        }
-        .metric-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; font-size: 8px; }
-        .metric-label { color: var(--text-dim); letter-spacing: 0.5px; }
-        .metric-value { font-weight: 600; }
-
-        .mini-dot { display: inline-block; width: 5px; height: 5px; margin-right: 4px; border-radius: 1px; vertical-align: middle; }
-        .mini-dot.on { background: var(--terminal-green); }
-        .mini-dot.off { background: rgba(176,176,184,0.1); }
-
-        .htf-struct-bull { color: var(--terminal-green); }
-        .htf-struct-bear { color: var(--terminal-red); }
-        .htf-struct-neutral { color: var(--text-dim); }
-
-        .phase-tag {
-            font-size: 6px; padding: 1px 5px; border-radius: 2px;
-            display: inline-block; text-transform: uppercase; letter-spacing: 1px;
-        }
-        .phase-trending { background: rgba(0,229,160,0.12); color: var(--terminal-green); border: 0.5px solid rgba(0,229,160,0.3); }
-        .phase-ranging { background: rgba(176,176,184,0.08); color: var(--text-dim); border: 0.5px solid rgba(176,176,184,0.2); }
-        .phase-expansion { background: rgba(255,68,102,0.1); color: var(--terminal-red); border: 0.5px solid rgba(255,68,102,0.2); }
-        .phase-lowvol { background: rgba(68,170,255,0.08); color: var(--terminal-blue); border: 0.5px solid rgba(68,170,255,0.2); }
-
-        .confidence-bar {
-            width: 100%; height: 2px; background: rgba(176,176,184,0.08);
-            border-radius: 1px; margin: 4px 0; overflow: hidden;
-        }
-        .confidence-fill { height: 100%; transition: width 0.3s ease; }
-
-        .signal-quality-panel {
-            margin-top: 6px; padding: 4px 8px;
-            background: rgba(0,0,0,0.25); border-top: 1px solid var(--grid-line);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .quality-badge {
-            font-size: 7px; font-weight: 800; padding: 2px 6px;
-            background: rgba(0,0,0,0.4); border-radius: 2px;
-        }
-        .quality-high { color: var(--terminal-green); border-left: 2px solid var(--terminal-green); }
-        .quality-med { color: var(--terminal-orange); border-left: 2px solid var(--terminal-orange); }
-        .quality-low { color: var(--terminal-red); border-left: 2px solid var(--terminal-red); }
-        .reject-reason { font-size: 6px; color: var(--terminal-red); font-family: monospace; }
-
-        footer {
-            text-align: center; font-size: 7px; color: var(--text-dim);
-            padding: 8px; opacity: 0.6; letter-spacing: 1px;
-        }
-
-        .toast-message {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--bg-panel);
-            border: 1px solid var(--terminal-green);
-            color: var(--terminal-green);
-            padding: 8px 16px;
-            font-size: 11px;
+        .signal-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 40px;
+            margin-bottom: 12px;
             font-family: 'JetBrains Mono', monospace;
-            border-radius: 4px;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            pointer-events: none;
-            white-space: nowrap;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
         }
-        .toast-message.show { opacity: 1; }
+        .signal-dot-group { display: flex; gap: 12px; align-items: center; }
+        .dot { width: 10px; height: 10px; border-radius: 2px; background: rgba(255,255,255,0.1); border: 1px solid var(--border); }
+        .dot.active { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .dot.active-down { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+        .card-level-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 16px;
+        }
+        .level-item { display: flex; flex-direction: column; cursor: pointer; transition: 0.1s; }
+        .level-item:active { opacity: 0.7; }
+        .level-item:nth-child(1) { align-items: flex-start; text-align: left; }
+        .level-item:nth-child(2) { align-items: center; text-align: center; }
+        .level-item:nth-child(3) { align-items: flex-end; text-align: right; }
+        .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; }
+        .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
+
+        footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; opacity: 0.7; border-top: 1px solid var(--border); padding-top: 10px; }
+        
+        .trend-up { color: var(--success); }
+        .trend-down { color: var(--danger); }
+        .theme-toggle {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            color: var(--text-dim);
+        }
     </style>
 </head>
-<body>
+<body data-theme="dark">
+
 <div class="container">
-    <header id="mainHeader">
-        <div class="brand"><h1>URA</h1><span class="version">v8.2</span></div>
-        <div class="header-right">
-            <div style="display: flex; align-items: center; gap: 6px; font-size: 8px; background: rgba(0,0,0,0.3); padding: 4px 8px;">
-                <span id="livePulse" class="live-pulse"></span><span>LIVE</span>
+    <header>
+        <div class="brand">
+            <h1>uradvisor</h1>
+            <p>URA | HYBRID v6.2</p>
             </div>
-            <button id="switchPairBtn" class="switch-pair-btn"><span id="switchLabel">XAU</span></button>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div class="sys-status">
+                <div><span class="pulse" id="globalPulse"></span>LIVE</div>
+                <div id="clock">00:00:00</div>
+            </div>
+            <button id="switchPairBtn" class="switch-pair-btn">
+                <span id="switchLabel">XAUUSD</span>
+            </button>
+            <button id="themeToggleBtn" class="theme-toggle">🌙</button>
         </div>
     </header>
+
     <div id="terminals"></div>
-    <footer>URA FUSION v8.2 | SMART MONEY + HTF CONFIRMATION | FREQ OPTIMIZED | REAL-TIME ALIGNMENT</footer>
+
+    <footer>
+        ⚡ XAU: Binance Futures WebSocket (real-time)<br>
+        ⚡ BTC: Exponential backoff + Risk 0.2% + Offset ±3 + PA 0.5x (fix.html spec)
+    </footer>
 </div>
 
-<div id="toastMsg" class="toast-message">✓ ALL RESET</div>
-
 <script>
-    const CONFIG = {
-        pairs: {
-            xau: { name: 'XAUUSD', symbol: 'XAUUSD', wsUrl: 'wss://stream.binance.com:9443/ws/paxgusdt@ticker', offset: 3, risk: 15, rr: 1.8, threshold: 0.6 },
-            btc: { name: 'BTCUSD', symbol: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@ticker', offset: 0, risk: 0.0020, rr: 2, threshold: 12 }
-        },
-        defaultPair: 'xau',
-        htf: {
-            ticksPerCandle: 5,
-            pivotLookback: 1,
-            momentumLookback: 6,
-            rangeLookback: 8,
-            minCandlesForStructure: 12,
-            minCandlesForMomentum: 8,
-            minCandlesForATR: 10,
-            confidenceThreshold: {
-                minToAllow: 35,
-                high: 70,
-                medium: 45
-            }
-        },
-        signal: {
-            minTrendScoreTrigger: 0.03,
-            l2ConfirmationThreshold: 1.2,
-            resetCooldownMs: 10000,
-            forceAlignProbability: 0.65
-        }
-    };
+    (function() {
+        // ==================== KONFIGURASI ====================
+        // BTC Config (fix.html style)
+        const btcConfig = {
+            id: 'btc', name: 'BTCUSD', wsUrl: 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade', 
+            offset: 0, threshold: 6
+        };
 
-    let state = { xau: null, btc: null };
-    let wsStatus = { xau: false, btc: false };
-    let wsRetries = { xau: 0, btc: 0 };
-    let activePairId = null;
-    let wsConnections = {};
-    let priceHistory = { xau: [], btc: [] };
-    let lastSignalResetTime = { xau: 0, btc: 0 };
-    let htfData = { xau: null, btc: null };
-
-    let tapCount = 0;
-    let tapTimeout = null;
-    
-    function setupTripleTapReset() {
-        const header = document.getElementById('mainHeader');
-        if (!header) return;
+        // XAU OFFSET dari futures Binance
+        const XAU_OFFSET = -3;
+        let xauWebSocket = null;
+        let xauReconnectTimer = null;
+        let xauReconnectAttempts = 0;
+        let xauFetchRetryTimer = null;
+        let lastXAUPrice = 0;
         
-        header.addEventListener('click', () => {
-            tapCount++;
-            if (tapTimeout) clearTimeout(tapTimeout);
-            if (tapCount === 3) {
-                resetAllData();
-                tapCount = 0;
+        // STATE
+        let state = { xau: null, btc: null };
+        let wsStatus = { xau: false, btc: false };
+        let wsRetries = { xau: 0, btc: 0 };      // untuk exponential backoff BTC
+        let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
+        let wsConnections = {};
+        
+        // Theme
+        let currentTheme = localStorage.getItem('ura_theme') || 'dark';
+        
+        // ==================== HTF ENGINE (sama untuk kedua pair) ====================
+        const HTF_TICK_PER_CANDLE = 8;
+        const HTF_PIVOT_LOOKBACK = 2;
+        const HTF_MOMENTUM_LOOKBACK = 4;
+        const HTF_RANGE_LOOKBACK = 10;
+
+        let htfData = {
+            xau: { ohlcCandles: [], currentCandle: null, tickCounter: 0, swings: [], pivotHighs: [], pivotLows: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', phase: 'RANGE', atr: 0, confidence: 0 },
+            btc: { ohlcCandles: [], currentCandle: null, tickCounter: 0, swings: [], pivotHighs: [], pivotLows: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', phase: 'RANGE', atr: 0, confidence: 0 }
+        };
+
+        function seedHTFData(id, basePrice) {
+            const data = htfData[id];
+            const volatility = id === 'xau' ? 0.25 : 30;
+            for (let i = 0; i < 20; i++) {
+                const open = basePrice + (Math.random() - 0.5) * volatility * 2;
+                const close = basePrice + (Math.random() - 0.5) * volatility * 2;
+                const high = Math.max(open, close) + Math.random() * volatility;
+                const low = Math.min(open, close) - Math.random() * volatility;
+                data.ohlcCandles.push({ open, high, low, close, closed: true, body: Math.abs(close-open), range: high-low, isBullish: close>=open, upperWick:0, lowerWick:0 });
+            }
+        }
+
+        function buildOHLCCandle(id, price) {
+            const data = htfData[id];
+            data.tickCounter++;
+            if (!data.currentCandle || data.tickCounter >= HTF_TICK_PER_CANDLE) {
+                if (data.currentCandle) { data.currentCandle.closed = true; data.ohlcCandles.push(data.currentCandle); if (data.ohlcCandles.length > 100) data.ohlcCandles.shift(); }
+                data.tickCounter = 0;
+                data.currentCandle = { open: price, high: price, low: price, close: price, closed: false, body:0, range:0, isBullish: true, upperWick:0, lowerWick:0 };
             } else {
-                tapTimeout = setTimeout(() => {
-                    tapCount = 0;
-                }, 500);
+                data.currentCandle.high = Math.max(data.currentCandle.high, price);
+                data.currentCandle.low = Math.min(data.currentCandle.low, price);
+                data.currentCandle.close = price;
+                data.currentCandle.range = data.currentCandle.high - data.currentCandle.low;
+                data.currentCandle.body = Math.abs(data.currentCandle.close - data.currentCandle.open);
+                data.currentCandle.isBullish = data.currentCandle.close >= data.currentCandle.open;
             }
-        });
-    }
-    
-    function resetAllData() {
-        Object.keys(CONFIG.pairs).forEach(id => {
-            const currentPrice = state[id]?.lastPrice || 0;
-            const currentPrevPrice = state[id]?.prevPrice || currentPrice;
-            state[id] = createFreshState();
-            state[id].lastPrice = currentPrice;
-            state[id].prevPrice = currentPrevPrice;
-            
-            initHTFData(id);
-            lastSignalResetTime[id] = Date.now();
-            priceHistory[id] = [];
-            
-            renderUI(id);
-            renderHTFContext(id);
-        });
-        
-        saveState();
-        
-        const toast = document.getElementById('toastMsg');
-        toast.classList.add('show');
-        setTimeout(() => { toast.classList.remove('show'); }, 2000);
-        
-        if(navigator.vibrate) navigator.vibrate(50);
-        console.log('[URA] All data reset via triple tap');
-    }
+        }
 
-    function createFreshState() {
-        return {
-            lastPrice: 0, prevPrice: 0, trendScore: 0,
-            l1: false, l2: false, l3: false, confirmed: false, type: 'none',
-            entry: 0, sl: 0, tp: 0,
-            htfConfidence: 0, htfReason: null, lastReject: null,
-            signalTimestamp: 0, bufferUsed: 0, riskUsed: 0
-        };
-    }
-
-    function initHTFData(id) {
-        htfData[id] = {
-            ohlcCandles: [], currentCandle: null, tickCounter: 0, swings: [],
-            pivotHighs: [], pivotLows: [], structure: 'NEUTRAL', momentum: 'STABLE',
-            momentumStrength: 'NONE', momentumConfidence: 0, phase: 'RANGE',
-            atr: 0, atrPercent: 0, atrReliability: 'NONE', confidence: 0,
-            confidenceStatus: 'INVALID', lastStructureBreak: 0, lastUpdate: 0
-        };
-    }
-
-    function buildOHLCCandle(id, price) {
-        const data = htfData[id];
-        if (!data) return;
-        data.tickCounter++;
-        if (!data.currentCandle || data.tickCounter >= CONFIG.htf.ticksPerCandle) {
-            if (data.currentCandle && data.currentCandle.closed === false) {
-                data.currentCandle.closed = true;
-                data.ohlcCandles.push(data.currentCandle);
-                if (data.ohlcCandles.length > 80) data.ohlcCandles.shift();
-            }
-            data.tickCounter = 0;
-            data.currentCandle = {
-                open: price, high: price, low: price, close: price, closed: false,
-                body: 0, range: 0, isBullish: true, upperWick: 0, lowerWick: 0
-            };
-        } else {
-            data.currentCandle.high = Math.max(data.currentCandle.high, price);
-            data.currentCandle.low = Math.min(data.currentCandle.low, price);
-            data.currentCandle.close = price;
-            data.currentCandle.range = data.currentCandle.high - data.currentCandle.low;
-            data.currentCandle.body = Math.abs(data.currentCandle.close - data.currentCandle.open);
-            data.currentCandle.isBullish = data.currentCandle.close >= data.currentCandle.open;
-            data.currentCandle.upperWick = data.currentCandle.isBullish ? data.currentCandle.high - data.currentCandle.close : data.currentCandle.high - data.currentCandle.open;
-            data.currentCandle.lowerWick = data.currentCandle.isBullish ? data.currentCandle.open - data.currentCandle.low : data.currentCandle.close - data.currentCandle.low;
-        }
-        data.lastUpdate = Date.now();
-    }
-
-    function calculateAdaptiveATR(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < 4) { data.atr = id === 'btc' ? 50 : 0.15; data.atrReliability = 'NONE'; return; }
-        let totalTR = 0;
-        for (let i = 1; i < candles.length; i++) {
-            const tr = Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - candles[i-1].close), Math.abs(candles[i].low - candles[i-1].close));
-            totalTR += tr;
-        }
-        data.atr = totalTR / (candles.length-1);
-        data.atrReliability = candles.length >= 20 ? 'HIGH' : 'MEDIUM';
-        const latestPrice = candles[candles.length-1]?.close || data.currentCandle?.close || (id === 'btc' ? 50000 : 100);
-        data.atrPercent = (data.atr / latestPrice) * 100;
-    }
-
-    function detectPivotsAndStructure(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < CONFIG.htf.minCandlesForStructure) return;
-        
-        data.pivotHighs = []; data.pivotLows = [];
-        const lookback = CONFIG.htf.pivotLookback;
-        for (let i = lookback; i < candles.length - lookback; i++) {
-            let isHigh=true, isLow=true;
-            for (let j=1;j<=lookback;j++) {
-                if(candles[i-j].high >= candles[i].high) isHigh=false;
-                if(candles[i+j].high >= candles[i].high) isHigh=false;
-                if(candles[i-j].low <= candles[i].low) isLow=false;
-                if(candles[i+j].low <= candles[i].low) isLow=false;
-            }
-            if(isHigh) data.pivotHighs.push({index:i, price:candles[i].high});
-            if(isLow) data.pivotLows.push({index:i, price:candles[i].low});
-        }
-        
-        const all = [...data.pivotHighs.map(p=>({val:p.price,type:'H'})), ...data.pivotLows.map(p=>({val:p.price,type:'L'}))];
-        all.sort((a,b)=>a.val - b.val);
-        data.swings = [];
-        let lastType=null;
-        all.forEach(p=>{ if(p.type!==lastType) { data.swings.push(p); lastType=p.type; } });
-        
-        const swings = data.swings.slice(-6);
-        const highs = swings.filter(s=>s.type==='H').map(s=>s.val);
-        const lows = swings.filter(s=>s.type==='L').map(s=>s.val);
-        if(highs.length>=2 && lows.length>=2){
-            const isHH = highs[highs.length-1] > highs[highs.length-2];
-            const isHL = lows[lows.length-1] > lows[lows.length-2];
-            const isLH = highs[highs.length-1] < highs[highs.length-2];
-            const isLL = lows[lows.length-1] < lows[lows.length-2];
-            if(isHH && isHL) data.structure = 'BULLISH';
-            else if(isLH && isLL) data.structure = 'BEARISH';
-            else data.structure = 'RANGE';
-        } else data.structure = 'TRANSITIONAL';
-    }
-
-    function detectAccurateMomentum(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c=>c.closed);
-        if(candles.length < CONFIG.htf.minCandlesForMomentum) {
-            data.momentum='INSUFFICIENT'; data.momentumStrength='NONE'; data.momentumConfidence=20;
-            return;
-        }
-        const recent = candles.slice(-6);
-        const atr = data.atr > 0 ? data.atr : (id === 'btc' ? 50 : 0.2);
-        const threshold = Math.max(atr * 0.55, id === 'btc' ? 30 : 0.04);
-        let buyPressure=0, sellPressure=0, valid=0;
-        for(let c of recent){
-            const bodyRatio = c.body / (c.range||0.0001);
-            const isDisplace = c.range > threshold;
-            const isBodyDom = bodyRatio > 0.55;
-            const isBullReject = c.lowerWick > c.body*0.6;
-            const isBearReject = c.upperWick > c.body*0.6;
-            if(c.isBullish && (isDisplace || isBodyDom) && !isBullReject){ buyPressure+= (1+bodyRatio); valid++; }
-            else if(!c.isBullish && (isDisplace || isBodyDom) && !isBearReject){ sellPressure+= (1+bodyRatio); valid++; }
-        }
-        const total = buyPressure+sellPressure;
-        if(valid>=3 && total>0){
-            const buyPct = buyPressure/total;
-            if(buyPct>0.65){ data.momentum='IMPULSIVE_UP'; data.momentumStrength='STRONG'; data.momentumConfidence=Math.min(100,buyPct*100); }
-            else if(sellPressure/total>0.65){ data.momentum='IMPULSIVE_DOWN'; data.momentumStrength='STRONG'; data.momentumConfidence=Math.min(100,(sellPressure/total)*100); }
-            else if(buyPct>0.55){ data.momentum='BULLISH'; data.momentumStrength='MODERATE'; data.momentumConfidence=58; }
-            else if(sellPressure/total>0.55){ data.momentum='BEARISH'; data.momentumStrength='MODERATE'; data.momentumConfidence=58; }
-            else { data.momentum='CONGESTION'; data.momentumStrength='WEAK'; data.momentumConfidence=35; }
-        } else { data.momentum='STABLE'; data.momentumStrength='WEAK'; data.momentumConfidence=25; }
-    }
-
-    function detectMarketPhase(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c=>c.closed);
-        if(candles.length<8) return;
-        const recent = candles.slice(-8);
-        let expand=0;
-        for(let i=1;i<recent.length;i++){
-            if(recent[i].range > (data.atr*1.1)) expand++;
-        }
-        const isTrend = (data.structure==='BULLISH'||data.structure==='BEARISH');
-        if(isTrend && expand>=2) data.phase='TRENDING';
-        else if(expand>=3) data.phase='EXPANSION';
-        else data.phase='RANGE';
-    }
-
-    function calculateConfidence(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c=>c.closed);
-        let score=0, maxScore=80;
-        if(data.structure==='BULLISH'||data.structure==='BEARISH') score+=32;
-        else if(data.structure==='TRANSITIONAL') score+=14;
-        if(data.momentumStrength==='STRONG') score+=28;
-        else if(data.momentumStrength==='MODERATE') score+=18;
-        else if(data.momentumStrength==='WEAK') score+=8;
-        if(data.phase==='TRENDING') score+=18;
-        else if(data.phase==='EXPANSION') score+=10;
-        const aligned = ((data.structure==='BULLISH' && data.momentum.includes('UP')) || (data.structure==='BEARISH' && data.momentum.includes('DOWN')));
-        if(aligned) score+=14;
-        if(candles.length>=25) score += 8;
-        let final = Math.max(0, Math.min(100, (score/maxScore)*100));
-        data.confidence = final;
-        if(final>=68) data.confidenceStatus='HIGH';
-        else if(final>=45) data.confidenceStatus='MEDIUM';
-        else if(final>=25) data.confidenceStatus='LOW';
-        else data.confidenceStatus='INVALID';
-    }
-
-    function updateHTFEngine(id, price) {
-        if(!htfData[id]) initHTFData(id);
-        buildOHLCCandle(id, price);
-        calculateAdaptiveATR(id);
-        detectPivotsAndStructure(id);
-        detectAccurateMomentum(id);
-        detectMarketPhase(id);
-        calculateConfidence(id);
-        renderHTFContext(id);
-    }
-
-    function renderHTFContext(id) {
-        const d = htfData[id];
-        if(!d) return;
-        const trendEl = document.getElementById(`trend-${id}`);
-        if(trendEl){
-            let txt='', cls='';
-            if(d.structure==='BULLISH'){ txt='▲ BULLISH'; cls='htf-struct-bull'; }
-            else if(d.structure==='BEARISH'){ txt='▼ BEARISH'; cls='htf-struct-bear'; }
-            else if(d.structure==='RANGE'){ txt='◆ RANGE'; cls='htf-struct-neutral'; }
-            else { txt='◆ TRANS'; cls='htf-struct-neutral'; }
-            trendEl.innerHTML = txt; trendEl.className = `metric-value ${cls}`;
-        }
-        const momEl = document.getElementById(`mom-${id}`);
-        if(momEl){
-            let mtxt='--', mcolor='var(--text-dim)';
-            if(d.momentum==='IMPULSIVE_UP'){ mtxt='▲ IMPULSE'; mcolor='var(--terminal-green)'; }
-            else if(d.momentum==='IMPULSIVE_DOWN'){ mtxt='▼ IMPULSE'; mcolor='var(--terminal-red)'; }
-            else if(d.momentum==='BULLISH'){ mtxt='▲ BULLISH'; mcolor='#a0e0a0'; }
-            else if(d.momentum==='BEARISH'){ mtxt='▼ BEARISH'; mcolor='#ff8888'; }
-            else mtxt='◆ FLAT';
-            momEl.innerHTML = mtxt; momEl.style.color = mcolor;
-        }
-        const rangeEl = document.getElementById(`range-${id}`);
-        if(rangeEl){
-            rangeEl.innerHTML = '';
-            let phaseClass='phase-ranging', phaseText='RANGE';
-            if(d.phase==='TRENDING'){ phaseClass='phase-trending'; phaseText='TRENDING'; }
-            else if(d.phase==='EXPANSION'){ phaseClass='phase-expansion'; phaseText='EXPANSION'; }
-            const phaseSpan = document.createElement('span'); phaseSpan.className=`phase-tag ${phaseClass}`; phaseSpan.textContent=phaseText;
-            rangeEl.appendChild(phaseSpan);
-            const atrSpan = document.createElement('div'); atrSpan.style.fontSize='7px'; atrSpan.style.marginTop='3px'; atrSpan.innerText=`ATR ${d.atr.toFixed(2)}`;
-            rangeEl.appendChild(atrSpan);
-            const confBar=document.createElement('div'); confBar.className='confidence-bar';
-            const fill=document.createElement('div'); fill.className='confidence-fill'; fill.style.width=`${d.confidence}%`;
-            fill.style.backgroundColor = d.confidence>=65 ? 'var(--terminal-green)' : (d.confidence>=40 ? 'var(--terminal-orange)' : 'var(--terminal-red)');
-            confBar.appendChild(fill); rangeEl.appendChild(confBar);
-            const confTxt=document.createElement('div'); confTxt.style.fontSize='6px'; confTxt.style.marginTop='2px'; confTxt.innerText=`CONF ${Math.round(d.confidence)}% | ${d.confidenceStatus}`;
-            rangeEl.appendChild(confTxt);
-        }
-        updateSignalQualityUI(id);
-    }
-
-    function validateSignalWithHTF(id, direction, price) {
-        const htf = htfData[id];
-        const isBTC = (id === 'btc');
-        const minConfidence = isBTC ? 25 : 35;
-        
-        if (!htf) {
-            return { valid: true, reason: 'HTF_INIT', confidence: 40, priority: 'MEDIUM', sizeMult: 0.7 };
-        }
-        
-        if (htf.confidenceStatus === 'INVALID' || htf.confidence < minConfidence) {
-            if (isBTC && htf.confidence >= 20) {
-                return { 
-                    valid: true, 
-                    reason: 'LOW_CONF_ALLOWED_BTC', 
-                    confidence: Math.max(35, htf.confidence * 0.8), 
-                    priority: 'LOW', 
-                    sizeMult: 0.5 
-                };
-            }
-            return { 
-                valid: false, 
-                reason: `HTF_NOT_READY (${htf?.confidenceStatus || 'NO_DATA'})`, 
-                confidence: htf?.confidence || 0, 
-                priority: 'REJECT', 
-                sizeMult: 0 
-            };
-        }
-        
-        if (direction === 'sell' && htf.structure === 'BULLISH') {
-            if (isBTC && htf.momentumStrength === 'WEAK') {
-                return { 
-                    valid: true, 
-                    reason: 'BTC_CTR_WEAK', 
-                    confidence: Math.min(65, htf.confidence * 0.7), 
-                    priority: 'LOW_MED', 
-                    sizeMult: 0.55 
-                };
-            }
-            return { 
-                valid: false, 
-                reason: `COUNTER_TREND: BULLISH_HTF vs SELL`, 
-                confidence: htf.confidence, 
-                priority: 'REJECT', 
-                sizeMult: 0 
-            };
-        }
-        
-        if (direction === 'buy' && htf.structure === 'BEARISH') {
-            if (isBTC && htf.momentumStrength === 'WEAK') {
-                return { 
-                    valid: true, 
-                    reason: 'BTC_CTR_WEAK', 
-                    confidence: Math.min(65, htf.confidence * 0.7), 
-                    priority: 'LOW_MED', 
-                    sizeMult: 0.55 
-                };
-            }
-            return { 
-                valid: false, 
-                reason: `COUNTER_TREND: BEARISH_HTF vs BUY`, 
-                confidence: htf.confidence, 
-                priority: 'REJECT', 
-                sizeMult: 0 
-            };
-        }
-        
-        const structMatch = (direction === 'buy' && (htf.structure === 'BULLISH' || htf.structure === 'TRANSITIONAL')) || 
-                            (direction === 'sell' && (htf.structure === 'BEARISH' || htf.structure === 'TRANSITIONAL'));
-        const momMatch = (direction === 'buy' && (htf.momentum === 'IMPULSIVE_UP' || htf.momentum === 'BULLISH' || htf.momentumStrength === 'MODERATE')) || 
-                         (direction === 'sell' && (htf.momentum === 'IMPULSIVE_DOWN' || htf.momentum === 'BEARISH' || htf.momentumStrength === 'MODERATE'));
-        
-        if (structMatch && momMatch && htf.confidence >= (isBTC ? 45 : 55)) {
-            return { 
-                valid: true, 
-                reason: 'FULL_ALIGN', 
-                confidence: Math.min(100, htf.confidence * 1.05), 
-                priority: 'HIGH', 
-                sizeMult: 1.0 
-            };
-        }
-        
-        if (structMatch && htf.confidence >= (isBTC ? 50 : 60)) {
-            return { 
-                valid: true, 
-                reason: 'STRUCT_ALIGN', 
-                confidence: htf.confidence * 0.92, 
-                priority: 'MEDIUM_HIGH', 
-                sizeMult: 0.9 
-            };
-        }
-        
-        if (htf.structure === 'RANGE' && momMatch && htf.confidence >= (isBTC ? 40 : 50)) {
-            const breakoutStrength = (htf.momentum === 'IMPULSIVE_UP' || htf.momentum === 'IMPULSIVE_DOWN') ? 1.0 : 0.7;
-            return { 
-                valid: true, 
-                reason: 'RANGE_BREAKOUT', 
-                confidence: htf.confidence * 0.88, 
-                priority: 'MEDIUM', 
-                sizeMult: 0.75 * breakoutStrength 
-            };
-        }
-        
-        if (momMatch && htf.confidence >= (isBTC ? 45 : 55)) {
-            return { 
-                valid: true, 
-                reason: 'MOMENTUM_DRIVEN', 
-                confidence: htf.confidence * 0.8, 
-                priority: 'LOW_MED', 
-                sizeMult: 0.6 
-            };
-        }
-        
-        if (isBTC && htf.confidence >= 30) {
-            return { 
-                valid: true, 
-                reason: 'BTC_DEFAULT', 
-                confidence: Math.min(50, htf.confidence * 0.9), 
-                priority: 'LOW', 
-                sizeMult: 0.5 
-            };
-        }
-        
-        return { 
-            valid: false, 
-            reason: `${htf.structure}_${htf.momentum}_vs_${direction.toUpperCase()}`, 
-            confidence: htf.confidence, 
-            priority: 'REJECT', 
-            sizeMult: 0 
-        };
-    }
-
-    function lockSignalWithHTF(id, direction, price) {
-        const s = state[id];
-        const p = CONFIG.pairs[id];
-        const htf = htfData[id];
-        
-        if (!s || !p || !htf) return false;
-        
-        const currentPrice = s.lastPrice || price;
-        const validation = validateSignalWithHTF(id, direction, currentPrice);
-        
-        if (!validation.valid) {
-            s.lastReject = validation.reason; 
-            const rejectSpan = document.getElementById(`reject-${id}`);
-            if (rejectSpan) { 
-                rejectSpan.innerText = `⛔ ${validation.reason}`; 
-                setTimeout(() => { if (rejectSpan) rejectSpan.innerText = ''; }, 3000); 
-            }
-            return false;
-        }
-        
-        let bufferDistance = htf.atr > 0 && htf.atr < (id === 'btc' ? 1000 : 100) ? htf.atr * 0.28 : p.threshold * 0.35;
-        bufferDistance = Math.max(bufferDistance, (id === 'xau' ? 0.35 : 20.0));
-        bufferDistance = Math.min(bufferDistance, (id === 'xau' ? 2.5 : 300.0));
-        
-        let entryPrice = 0, stopLoss = 0, takeProfit = 0;
-        let riskAmount = Math.max(p.risk * (validation.sizeMult || 1.0), bufferDistance * 0.25);
-        
-        if (direction === 'buy') {
-            entryPrice = currentPrice - bufferDistance;
-            stopLoss = entryPrice - riskAmount;
-            takeProfit = entryPrice + (riskAmount * p.rr);
-            if (!(takeProfit > entryPrice && entryPrice > stopLoss)) return false;
-        } else if (direction === 'sell') {
-            entryPrice = currentPrice + bufferDistance;
-            stopLoss = entryPrice + riskAmount;
-            takeProfit = entryPrice - (riskAmount * p.rr);
-            if (!(stopLoss > entryPrice && entryPrice > takeProfit)) return false;
-        }
-        
-        if (entryPrice <= 0 || stopLoss <= 0 || takeProfit <= 0) return false;
-        
-        s.l3 = true;
-        s.confirmed = true;
-        s.type = direction;
-        s.entry = entryPrice;
-        s.sl = stopLoss;
-        s.tp = takeProfit;
-        s.signalTimestamp = Date.now();
-        s.htfConfidence = validation.confidence;
-        s.htfReason = validation.reason;
-        s.bufferUsed = bufferDistance;
-        s.riskUsed = riskAmount;
-        
-        saveState();
-        
-        const sigTxt = document.getElementById(`signal-text-${id}`);
-        if (sigTxt) sigTxt.innerHTML = `${direction.toUpperCase()} | ${Math.round(validation.confidence)}%`;
-        
-        console.log(`[URA] LOCKED SIGNAL: ${direction.toUpperCase()} | ENTRY: ${entryPrice.toFixed(2)} | TS: ${Date.now()}`);
-        return true;
-    }
-
-    function updateSignalLogic(id, price) {
-        const s = state[id];
-        const p = CONFIG.pairs[id];
-        const htf = htfData[id];
-        
-        if (!s || !p) return;
-        
-        if (s.confirmed) {
-            if (s.entry > 0 && s.sl > 0 && s.tp > 0) {
-                if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) || 
-                    (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
-                    lastSignalResetTime[id] = Date.now();
-                    resetSignal(id);
+        function detectPivotFractals(id) {
+            const data = htfData[id], candles = data.ohlcCandles.filter(c => c.closed);
+            if (candles.length < 5) return;
+            data.pivotHighs = []; data.pivotLows = [];
+            for (let i = 2; i < candles.length-2; i++) {
+                let isHigh=true, isLow=true;
+                for (let j=1;j<=2;j++) {
+                    if(candles[i-j].high >= candles[i].high) isHigh=false;
+                    if(candles[i+j].high >= candles[i].high) isHigh=false;
+                    if(candles[i-j].low <= candles[i].low) isLow=false;
+                    if(candles[i+j].low <= candles[i].low) isLow=false;
                 }
+                if(isHigh) data.pivotHighs.push({index:i, price:candles[i].high});
+                if(isLow) data.pivotLows.push({index:i, price:candles[i].low});
             }
-            return;
+            const allPivots = [...data.pivotHighs.map(p=>({...p,type:'H'})), ...data.pivotLows.map(p=>({...p,type:'L'}))].sort((a,b)=>a.index-b.index);
+            data.swings = [];
+            let lastType=null;
+            allPivots.forEach(p=>{ if(p.type!==lastType){ data.swings.push({val:p.price, type:p.type}); lastType=p.type; } });
+            detectStructure(id);
         }
-        
-        if (s.prevPrice === 0 || s.prevPrice === undefined) {
-            s.prevPrice = price;
-            s.lastPrice = price;
-            return;
-        }
-        
-        const diff = price - s.prevPrice;
-        
-        if (Math.abs(diff) > 0.01) {
-            const momentumFactor = (id === 'btc') ? 1.5 : 0.7;
-            s.trendScore += diff * momentumFactor;
-            s.trendScore = Math.max(-15, Math.min(15, s.trendScore));
-        }
-        
-        let thresholdAdjusted = p.threshold;
-        if (id === 'btc') {
-            thresholdAdjusted = p.threshold * (s.l1 ? 0.8 : 1.2);
-        } else {
-            thresholdAdjusted = p.threshold * (s.l1 ? 0.9 : 1.0);
-        }
-        
-        const timeSinceLastReset = Date.now() - lastSignalResetTime[id];
-        const isInCooldown = timeSinceLastReset < CONFIG.signal.resetCooldownMs;
-        
-        if (!isInCooldown && !s.confirmed && Math.abs(diff) > thresholdAdjusted) {
-            const direction = diff > 0 ? 'buy' : 'sell';
-            
-            let htfValid = true;
-            if (htf && htf.confidence >= 30) {
-                if ((direction === 'buy' && htf.structure === 'BEARISH') || 
-                    (direction === 'sell' && htf.structure === 'BULLISH')) {
-                    if (Math.abs(diff) < thresholdAdjusted * 1.5) {
-                        htfValid = false;
-                        s.trendScore = s.trendScore * 0.5;
-                    }
-                }
-            }
-            
-            if (htfValid) {
-                if (!s.l1) {
-                    s.l1 = true;
-                    s.type = direction;
-                    s.signalTimestamp = Date.now();
-                    saveState();
-                    console.log(`[${id.toUpperCase()}] Stage 1: ${direction.toUpperCase()} | diff: ${diff.toFixed(2)}`);
-                } 
-                else if (s.l1 && !s.l2 && s.type === direction) {
-                    const confirmationNeeded = (id === 'btc') ? 2 : 1;
-                    if (Math.abs(s.trendScore) > (id === 'btc' ? 3 : 2)) {
-                        s.l2 = true;
-                        saveState();
-                        console.log(`[${id.toUpperCase()}] Stage 2: CHoCH ${direction.toUpperCase()} | trendScore: ${s.trendScore.toFixed(2)}`);
-                    }
-                }
-                else if (s.l1 && s.l2 && !s.l3 && s.type === direction) {
-                    const executed = lockSignalWithHTF(id, direction, price);
-                    if (!executed) {
-                        s.l2 = false;
-                        s.trendScore = s.trendScore * 0.7;
-                        saveState();
-                        console.log(`[${id.toUpperCase()}] Stage 3 failed, back to Stage 1`);
-                    }
-                }
-            }
-        } 
-        else if (s.l1 && !s.confirmed && Math.abs(s.trendScore) < 0.3) {
-            const timeoutDuration = (id === 'btc') ? 8000 : 6000;
-            if (Date.now() - s.signalTimestamp > timeoutDuration) {
-                resetSignal(id);
-                console.log(`[${id.toUpperCase()}] Signal timeout, reset`);
-            }
-        }
-        
-        if (s.l1 && s.type && ((s.type === 'buy' && diff < -thresholdAdjusted * 1.2) ||
-            (s.type === 'sell' && diff > thresholdAdjusted * 1.2))) {
-            if (Math.abs(diff) > thresholdAdjusted * 2) {
-                resetSignal(id);
-                console.log(`[${id.toUpperCase()}] Direction change detected, reset`);
-            }
-        }
-        
-        s.prevPrice = price;
-        s.lastPrice = price;
-    }
 
-    function resetSignal(id) {
-        const oldPrice = state[id]?.lastPrice || 0;
-        const oldPrevPrice = state[id]?.prevPrice || oldPrice;
-        
-        state[id] = createFreshState();
-        
-        state[id].lastPrice = oldPrice;
-        state[id].prevPrice = oldPrevPrice;
-        
-        lastSignalResetTime[id] = Date.now();
-        
-        saveState();
-        renderUI(id);
-        
-        console.log(`[${id.toUpperCase()}] Signal reset, price preserved: ${oldPrice.toFixed(2)}`);
-    }
-
-    function renderUI(id){
-        const s = state[id];
-        if(!s) return;
-        const isBuy = s.type==='buy';
-        ['fd1','fd2','fd3'].forEach((fd,i)=>{
-            const dot = document.getElementById(`${fd}-${id}`);
-            if(dot){
-                const stage = s[`l${i+1}`];
-                dot.className='fusion-dot';
-                if(stage && s.confirmed) dot.classList.add(isBuy ? 'active-buy':'active-sell','pulse');
-                else if(stage) dot.classList.add(isBuy ? 'active-buy':'active-sell');
+        function detectStructure(id) {
+            const data = htfData[id], swings = data.swings;
+            if(swings.length<4) return;
+            const recent=swings.slice(-4), highs=recent.filter(s=>s.type==='H').map(s=>s.val), lows=recent.filter(s=>s.type==='L').map(s=>s.val);
+            if(highs.length>=2 && lows.length>=2){
+                const isHH=highs[1]>highs[0], isHL=lows[1]>lows[0], isLH=highs[1]<highs[0], isLL=lows[1]<lows[0];
+                if(isHH && isHL) data.structure='BULLISH';
+                else if(isLH && isLL) data.structure='BEARISH';
+                else data.structure='RANGE';
             }
-        });
-        const sigText = document.getElementById(`signal-text-${id}`);
-        if(sigText){
-            if(!wsStatus[id]) sigText.innerText='NO FEED';
-            else if(s.confirmed) sigText.innerText = `${s.type.toUpperCase()} `;
-            else if(s.l3) sigText.innerText='FVG';
-            else if(s.l2) sigText.innerText='CHoCH';
-            else if(s.l1) sigText.innerText='SWEEP';
-            else sigText.innerText='IDLE';
         }
-        ['ml1','ml2','ml3'].forEach((ml,i)=>{ const dot=document.getElementById(`${ml}-${id}`); if(dot) dot.className = s[`l${i+1}`] ? 'mini-dot on' : 'mini-dot off'; });
-        
-        const entryEl=document.getElementById(`entry-${id}`); if(entryEl) entryEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-        const tpEl=document.getElementById(`tp-${id}`); if(tpEl) tpEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
-        const slEl=document.getElementById(`sl-${id}`); if(slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
-        updateSignalQualityUI(id);
-    }
 
-    function updateSignalQualityUI(id){
-        const s = state[id];
-        const h = htfData[id];
-        const qualityDiv = document.getElementById(`quality-${id}`);
-        if(qualityDiv && h){
+        function calculateATR(id) {
+            const data = htfData[id], candles = data.ohlcCandles.filter(c=>c.closed);
+            if(candles.length<14) return;
+            const trueRanges=[];
+            for(let i=1;i<candles.length;i++){
+                const tr = Math.max(candles[i].high-candles[i].low, Math.abs(candles[i].high-candles[i-1].close), Math.abs(candles[i].low-candles[i-1].close));
+                trueRanges.push(tr);
+            }
+            data.atr = trueRanges.slice(-14).reduce((a,b)=>a+b,0)/14;
+        }
+
+        function detectMomentum(id) {
+            const data = htfData[id], candles = data.ohlcCandles.filter(c=>c.closed);
+            if(candles.length<4) return;
+            let bullish=0, bearish=0;
+            candles.slice(-4).forEach(c=>{
+                const br=c.body/(c.range||0.0001);
+                if(c.isBullish && br>0.55 && c.range>(data.atr*0.7)) bullish++;
+                else if(!c.isBullish && br>0.55 && c.range>(data.atr*0.7)) bearish++;
+            });
+            if(bullish>=2){ data.momentum='IMPULSIVE_UP'; data.momentumStrength='STRONG'; }
+            else if(bearish>=2){ data.momentum='IMPULSIVE_DOWN'; data.momentumStrength='STRONG'; }
+            else if(bullish>=1){ data.momentum='BULLISH'; data.momentumStrength='WEAK'; }
+            else if(bearish>=1){ data.momentum='BEARISH'; data.momentumStrength='WEAK'; }
+            else { data.momentum='STABLE'; data.momentumStrength='NONE'; }
+        }
+
+        function detectMarketPhase(id) {
+            const data = htfData[id], candles = data.ohlcCandles.filter(c=>c.closed);
+            if(candles.length<8) return;
+            let expansions=0;
+            candles.slice(-8).forEach(c=>{ if(c.range>(data.atr*1.2)) expansions++; });
+            data.phase = (expansions>=3)?'EXPANSION':((data.structure!=='RANGE' && data.momentumStrength!=='NONE')?'TRENDING':'RANGE');
+        }
+
+        function calculateHTFConfidence(id) {
+            const data=htfData[id]; let conf=0;
+            if(data.structure==='BULLISH'||data.structure==='BEARISH') conf+=40;
+            if(data.momentumStrength==='STRONG') conf+=35;
+            else if(data.momentumStrength==='WEAK') conf+=10;
+            if(data.phase==='TRENDING') conf+=25;
+            data.confidence=Math.min(100,conf);
+        }
+
+        function updateHTFEngine(id, price) {
+            buildOHLCCandle(id,price); calculateATR(id); detectPivotFractals(id); detectMomentum(id); detectMarketPhase(id); calculateHTFConfidence(id);
+        }
+
+        // ==================== SIGNAL LOGIC (XAU mengikuti fix.html style: threshold 0.05, risk 8, offset ±3, PA multiplier 0.5) ====================
+        // BTC juga menggunakan parameter fix.html: risk 0.2%, offset ±3, PA multiplier 0.5, threshold 6
+        function createFreshState() {
+            return { lastPrice:0, trendScore:0, l1:false, l2:false, l3:false, confirmed:false, type:'none', entry:0, sl:0, tp:0 };
+        }
+
+        function loadState(id) { const saved=localStorage.getItem(`ura_state_${id}`); if(saved) try{return JSON.parse(saved);}catch(e){} return createFreshState(); }
+        function saveState(id) { const s=state[id]; localStorage.setItem(`ura_state_${id}`, JSON.stringify({ lastPrice:s.lastPrice, trendScore:s.trendScore, l1:s.l1, l2:s.l2, l3:s.l3, confirmed:s.confirmed, type:s.type, entry:s.entry, sl:s.sl, tp:s.tp })); }
+
+        let paEma={xau:0,btc:0};
+        function updatePA(id, price) {
+            if(paEma[id]===0) paEma[id]=price;
+            else paEma[id]=price*0.2+paEma[id]*0.8;
+            const s=state[id];
+            if(s.lastPrice!==0) s.trendScore += (paEma[id] - s.lastPrice) * 0.5;  // multiplier cepat seperti fix.html
+            const max=id==='xau'?5:500;
+            s.trendScore=Math.min(max,Math.max(-max,s.trendScore));
+        }
+
+        function updateSignal(id, price) {
+            const s=state[id];
+            const threshold = (id==='xau') ? 0.05 : btcConfig.threshold;  // XAU threshold 0.05 (fix.html style)
             if(s.confirmed){
-                let cls='quality-low';
-                if(s.htfConfidence>=70) cls='quality-high';
-                else if(s.htfConfidence>=48) cls='quality-med';
-                qualityDiv.innerHTML = `<span class="quality-badge ${cls}">SIGNAL ${s.type.toUpperCase()} | CONF ${Math.round(s.htfConfidence)}% | ${s.htfReason||''}</span>`;
-            } else {
-                qualityDiv.innerHTML = `<span class="quality-badge" style="color:var(--text-dim);">HTF: ${h.confidenceStatus} | CONF ${Math.round(h.confidence)}%</span>`;
+                if((s.type==='buy' && (price>=s.tp || price<=s.sl)) || (s.type==='sell' && (price<=s.tp || price>=s.sl))) resetSignal(id);
+                return;
+            }
+            if(s.lastPrice!==0 && Math.abs(price-s.lastPrice)>threshold){
+                const direction=price>s.lastPrice?'buy':'sell';
+                if(!s.l1){ s.l1=true; s.type=direction; saveState(id); updateSignalUI(id); }
+                else if(!s.l2){ s.l2=true; saveState(id); updateSignalUI(id); }
+                else { lockSignal(id, price, direction); }
+            }
+            updatePA(id,price);
+            s.lastPrice=price;
+            saveState(id);
+        }
+
+        function lockSignal(id, entry, type) {
+            const s=state[id];
+            const offset = (type==='buy' ? -3 : +3);   // offset ±3 seperti fix.html
+            const adjustedEntry=entry+offset;
+            s.l3=true; s.confirmed=true; s.type=type; s.entry=adjustedEntry;
+            const risk = (id==='xau') ? 8 : (entry * 0.0020);  // XAU risk 8, BTC risk 0.2% (fix.html)
+            if(type==='buy'){ s.sl=adjustedEntry-risk; s.tp=adjustedEntry+(risk*1.3); }
+            else { s.sl=adjustedEntry+risk; s.tp=adjustedEntry-(risk*1.5); }
+            saveState(id); updateSignalUI(id);
+        }
+
+        function resetSignal(id){
+            const s=state[id];
+            s.l1=false; s.l2=false; s.l3=false; s.confirmed=false; s.type='none';
+            s.entry=0; s.sl=0; s.tp=0; s.trendScore=0;
+            saveState(id); updateSignalUI(id);
+        }
+
+        function updateSignalUI(id){
+            const s=state[id];
+            const l1Dot=document.getElementById(`l1-${id}`); if(l1Dot) l1Dot.className = s.l1 ? (s.type==='sell'?"dot active-down":"dot active") : "dot";
+            const l2Dot=document.getElementById(`l2-${id}`); if(l2Dot) l2Dot.className = s.l2 ? (s.type==='sell'?"dot active-down":"dot active") : "dot";
+            const l3Dot=document.getElementById(`l3-${id}`); if(l3Dot) l3Dot.className = s.l3 ? (s.type==='sell'?"dot active-down":"dot active") : "dot";
+            const signalText=document.getElementById(`signal-text-${id}`);
+            if(signalText){
+                if(id==='btc' && !wsStatus.btc) signalText.innerText='NO FEED';
+                else if(s.confirmed) signalText.innerText=s.type.toUpperCase();
+                else if(s.l3) signalText.innerText='FVG';
+                else if(s.l2) signalText.innerText='CHoCH';
+                else if(s.l1) signalText.innerText='SWEEP';
+                else signalText.innerText='IDLE';
+                signalText.style.color = s.confirmed ? (s.type==='buy'?'var(--success)':'var(--danger)') : 'var(--text-dim)';
+            }
+            const entryEl=document.getElementById(`entry-${id}`); if(entryEl) entryEl.innerText=s.confirmed?s.entry.toFixed(2):'--';
+            const tpEl=document.getElementById(`tp-${id}`); if(tpEl) tpEl.innerText=s.confirmed?s.tp.toFixed(2):'--';
+            const slEl=document.getElementById(`sl-${id}`); if(slEl) slEl.innerText=s.confirmed?s.sl.toFixed(2):'--';
+        }
+
+        // ==================== XAU ENGINE (Binance Futures WebSocket realtime) ====================
+        function updateXAUPriceFromStream(priceRaw){
+            let price = priceRaw + XAU_OFFSET;
+            if(price>0 && !isNaN(price) && price!==lastXAUPrice){
+                lastXAUPrice=price;
+                const priceEl=document.getElementById(`price-xau`);
+                if(priceEl){
+                    const old=state.xau?.lastPrice||0;
+                    priceEl.innerText=price.toFixed(2);
+                    if(old!==0 && old!==price){ priceEl.style.color=price>old?'var(--success)':'var(--danger)'; setTimeout(()=>{if(priceEl) priceEl.style.color='';},200); }
+                }
+                updateHTFEngine('xau',price);
+                if(state.xau) updateSignal('xau',price);
+                wsStatus.xau=true; updateWSStatus('xau'); updateGlobalPulse();
             }
         }
-    }
 
-    function updateDisplay(id, price){
-        const s = state[id];
-        if(!s) return;
-        s.prevPrice = s.lastPrice;
-        s.lastPrice = price;
-        updateHTFEngine(id, price);
-        const priceEl = document.getElementById(`price-${id}`);
-        if(priceEl){
-            priceEl.innerText = price.toFixed(2);
-            if(s.prevPrice!==0) priceEl.style.color = price>=s.prevPrice ? 'var(--terminal-green)' : 'var(--terminal-red)';
-        }
-        const changeEl = document.getElementById(`change-${id}`);
-        if(changeEl && s.prevPrice!==0){
-            const diff = price - s.prevPrice;
-            changeEl.innerText = `${diff>=0?'+':''}${diff.toFixed(2)}`;
-            changeEl.style.color = diff>=0 ? 'var(--terminal-green)' : 'var(--terminal-red)';
-        }
-        updateSignalLogic(id, price);
-        renderUI(id);
-    }
-
-    function connectWebSocket(id){
-        const p = CONFIG.pairs[id];
-        if(!p) return;
-        if(wsConnections[id]) try{ wsConnections[id].close(); }catch(e){}
-        const ws = new WebSocket(p.wsUrl);
-        ws.onopen = ()=>{ wsStatus[id]=true; wsRetries[id]=0; updateWSStatus(id); updateGlobalPulse(); };
-        ws.onclose = ()=>{ wsStatus[id]=false; updateWSStatus(id); updateGlobalPulse(); setTimeout(()=>connectWebSocket(id), Math.min(5000*(wsRetries[id]++),30000)); };
-        ws.onerror = ()=>{ wsStatus[id]=false; updateWSStatus(id); updateGlobalPulse(); };
-        ws.onmessage = (e)=>{
+        function initXAUWebSocket(){
+            if(xauWebSocket){ try{xauWebSocket.close();}catch(e){} }
+            if(xauReconnectTimer) clearTimeout(xauReconnectTimer);
+            updateWSStatus('xau');
             try{
-                const data = JSON.parse(e.data);
-                let price = parseFloat(data.c) + p.offset;
-                if(price>0){
-                    if(!wsStatus[id]){ wsStatus[id]=true; updateWSStatus(id); updateGlobalPulse(); }
-                    priceHistory[id].push(price);
-                    if(priceHistory[id].length>150) priceHistory[id].shift();
-                    updateDisplay(id, price);
-                }
-            }catch(err){}
-        };
-        wsConnections[id]=ws;
-    }
+                xauWebSocket=new WebSocket(`wss://fstream.binance.com/ws/xauusdt@trade`);
+                const timeout=setTimeout(()=>{ if(xauWebSocket && xauWebSocket.readyState!==WebSocket.OPEN){ if(xauWebSocket) xauWebSocket.close(); fallbackXAUFetch(); } },5000);
+                xauWebSocket.onopen=()=>{ clearTimeout(timeout); wsStatus.xau=true; xauReconnectAttempts=0; updateWSStatus('xau'); updateGlobalPulse(); if(xauFetchRetryTimer){ clearInterval(xauFetchRetryTimer); xauFetchRetryTimer=null; } };
+                xauWebSocket.onmessage=(e)=>{ try{ const d=JSON.parse(e.data); if(d.p){ const raw=parseFloat(d.p); if(!isNaN(raw) && raw>0) updateXAUPriceFromStream(raw); } } catch(err){} };
+                xauWebSocket.onerror=()=>{ wsStatus.xau=false; updateWSStatus('xau'); updateGlobalPulse(); };
+                xauWebSocket.onclose=()=>{ wsStatus.xau=false; updateWSStatus('xau'); updateGlobalPulse(); let delay=Math.min(1000*Math.pow(1.5,xauReconnectAttempts),15000); xauReconnectAttempts++; xauReconnectTimer=setTimeout(()=>initXAUWebSocket(),delay); if(!xauFetchRetryTimer) fallbackXAUFetch(); };
+            } catch(e){ fallbackXAUFetch(); }
+        }
 
-    function updateWSStatus(id){
-        const el = document.getElementById(`ws-status-${id}`);
-        if(el){ el.textContent = wsStatus[id] ? '● CONNECTED' : '● RECONNECT'; el.className = `ws-status ${wsStatus[id] ? 'connected' : 'disconnected'}`; }
-        renderUI(id);
-    }
-    
-    function updateGlobalPulse(){
-        const pulse = document.getElementById('livePulse');
-        if(pulse) pulse.className = `live-pulse ${(wsStatus.xau||wsStatus.btc) ? 'connected' : ''}`;
-    }
-    
-    function saveState(){ localStorage.setItem('ura_fusion_v82', JSON.stringify({ xau: state.xau, btc: state.btc })); }
-    
-    function loadState(){
-        const saved = localStorage.getItem('ura_fusion_v82');
-        if(saved){
-            try{ const p=JSON.parse(saved); state.xau=p.xau||createFreshState(); state.btc=p.btc||createFreshState(); }catch(e){ resetStates(); }
-        } else resetStates();
-        activePairId = localStorage.getItem('ura_active_pair_v82') || CONFIG.defaultPair;
-    }
-    
-    function resetStates(){ state.xau=createFreshState(); state.btc=createFreshState(); }
+        async function fallbackXAUFetch(){
+            if(xauFetchRetryTimer) clearInterval(xauFetchRetryTimer);
+            xauFetchRetryTimer=setInterval(async()=>{
+                try{ const resp=await fetch('https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT'); const data=await resp.json(); if(data.price){ const price=parseFloat(data.price)+XAU_OFFSET; if(price>0 && price!==lastXAUPrice) updateXAUPriceFromStream(price); } } catch(e){}
+            },4000);
+        }
 
-    function init(){
-        loadState();
-        Object.keys(CONFIG.pairs).forEach(id=>{ initHTFData(id); if(!state[id]) state[id]=createFreshState(); priceHistory[id]=[]; });
-        const container = document.getElementById('terminals');
-        const fullHTML = `
-            <div class="pair-card ${activePairId==='xau'?'active':''}" id="card-xau">${generateCardHTML('xau')}</div>
-            <div class="pair-card ${activePairId==='btc'?'active':''}" id="card-btc">${generateCardHTML('btc')}</div>
-        `;
-        container.innerHTML = fullHTML;
-        Object.keys(CONFIG.pairs).forEach(id=>{ connectWebSocket(id); });
-        document.getElementById('switchPairBtn').onclick = ()=>{
-            const keys = Object.keys(CONFIG.pairs);
-            let idx = keys.indexOf(activePairId);
-            activePairId = keys[(idx+1)%keys.length];
-            localStorage.setItem('ura_active_pair_v82', activePairId);
-            document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol;
-            document.querySelectorAll('.pair-card').forEach(c=>c.classList.remove('active'));
-            document.getElementById(`card-${activePairId}`).classList.add('active');
-        };
-        document.getElementById('switchLabel').innerText = CONFIG.pairs[activePairId].symbol;
+        // ==================== BTC WEBSOCKET dengan EXPONENTIAL BACKOFF (fix.html style) ====================
+        function connectWebSocketBTC(){
+            if(wsConnections.btc){ try{ wsConnections.btc.close(); }catch(e){} }
+            try{
+                const ws=new WebSocket(btcConfig.wsUrl);
+                ws.onopen=()=>{ wsStatus.btc=true; wsRetries.btc=0; updateWSStatus('btc'); updateGlobalPulse(); updateSignalUI('btc'); };
+                ws.onclose=()=>{
+                    wsStatus.btc=false; updateWSStatus('btc'); updateGlobalPulse(); updateSignalUI('btc');
+                    const delay=Math.min(1000 * Math.pow(2, wsRetries.btc), 30000);
+                    wsRetries.btc++;
+                    setTimeout(connectWebSocketBTC, delay);
+                };
+                ws.onerror=()=>{ wsStatus.btc=false; updateWSStatus('btc'); updateGlobalPulse(); updateSignalUI('btc'); };
+                ws.onmessage=(e)=>{
+                    try{
+                        const data=JSON.parse(e.data);
+                        const price=parseFloat(data.p)+btcConfig.offset;
+                        if(price && price>0 && !isNaN(price)){
+                            const priceEl=document.getElementById(`price-btc`);
+                            if(priceEl){
+                                const old=state.btc?.lastPrice||0;
+                                priceEl.innerText=price.toFixed(2);
+                                if(old!==0 && old!==price){ priceEl.style.color=price>old?'var(--success)':'var(--danger)'; setTimeout(()=>{if(priceEl) priceEl.style.color='';},200); }
+                            }
+                            updateHTFEngine('btc',price);
+                            updateSignal('btc',price);
+                        }
+                    } catch(err){}
+                };
+                wsConnections.btc=ws;
+            } catch(e){ wsStatus.btc=false; updateWSStatus('btc'); setTimeout(connectWebSocketBTC,5000); }
+        }
+
+        function updateWSStatus(id){
+            const el=document.getElementById(`ws-status-${id}`);
+            if(el){
+                if(id==='xau') el.textContent=wsStatus.xau?'● CONNECTED':'○ RECONNECT';
+                else el.textContent=wsStatus.btc?'● CONNECTED':'○ RECONNECT (exp backoff)';
+                el.className=`ws-status ${(id==='xau'?wsStatus.xau:wsStatus.btc)?'connected':'disconnected'}`;
+            }
+        }
         
-        setupTripleTapReset();
-        updateGlobalPulse();
-        setInterval(()=>updateGlobalPulse(),1000);
-    }
-    
-    function generateCardHTML(id){
-        const p = CONFIG.pairs[id];
-        return `<div class="card"><div class="price-header"><div class="pair-info"><span class="pair-name">${p.symbol}</span><span id="ws-status-${id}" class="ws-status disconnected">● RECONNECT</span></div><div class="price-display"><div class="price-value" id="price-${id}">0.00</div><div class="price-change" id="change-${id}">--</div></div></div><div class="signal-fusion-bar"><span class="signal-label">SIGNAL</span><div class="signal-fusion-center"><div class="fusion-dot" id="fd1-${id}"></div><div class="fusion-line"></div><div class="fusion-dot" id="fd2-${id}"></div><div class="fusion-line"></div><div class="fusion-dot" id="fd3-${id}"></div></div><span class="signal-status-text" id="signal-text-${id}">IDLE</span></div><div class="levels-fusion"><div class="level-box entry" onclick="window.copyValue('${id}','entry')"><div class="lbl">Entry</div><div class="val" id="entry-${id}">--</div></div><div class="level-box target" onclick="window.copyValue('${id}','tp')"><div class="lbl">Target</div><div class="val" id="tp-${id}">--</div></div><div class="level-box stop" onclick="window.copyValue('${id}','sl')"><div class="lbl">Stop</div><div class="val" id="sl-${id}">--</div></div></div><div class="analysis-row"><div class="analysis-panel"><div class="panel-title">LOGIC ENGINE</div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml1-${id}"></span>LIQUIDITY</span><span class="metric-value" id="logic-l1-${id}"></span></div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml2-${id}"></span>CHoCH</span><span class="metric-value" id="logic-l2-${id}"></span></div><div class="metric-row"><span class="metric-label"><span class="mini-dot" id="ml3-${id}"></span>VALUE GAP</span><span class="metric-value" id="logic-l3-${id}"></span></div></div><div class="analysis-panel"><div class="panel-title">HTF DIRECTION</div><div class="metric-row"><span class="metric-label">STRUCTURE</span><span class="metric-value" id="trend-${id}">--</span></div><div class="metric-row"><span class="metric-label">MOMENTUM</span><span class="metric-value" id="mom-${id}">--</span></div><div class="metric-row" style="flex-direction:column; align-items:flex-start;"><span class="metric-label">CONTEXT</span><span id="range-${id}" style="width:100%"></span></div></div></div><div class="signal-quality-panel" id="quality-${id}"><span class="quality-badge">WAITING HTF</span></div><div id="reject-${id}" class="reject-reason" style="padding:4px 8px;"></div></div>`;
-    }
-    
-    window.copyValue = (id,type)=>{ const v = document.getElementById(`${type}-${id}`).innerText; if(v!=='--'){ navigator.clipboard.writeText(v); if(navigator.vibrate) navigator.vibrate(30); } };
-    
-    init();
+        function updateGlobalPulse(){ const p=document.getElementById('globalPulse'); if(p) p.className=(wsStatus.xau || wsStatus.btc)?'pulse connected':'pulse disconnected'; }
+
+        // ==================== UI INIT ====================
+        function initUI(){
+            state.xau=loadState('xau'); state.btc=loadState('btc');
+            seedHTFData('xau',2620); seedHTFData('btc',60000);
+            calculateATR('xau'); calculateATR('btc');
+            const container=document.getElementById('terminals');
+            container.innerHTML=`
+                <div class="pair-card ${activePairId==='xau'?'active':''}" id="card-xau">
+                    <div class="card"><div class="card-top"><div class="pair-info"><span class="pair">XAUUSD</span><span id="ws-status-xau" class="ws-status">● CONNECTING</span></div><span class="price" id="price-xau">0.00</span></div>
+                    <div class="signal-bar"><span>SIGNAL</span><div class="signal-dot-group"><div class="dot" id="l1-xau"></div><div class="dot" id="l2-xau"></div><div class="dot" id="l3-xau"></div></div><span id="signal-text-xau">IDLE</span></div>
+                    <div class="card-level-grid"><div class="level-item" onclick="window.copyValue('xau','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-xau">--</span></div>
+                    <div class="level-item" onclick="window.copyValue('xau','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-xau" style="color:var(--success)">--</span></div>
+                    <div class="level-item" onclick="window.copyValue('xau','sl')"><span class="level-label">S-Loss</span><span class="level-value" id="sl-xau" style="color:var(--danger)">--</span></div></div></div></div>
+                <div class="pair-card ${activePairId==='btc'?'active':''}" id="card-btc">
+                    <div class="card"><div class="card-top"><div class="pair-info"><span class="pair">BTCUSD</span><span id="ws-status-btc" class="ws-status">○ RECONNECT</span></div><span class="price" id="price-btc">0.00</span></div>
+                    <div class="signal-bar"><span>SIGNAL</span><div class="signal-dot-group"><div class="dot" id="l1-btc"></div><div class="dot" id="l2-btc"></div><div class="dot" id="l3-btc"></div></div><span id="signal-text-btc">IDLE</span></div>
+                    <div class="card-level-grid"><div class="level-item" onclick="window.copyValue('btc','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-btc">--</span></div>
+                    <div class="level-item" onclick="window.copyValue('btc','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-btc" style="color:var(--success)">--</span></div>
+                    <div class="level-item" onclick="window.copyValue('btc','sl')"><span class="level-label">S-Loss</span><span class="level-value" id="sl-btc" style="color:var(--danger)">--</span></div></div></div></div>`;
+            updateSignalUI('xau'); updateSignalUI('btc');
+            document.getElementById('switchLabel').innerText=activePairId==='xau'?'XAUUSD':'BTCUSD';
+            document.getElementById('switchPairBtn').onclick=()=>{
+                activePairId=activePairId==='xau'?'btc':'xau';
+                localStorage.setItem('ura_active_pair',activePairId);
+                document.getElementById('switchLabel').innerText=activePairId==='xau'?'XAUUSD':'BTCUSD';
+                document.querySelectorAll('.pair-card').forEach(c=>c.classList.remove('active'));
+                document.getElementById(`card-${activePairId}`).classList.add('active');
+            };
+            document.body.setAttribute('data-theme',currentTheme);
+            const themeBtn=document.getElementById('themeToggleBtn');
+            themeBtn.textContent=currentTheme==='dark'?'☀️':'🌙';
+            themeBtn.onclick=()=>{
+                currentTheme=currentTheme==='dark'?'light':'dark';
+                document.body.setAttribute('data-theme',currentTheme);
+                localStorage.setItem('ura_theme',currentTheme);
+                themeBtn.textContent=currentTheme==='dark'?'☀️':'🌙';
+            };
+            setInterval(()=>{ const clk=document.getElementById('clock'); if(clk) clk.innerText=new Date().toISOString().split('T')[1].split('.')[0]+" "; },1000);
+            initXAUWebSocket();
+            connectWebSocketBTC();
+        }
+        
+        window.copyValue=(id,type)=>{ const val=document.getElementById(`${type}-${id}`).innerText; if(val!=='--'){ navigator.clipboard.writeText(val); if(navigator.vibrate) navigator.vibrate(50); } };
+        initUI();
+    })();
 </script>
 </body>
 </html>
