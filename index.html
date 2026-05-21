@@ -491,9 +491,9 @@
             const offset = (type==='buy' ? -5 : +5);
             const adjustedEntry=entry+offset;
             s.l3=true; s.confirmed=true; s.type=type; s.entry=adjustedEntry;
-            const risk = (id==='xau') ? 8 : (entry * 0.0030);
-            if(type==='buy'){ s.sl=adjustedEntry-risk; s.tp=adjustedEntry+(risk*1.8); }
-            else { s.sl=adjustedEntry+risk; s.tp=adjustedEntry-(risk*1.8); }
+            const risk = (id==='xau') ? 7 : (entry * 0.0030);
+            if(type==='buy'){ s.sl=adjustedEntry-risk; s.tp=adjustedEntry+(risk*1.5); }
+            else { s.sl=adjustedEntry+risk; s.tp=adjustedEntry-(risk*1.5); }
             saveState(id); updateSignalUI(id);
         }
 
