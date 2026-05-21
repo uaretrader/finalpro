@@ -295,7 +295,7 @@
     <div id="terminals"></div>
 
     <footer>
-       XAU: Binance Futures WebSocket (real-time) • BTC: Exponential backoff + Risk 0.2% + Offset ±3 + PA 0.5x
+       XAU: Binance Futures WebSocket (real-time) • BTC: Exponential backoff + Risk 0.3% + Offset ±3 + PA 0.5x
     </footer>
 </div>
 
@@ -491,9 +491,9 @@
             const offset = (type==='buy' ? -5 : +5);
             const adjustedEntry=entry+offset;
             s.l3=true; s.confirmed=true; s.type=type; s.entry=adjustedEntry;
-            const risk = (id==='xau') ? 8 : (entry * 0.0020);
-            if(type==='buy'){ s.sl=adjustedEntry-risk; s.tp=adjustedEntry+(risk*1.3); }
-            else { s.sl=adjustedEntry+risk; s.tp=adjustedEntry-(risk*1.5); }
+            const risk = (id==='xau') ? 8 : (entry * 0.0030);
+            if(type==='buy'){ s.sl=adjustedEntry-risk; s.tp=adjustedEntry+(risk*2); }
+            else { s.sl=adjustedEntry+risk; s.tp=adjustedEntry-(risk*2); }
             saveState(id); updateSignalUI(id);
         }
 
