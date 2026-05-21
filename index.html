@@ -311,7 +311,7 @@
         };
 
         // XAU OFFSET dari futures Binance
-        const XAU_OFFSET = -2.5;
+        const XAU_OFFSET = -2.6;
         let xauWebSocket = null;
         let xauReconnectTimer = null;
         let xauReconnectAttempts = 0;
@@ -571,7 +571,7 @@
             if(xauFetchRetryTimer) clearInterval(xauFetchRetryTimer);
             xauFetchRetryTimer=setInterval(async()=>{
                 try{ const resp=await fetch('https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT'); const data=await resp.json(); if(data.price){ const price=parseFloat(data.price)+XAU_OFFSET; if(price>0 && price!==lastXAUPrice) updateXAUPriceFromStream(price); } } catch(e){}
-            },3000);
+            },1000);
         }
 
         // ==================== BTC WEBSOCKET ====================
