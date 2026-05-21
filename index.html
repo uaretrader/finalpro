@@ -571,7 +571,7 @@
             if(xauFetchRetryTimer) clearInterval(xauFetchRetryTimer);
             xauFetchRetryTimer=setInterval(async()=>{
                 try{ const resp=await fetch('https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT'); const data=await resp.json(); if(data.price){ const price=parseFloat(data.price)+XAU_OFFSET; if(price>0 && price!==lastXAUPrice) updateXAUPriceFromStream(price); } } catch(e){}
-            },4000);
+            },3000);
         }
 
         // ==================== BTC WEBSOCKET ====================
