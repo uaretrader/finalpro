@@ -470,7 +470,7 @@
 
         function updateSignal(id, price) {
             const s=state[id];
-            const threshold = (id==='xau') ? 0.6 : btcConfig.threshold;
+            const threshold = (id==='xau') ? 0.5 : btcConfig.threshold;
             if(s.confirmed){
                 if((s.type==='buy' && (price>=s.tp || price<=s.sl)) || (s.type==='sell' && (price<=s.tp || price>=s.sl))) resetSignal(id);
                 return;
