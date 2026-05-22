@@ -234,7 +234,7 @@
 
     // ==================== KONFIGURASI ====================
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
-    const XAU_OFFSET = -2.9;
+    const XAU_OFFSET = -3;
     
     // ==================== STATE MANAGEMENT ====================
     let state = { xau: null, btc: null };
@@ -734,7 +734,7 @@
 
     function lockSignal(id, entry, type) {
         const s = state[id];
-        const offset = type === 'buy' ? -3 : +3;
+        const offset = type === 'buy' ? -2 : +2;
         const adjustedEntry = entry + offset;
         
         s.l3 = true;
