@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v5.0.0 - OPTIMIZED</title>
+    <title>PRECISION TERMINAL v6.0 - DUAL ENGINE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -23,6 +23,7 @@
             --htf-weak: #f0b90b;
             --phase-expansion: #FF6B6B;
             --phase-lowvol: #4ECDC4;
+            --confirm-pending: #f0b90b;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -150,12 +151,24 @@
             text-transform: uppercase;
             cursor: pointer;
             user-select: none;
+            transition: all 0.2s ease;
+        }
+        .signal-bar.confirm-wait {
+            border-color: var(--confirm-pending);
+            background: rgba(240, 185, 11, 0.1);
+            animation: pulseBorder 1s infinite;
+        }
+        @keyframes pulseBorder {
+            0%, 100% { border-color: rgba(240, 185, 11, 0.3); }
+            50% { border-color: rgba(240, 185, 11, 1); }
         }
 
         .signal-dot-group { display: flex; gap: 12px; align-items: center; }
-        .dot { width: 8px; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
-        .dot.active { background: var(--success); }
-        .dot.active-down { background: var(--danger); }
+        .dot { width: 8px; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: all 0.1s; }
+        .dot.active { background: var(--success); box-shadow: 0 0 4px var(--success); }
+        .dot.active-down { background: var(--danger); box-shadow: 0 0 4px var(--danger); }
+        .dot.confirm-pending { background: var(--confirm-pending); animation: pulseDot 0.8s infinite; }
+        @keyframes pulseDot { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
         .card-level-grid {
             display: grid;
@@ -173,14 +186,12 @@
         .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
         .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
 
+        /* HTF Status - SEMBUNYIKAN */
+        .htf-status {
+            display: none;
+        }
+
         footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; opacity: 0.6; }
-        
-        .trend-up { color: var(--success); }
-        .trend-down { color: var(--danger); }
-        .trend-neutral { color: var(--text-dim); }
-        .trend-weak { color: var(--htf-weak); }
-        .momentum-up { color: var(--success); }
-        .momentum-down { color: var(--danger); }
     </style>
 </head>
 <body>
@@ -189,7 +200,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION SIGNAL v5.0.0</p>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION SIGNAL v6.0</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -204,8 +215,8 @@
     <div id="terminals"></div>
 
     <footer>
-        [ ENGINE CORE ]: PIVOT FRACTAL + DISPLACEMENT + ADAPTIVE ATR<br>
-        [ METHOD ]: SWEEP + CHoCH + FVG
+        [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION<br>
+        [ METHOD ]: DELAYED VALIDATION BEFORE LOCK
     </footer>
 </div>
 
@@ -214,28 +225,27 @@
     'use strict';
 
     // ==================== OPTIMASI ANTI-LAG ====================
-    // 1. THROTTLE LocalStorage - hanya simpan setiap 1 detik
     let pendingSaveData = { xau: null, btc: null };
     let pendingSaveTimer = { xau: null, btc: null };
     const SAVE_INTERVAL = 1000;
-
-    // 2. RAF Throttle untuk UI update - hanya update saat frame
     let rafPending = { xau: false, btc: false };
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
-
-    // 3. Debounce untuk signal processing
     let signalDebounceTimer = { xau: null, btc: null };
     const SIGNAL_DEBOUNCE_MS = 50;
 
     // ==================== KONFIGURASI ====================
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
     const XAU_OFFSET = -3;
+    const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
     
     // ==================== STATE MANAGEMENT ====================
     let state = { xau: null, btc: null };
     let wsStatus = { xau: true, btc: false };
     let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
+    
+    // ==================== PENDING CONFIRMATION STATE ====================
+    let pendingConfirmation = { xau: null, btc: null };
     
     // ==================== TRIPLE TAP RESET ====================
     let tapCounters = { xau: 0, btc: 0 };
@@ -256,6 +266,7 @@
         }, TAP_TIMEOUT);
         
         if (tapCounters[id] === 3) {
+            if (pendingConfirmation[id]) cancelPendingConfirmation(id);
             resetSignal(id);
             tapCounters[id] = 0;
             if (tapTimers[id]) {
@@ -263,6 +274,25 @@
                 tapTimers[id] = null;
             }
             if (navigator.vibrate) navigator.vibrate(30);
+        }
+    }
+
+    function cancelPendingConfirmation(id) {
+        if (pendingConfirmation[id]) {
+            if (pendingConfirmation[id].timerId) {
+                clearTimeout(pendingConfirmation[id].timerId);
+            }
+            pendingConfirmation[id] = null;
+            
+            const signalBar = document.getElementById(`signal-bar-${id}`);
+            if (signalBar) signalBar.classList.remove('confirm-wait');
+            
+            const l3Dot = document.getElementById(`l3-${id}`);
+            if (l3Dot && l3Dot.classList.contains('confirm-pending')) {
+                l3Dot.classList.remove('confirm-pending');
+            }
+            
+            updateSignalUIOnly(id);
         }
     }
 
@@ -332,13 +362,23 @@
         if (l2Dot) l2Dot.className = s.l2 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
         
         const l3Dot = document.getElementById(`l3-${id}`);
-        if (l3Dot) l3Dot.className = s.l3 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
+        if (l3Dot) {
+            if (pendingConfirmation[id] && s.l3 && !s.confirmed) {
+                l3Dot.className = "dot confirm-pending";
+            } else {
+                l3Dot.className = s.l3 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
+            }
+        }
         
         const signalText = document.getElementById(`signal-text-${id}`);
         if (signalText) {
             if (!wsStatus[id] && id === 'btc') {
                 signalText.innerText = 'NO FEED';
                 signalText.style.color = 'var(--danger)';
+            } else if (pendingConfirmation[id] && s.l3 && !s.confirmed) {
+                const progress = pendingConfirmation[id].cycleCounter || 0;
+                signalText.innerText = `CONFIRM ${progress}/${CONFIRMATION_DELAY_CYCLES}`;
+                signalText.style.color = 'var(--confirm-pending)';
             } else if (s.confirmed) {
                 signalText.innerText = s.type.toUpperCase();
                 signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)';
@@ -367,7 +407,190 @@
         if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
     }
 
-    // ==================== SIGNAL ENGINE ====================
+    // ==================== HTF ENGINE (ENGINE 2) ====================
+    let htfDataStore = {
+        xau: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 },
+        btc: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 }
+    };
+    
+    let htfTickCounter = { xau: 0, btc: 0 };
+    let htfCurrentCandle = { xau: null, btc: null };
+    const HTF_TICK_PER_CANDLE = 8;
+
+    function buildOHLCCandle(id, price) {
+        htfTickCounter[id]++;
+        
+        if (!htfCurrentCandle[id] || htfTickCounter[id] >= HTF_TICK_PER_CANDLE) {
+            if (htfCurrentCandle[id]) {
+                htfCurrentCandle[id].closed = true;
+                htfDataStore[id].ohlcCandles.push(htfCurrentCandle[id]);
+                if (htfDataStore[id].ohlcCandles.length > 50) htfDataStore[id].ohlcCandles.shift();
+            }
+            htfTickCounter[id] = 0;
+            htfCurrentCandle[id] = {
+                open: price, high: price, low: price, close: price, closed: false
+            };
+        } else {
+            htfCurrentCandle[id].high = Math.max(htfCurrentCandle[id].high, price);
+            htfCurrentCandle[id].low = Math.min(htfCurrentCandle[id].low, price);
+            htfCurrentCandle[id].close = price;
+        }
+    }
+
+    function calculateSimpleHTF(id) {
+        const data = htfDataStore[id];
+        const candles = data.ohlcCandles.filter(c => c.closed);
+        if (candles.length < 10) return;
+        
+        const recentCandles = candles.slice(-10);
+        let bullishCount = 0, bearishCount = 0;
+        
+        for (let i = 0; i < recentCandles.length; i++) {
+            const c = recentCandles[i];
+            if (c.close > c.open) bullishCount++;
+            else if (c.close < c.open) bearishCount++;
+        }
+        
+        // Determine structure
+        if (bullishCount > bearishCount + 2) {
+            data.structure = 'BULLISH';
+            data.confidence = 60 + (bullishCount * 5);
+        } else if (bearishCount > bullishCount + 2) {
+            data.structure = 'BEARISH';
+            data.confidence = 60 + (bearishCount * 5);
+        } else {
+            data.structure = 'NEUTRAL';
+            data.confidence = 40;
+        }
+        
+        // Determine momentum
+        const last3 = recentCandles.slice(-3);
+        let upMomentum = 0, downMomentum = 0;
+        for (let i = 1; i < last3.length; i++) {
+            if (last3[i].close > last3[i-1].close) upMomentum++;
+            else if (last3[i].close < last3[i-1].close) downMomentum++;
+        }
+        
+        if (upMomentum >= 2) {
+            data.momentum = 'BULLISH';
+            data.momentumStrength = upMomentum === 2 ? 'MODERATE' : 'STRONG';
+        } else if (downMomentum >= 2) {
+            data.momentum = 'BEARISH';
+            data.momentumStrength = downMomentum === 2 ? 'MODERATE' : 'STRONG';
+        } else {
+            data.momentum = 'STABLE';
+            data.momentumStrength = 'NONE';
+        }
+        
+        data.confidence = Math.min(100, Math.max(0, data.confidence));
+    }
+
+    function updateHTFEngine(id, price) {
+        buildOHLCCandle(id, price);
+        calculateSimpleHTF(id);
+    }
+
+    // ==================== ENGINE 2 VALIDATION ====================
+    function isHTFConfirmingDirection(id, direction) {
+        const htf = htfDataStore[id];
+        if (!htf) return false;
+        
+        if (htf.confidence < 40) return false;
+        
+        if (direction === 'buy') {
+            return htf.structure === 'BULLISH' && (htf.momentum === 'BULLISH' || htf.momentumStrength !== 'NONE');
+        } else if (direction === 'sell') {
+            return htf.structure === 'BEARISH' && (htf.momentum === 'BEARISH' || htf.momentumStrength !== 'NONE');
+        }
+        return false;
+    }
+
+    // ==================== DELAYED CONFIRMATION ====================
+    function startConfirmationDelay(id, direction, entryPrice) {
+        if (pendingConfirmation[id]) cancelPendingConfirmation(id);
+        
+        pendingConfirmation[id] = {
+            direction: direction,
+            entryPrice: entryPrice,
+            cycleCounter: 0,
+            timerId: null
+        };
+        
+        const signalBar = document.getElementById(`signal-bar-${id}`);
+        if (signalBar) signalBar.classList.add('confirm-wait');
+        
+        const l3Dot = document.getElementById(`l3-${id}`);
+        if (l3Dot) l3Dot.classList.add('confirm-pending');
+        
+        updateSignalUIOnly(id);
+        
+        function checkConfirmationCycle() {
+            if (!pendingConfirmation[id]) return;
+            
+            pendingConfirmation[id].cycleCounter++;
+            updateSignalUIOnly(id);
+            
+            if (pendingConfirmation[id].cycleCounter >= CONFIRMATION_DELAY_CYCLES) {
+                const htfConfirmed = isHTFConfirmingDirection(id, direction);
+                
+                if (htfConfirmed) {
+                    executeLockSignal(id, direction, entryPrice);
+                } else {
+                    cancelPendingConfirmation(id);
+                    const s = state[id];
+                    s.l3 = false;
+                    s.confirmed = false;
+                    throttledSaveState(id);
+                    pendingSignalData[id] = true;
+                    throttledUpdateUI(id);
+                    
+                    const signalText = document.getElementById(`signal-text-${id}`);
+                    if (signalText) {
+                        signalText.innerText = 'HTF REJECT';
+                        signalText.style.color = 'var(--danger)';
+                        setTimeout(() => updateSignalUIOnly(id), 1000);
+                    }
+                }
+                pendingConfirmation[id] = null;
+            } else {
+                pendingConfirmation[id].timerId = setTimeout(checkConfirmationCycle, 4000);
+            }
+        }
+        
+        pendingConfirmation[id].timerId = setTimeout(checkConfirmationCycle, 4000);
+    }
+    
+    function executeLockSignal(id, direction, entryPrice) {
+        const s = state[id];
+        const offset = direction === 'buy' ? -1 : +1;
+        const adjustedEntry = entryPrice + offset;
+        
+        s.l3 = true;
+        s.confirmed = true;
+        s.type = direction;
+        s.entry = adjustedEntry;
+        
+        const risk = id === 'xau' ? 7 : entryPrice * 0.0030;
+        
+        if (direction === 'buy') {
+            s.sl = adjustedEntry - risk;
+            s.tp = adjustedEntry + (risk * 1.4);
+        } else {
+            s.sl = adjustedEntry + risk;
+            s.tp = adjustedEntry - (risk * 1.4);
+        }
+        
+        throttledSaveState(id);
+        pendingSignalData[id] = true;
+        throttledUpdateUI(id);
+        
+        const signalBar = document.getElementById(`signal-bar-${id}`);
+        if (signalBar) signalBar.classList.remove('confirm-wait');
+        
+        if (navigator.vibrate) navigator.vibrate(50);
+    }
+
+    // ==================== SIGNAL ENGINE (ENGINE 1) ====================
     let paEma = { xau: 0, btc: 0 };
     let paEmaAlpha = 0.2;
 
@@ -401,10 +624,9 @@
         return createFreshState();
     }
 
-    // PROSES SIGNAL dengan debounce
     function processSignal(id, price) {
         const s = state[id];
-        let threshold = (id === 'xau') ? 0.5 : 8;
+        let threshold = (id === 'xau') ? 0.8 : 10;
         
         if (s.confirmed) {
             if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
@@ -414,10 +636,16 @@
             return;
         }
         
+        if (pendingConfirmation[id]) {
+            s.lastPrice = price;
+            return;
+        }
+        
         updatePA(id, price);
         
         if (!s.confirmed && s.lastPrice !== 0 && Math.abs(price - s.lastPrice) > threshold) {
             const direction = price > s.lastPrice ? 'buy' : 'sell';
+            
             if (!s.l1) { 
                 s.l1 = true; s.type = direction;
                 throttledSaveState(id);
@@ -428,8 +656,13 @@
                 throttledSaveState(id);
                 pendingSignalData[id] = true;
                 throttledUpdateUI(id);
-            } else { 
-                lockSignal(id, price, direction); 
+            } else if (!s.l3 && !s.confirmed) { 
+                s.l3 = true;
+                throttledSaveState(id);
+                pendingSignalData[id] = true;
+                throttledUpdateUI(id);
+                
+                startConfirmationDelay(id, direction, price);
             }
         }
         
@@ -448,32 +681,9 @@
         }, SIGNAL_DEBOUNCE_MS);
     }
 
-    function lockSignal(id, entry, type) {
-        const s = state[id];
-        const offset = type === 'buy' ? -2 : +2;
-        const adjustedEntry = entry + offset;
-        
-        s.l3 = true;
-        s.confirmed = true;
-        s.type = type;
-        s.entry = adjustedEntry;
-        
-        const risk = id === 'xau' ? 7 : entry * 0.0030;
-        
-        if (type === 'buy') {
-            s.sl = adjustedEntry - risk;
-            s.tp = adjustedEntry + (risk * 1.4);
-        } else {
-            s.sl = adjustedEntry + risk;
-            s.tp = adjustedEntry - (risk * 1.4);
-        }
-        
-        throttledSaveState(id);
-        pendingSignalData[id] = true;
-        throttledUpdateUI(id);
-    }
-
     function resetSignal(id) {
+        cancelPendingConfirmation(id);
+        
         const s = state[id];
         s.l1 = false; s.l2 = false; s.l3 = false;
         s.confirmed = false; s.type = 'none';
@@ -501,6 +711,7 @@
         pendingPriceData.xau = price;
         throttledUpdateUI('xau');
         
+        updateHTFEngine('xau', price);
         updateSignal('xau', price);
         
         const statusEl = document.getElementById('ws-status-xau');
@@ -632,6 +843,7 @@
                     if (price && price > 0 && !isNaN(price)) {
                         pendingPriceData.btc = price;
                         throttledUpdateUI('btc');
+                        updateHTFEngine('btc', price);
                         updateSignal('btc', price);
                     }
                 } catch(err) {}
@@ -670,9 +882,24 @@
     }
 
     // ==================== INITIALIZATION ====================
+    function seedHTFData(id, basePrice) {
+        const volatility = id === 'xau' ? 0.3 : 30;
+        for (let i = 0; i < 15; i++) {
+            const open = basePrice + (Math.random() - 0.5) * volatility;
+            const close = basePrice + (Math.random() - 0.5) * volatility;
+            const high = Math.max(open, close) + Math.random() * volatility * 0.5;
+            const low = Math.min(open, close) - Math.random() * volatility * 0.5;
+            htfDataStore[id].ohlcCandles.push({ open, high, low, close, closed: true });
+        }
+        calculateSimpleHTF(id);
+    }
+
     function init() {
         state.xau = loadState('xau');
         state.btc = loadState('btc');
+        
+        seedHTFData('xau', 2620);
+        seedHTFData('btc', 60000);
         
         const container = document.getElementById('terminals');
         container.innerHTML = '';
