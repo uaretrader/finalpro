@@ -228,10 +228,6 @@
     let signalDebounceTimer = { xau: null, btc: null };
     const SIGNAL_DEBOUNCE_MS = 50;
 
-    // 4. Frame skipping counter untuk HTF engine (kurangi beban)
-    let htfFrameSkip = { xau: 0, btc: 0 };
-    const HTF_FRAME_SKIP = 2; // Proses HTF setiap 2 tick
-
     // ==================== KONFIGURASI ====================
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
     const XAU_OFFSET = -3;
@@ -241,7 +237,7 @@
     let wsStatus = { xau: true, btc: false };
     let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
     
-    // ==================== TRIPLE TAP RESET (tanpa efek visual) ====================
+    // ==================== TRIPLE TAP RESET ====================
     let tapCounters = { xau: 0, btc: 0 };
     let tapTimers = { xau: null, btc: null };
     const TAP_TIMEOUT = 500;
@@ -266,7 +262,6 @@
                 clearTimeout(tapTimers[id]);
                 tapTimers[id] = null;
             }
-            // Optional: vibrate feedback ringan
             if (navigator.vibrate) navigator.vibrate(30);
         }
     }
@@ -372,284 +367,6 @@
         if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
     }
 
-    // ==================== HTF ENGINE ====================
-    const HTF_TICK_PER_CANDLE = 8;
-    const HTF_PIVOT_LOOKBACK = 2;
-    const HTF_MOMENTUM_LOOKBACK = 4;
-    const HTF_RANGE_LOOKBACK = 10;
-
-    let htfData = {
-        xau: {
-            ohlcCandles: [], currentCandle: null, tickCounter: 0, swings: [],
-            pivotHighs: [], pivotLows: [], structure: 'NEUTRAL', momentum: 'STABLE',
-            momentumStrength: 'NONE', phase: 'RANGE', atr: 0, confidence: 0
-        },
-        btc: {
-            ohlcCandles: [], currentCandle: null, tickCounter: 0, swings: [],
-            pivotHighs: [], pivotLows: [], structure: 'NEUTRAL', momentum: 'STABLE',
-            momentumStrength: 'NONE', phase: 'RANGE', atr: 0, confidence: 0
-        }
-    };
-
-    function seedHTFData(id, basePrice) {
-        const data = htfData[id];
-        const volatility = id === 'xau' ? 0.3 : 30;
-        for (let i = 0; i < 20; i++) {
-            const open = basePrice + (Math.random() - 0.5) * volatility * 2;
-            const close = basePrice + (Math.random() - 0.5) * volatility * 2;
-            const high = Math.max(open, close) + Math.random() * volatility;
-            const low = Math.min(open, close) - Math.random() * volatility;
-            data.ohlcCandles.push({
-                open, high, low, close,
-                closed: true,
-                body: Math.abs(close - open),
-                range: high - low,
-                isBullish: close >= open,
-                upperWick: close >= open ? high - close : high - open,
-                lowerWick: close >= open ? open - low : close - low
-            });
-        }
-    }
-
-    function buildOHLCCandle(id, price) {
-        const data = htfData[id];
-        data.tickCounter++;
-
-        if (!data.currentCandle || data.tickCounter >= HTF_TICK_PER_CANDLE) {
-            if (data.currentCandle) {
-                data.currentCandle.closed = true;
-                data.ohlcCandles.push(data.currentCandle);
-                if (data.ohlcCandles.length > 100) data.ohlcCandles.shift();
-            }
-            data.tickCounter = 0;
-            data.currentCandle = {
-                open: price, high: price, low: price, close: price,
-                closed: false, body: 0, range: 0, isBullish: true,
-                upperWick: 0, lowerWick: 0
-            };
-        } else {
-            data.currentCandle.high = Math.max(data.currentCandle.high, price);
-            data.currentCandle.low = Math.min(data.currentCandle.low, price);
-            data.currentCandle.close = price;
-            data.currentCandle.range = data.currentCandle.high - data.currentCandle.low;
-            data.currentCandle.body = Math.abs(data.currentCandle.close - data.currentCandle.open);
-            data.currentCandle.isBullish = data.currentCandle.close >= data.currentCandle.open;
-        }
-    }
-
-    function detectPivotFractals(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < HTF_PIVOT_LOOKBACK * 2 + 1) return;
-
-        data.pivotHighs = [];
-        data.pivotLows = [];
-
-        for (let i = HTF_PIVOT_LOOKBACK; i < candles.length - HTF_PIVOT_LOOKBACK; i++) {
-            const current = candles[i];
-            let isPivotHigh = true;
-            let isPivotLow = true;
-
-            for (let j = 1; j <= HTF_PIVOT_LOOKBACK; j++) {
-                if (candles[i - j].high >= current.high) isPivotHigh = false;
-                if (candles[i + j].high >= current.high) isPivotHigh = false;
-                if (candles[i - j].low <= current.low) isPivotLow = false;
-                if (candles[i + j].low <= current.low) isPivotLow = false;
-            }
-
-            if (isPivotHigh) data.pivotHighs.push({ index: i, price: current.high, candle: current });
-            if (isPivotLow) data.pivotLows.push({ index: i, price: current.low, candle: current });
-        }
-
-        data.swings = [];
-        const allPivots = [...data.pivotHighs.map(p => ({ ...p, type: 'H' })), 
-                          ...data.pivotLows.map(p => ({ ...p, type: 'L' }))];
-        allPivots.sort((a, b) => a.index - b.index);
-
-        let lastType = null;
-        allPivots.forEach(pivot => {
-            if (pivot.type !== lastType) {
-                data.swings.push({ val: pivot.price, type: pivot.type, index: pivot.index });
-                lastType = pivot.type;
-            }
-        });
-
-        detectStructure(id);
-    }
-
-    function detectStructure(id) {
-        const data = htfData[id];
-        const swings = data.swings;
-        if (swings.length < 4) return;
-
-        const recentSwings = swings.slice(-4);
-        const highs = recentSwings.filter(s => s.type === 'H').map(s => s.val);
-        const lows = recentSwings.filter(s => s.type === 'L').map(s => s.val);
-
-        if (highs.length >= 2 && lows.length >= 2) {
-            const last2Highs = highs.slice(-2);
-            const last2Lows = lows.slice(-2);
-
-            const isHH = last2Highs[1] > last2Highs[0];
-            const isHL = last2Lows[1] > last2Lows[0];
-            const isLH = last2Highs[1] < last2Highs[0];
-            const isLL = last2Lows[1] < last2Lows[0];
-
-            if (isHH && isHL) {
-                data.structure = 'BULLISH';
-            } else if (isLH && isLL) {
-                data.structure = 'BEARISH';
-            } else {
-                data.structure = 'RANGE';
-            }
-        }
-    }
-
-    function detectMomentum(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < HTF_MOMENTUM_LOOKBACK) return;
-
-        const recentCandles = candles.slice(-HTF_MOMENTUM_LOOKBACK);
-        let bullishDisplacement = 0;
-        let bearishDisplacement = 0;
-        let totalBodyDominance = 0;
-
-        recentCandles.forEach(candle => {
-            const bodyRatio = candle.body / (candle.range || 0.0001);
-            const isDisplacement = candle.range > (data.atr * 0.7);
-            const isBodyDominant = bodyRatio > 0.55;
-            totalBodyDominance += bodyRatio;
-
-            if (candle.isBullish && isBodyDominant && isDisplacement) {
-                bullishDisplacement++;
-            } else if (!candle.isBullish && isBodyDominant && isDisplacement) {
-                bearishDisplacement++;
-            }
-        });
-
-        const avgBodyDominance = totalBodyDominance / HTF_MOMENTUM_LOOKBACK;
-
-        if (bullishDisplacement >= 3) {
-            data.momentum = 'IMPULSIVE_UP';
-            data.momentumStrength = 'STRONG';
-        } else if (bearishDisplacement >= 3) {
-            data.momentum = 'IMPULSIVE_DOWN';
-            data.momentumStrength = 'STRONG';
-        } else if (bullishDisplacement >= 2 && avgBodyDominance > 0.6) {
-            data.momentum = 'IMPULSIVE_UP';
-            data.momentumStrength = 'MODERATE';
-        } else if (bearishDisplacement >= 2 && avgBodyDominance > 0.6) {
-            data.momentum = 'IMPULSIVE_DOWN';
-            data.momentumStrength = 'MODERATE';
-        } else if (bullishDisplacement >= 1) {
-            data.momentum = 'BULLISH';
-            data.momentumStrength = 'WEAK';
-        } else if (bearishDisplacement >= 1) {
-            data.momentum = 'BEARISH';
-            data.momentumStrength = 'WEAK';
-        } else {
-            data.momentum = 'STABLE';
-            data.momentumStrength = 'NONE';
-        }
-    }
-
-    function detectMarketPhase(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < HTF_RANGE_LOOKBACK) return;
-
-        const recentCandles = candles.slice(-HTF_RANGE_LOOKBACK);
-        let overlapCount = 0;
-        let expansionCount = 0;
-        const ranges = [];
-
-        for (let i = 1; i < recentCandles.length; i++) {
-            const prev = recentCandles[i - 1];
-            const curr = recentCandles[i];
-            const prevMid = (prev.high + prev.low) / 2;
-            const currMid = (curr.high + curr.low) / 2;
-            const midDistance = Math.abs(currMid - prevMid);
-            
-            if (midDistance < (data.atr * 0.4)) overlapCount++;
-            if (curr.range > (data.atr * 1.2)) expansionCount++;
-            ranges.push(curr.range);
-        }
-
-        const avgRange = ranges.reduce((a, b) => a + b, 0) / ranges.length;
-        const rangeVolatility = Math.max(...ranges) - Math.min(...ranges);
-        const isTrending = data.structure === 'BULLISH' || data.structure === 'BEARISH';
-        const hasMomentum = data.momentumStrength === 'STRONG' || data.momentumStrength === 'MODERATE';
-        const lowOverlap = overlapCount <= 3;
-
-        if (isTrending && hasMomentum && lowOverlap && expansionCount >= 2) {
-            data.phase = 'TRENDING';
-        } else if (expansionCount >= 3 && rangeVolatility > (data.atr * 0.5)) {
-            data.phase = 'EXPANSION';
-        } else if (overlapCount >= 6 && avgRange < (data.atr * 0.7)) {
-            data.phase = 'LOW_VOLATILITY';
-        } else {
-            data.phase = 'RANGE';
-        }
-    }
-
-    function calculateATR(id) {
-        const data = htfData[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < 14) return;
-
-        const trueRanges = [];
-        for (let i = 1; i < candles.length; i++) {
-            const high = candles[i].high;
-            const low = candles[i].low;
-            const prevClose = candles[i - 1].close;
-            const tr1 = high - low;
-            const tr2 = Math.abs(high - prevClose);
-            const tr3 = Math.abs(low - prevClose);
-            trueRanges.push(Math.max(tr1, tr2, tr3));
-        }
-
-        const recentTR = trueRanges.slice(-14);
-        data.atr = recentTR.reduce((a, b) => a + b, 0) / recentTR.length;
-    }
-
-    function calculateHTFConfidence(id) {
-        const data = htfData[id];
-        let confidence = 0;
-
-        if (data.structure === 'BULLISH' || data.structure === 'BEARISH') confidence += 40;
-        else if (data.structure === 'TRANSITIONAL') confidence += 15;
-
-        switch (data.momentumStrength) {
-            case 'STRONG': confidence += 35; break;
-            case 'MODERATE': confidence += 25; break;
-            case 'WEAK': confidence += 10; break;
-        }
-
-        switch (data.phase) {
-            case 'TRENDING': confidence += 25; break;
-            case 'EXPANSION': confidence += 15; break;
-            case 'LOW_VOLATILITY': confidence += 5; break;
-        }
-
-        data.confidence = Math.max(0, Math.min(100, confidence));
-    }
-
-    // UPDATE HTF dengan frame skipping untuk mengurangi lag
-    function updateHTFEngine(id, price) {
-        buildOHLCCandle(id, price);
-        
-        htfFrameSkip[id]++;
-        if (htfFrameSkip[id] >= HTF_FRAME_SKIP) {
-            htfFrameSkip[id] = 0;
-            calculateATR(id);
-            detectPivotFractals(id);
-            detectMomentum(id);
-            detectMarketPhase(id);
-            calculateHTFConfidence(id);
-        }
-    }
-
     // ==================== SIGNAL ENGINE ====================
     let paEma = { xau: 0, btc: 0 };
     let paEmaAlpha = 0.2;
@@ -721,7 +438,6 @@
     }
     
     function updateSignal(id, price) {
-        // Debounce signal processing untuk mengurangi lag
         if (signalDebounceTimer[id]) {
             clearTimeout(signalDebounceTimer[id]);
         }
@@ -742,7 +458,7 @@
         s.type = type;
         s.entry = adjustedEntry;
         
-        const risk = id === 'xau' ? 7 : entry * 0.0030;
+        const risk = id === 'xau' ? 7 : entry * 0.0025;
         
         if (type === 'buy') {
             s.sl = adjustedEntry - risk;
@@ -782,11 +498,9 @@
         xauCurrentPrice = price;
         xauLastHeartbeat = Date.now();
         
-        // Gunakan RAF throttled update
         pendingPriceData.xau = price;
         throttledUpdateUI('xau');
         
-        updateHTFEngine('xau', price);
         updateSignal('xau', price);
         
         const statusEl = document.getElementById('ws-status-xau');
@@ -918,7 +632,6 @@
                     if (price && price > 0 && !isNaN(price)) {
                         pendingPriceData.btc = price;
                         throttledUpdateUI('btc');
-                        updateHTFEngine('btc', price);
                         updateSignal('btc', price);
                     }
                 } catch(err) {}
@@ -960,11 +673,6 @@
     function init() {
         state.xau = loadState('xau');
         state.btc = loadState('btc');
-        
-        seedHTFData('xau', 2620);
-        seedHTFData('btc', 60000);
-        calculateATR('xau');
-        calculateATR('btc');
         
         const container = document.getElementById('terminals');
         container.innerHTML = '';
@@ -1040,7 +748,6 @@
             </div>
         `;
         
-        // Attach triple tap listeners (tanpa efek visual)
         const xauBar = document.getElementById('signal-bar-xau');
         const btcBar = document.getElementById('signal-bar-btc');
         if (xauBar) xauBar.addEventListener('click', () => handleSignalBarTap('xau'));
@@ -1068,7 +775,6 @@
         
         updateGlobalPulse();
         
-        // Heartbeat monitor
         setInterval(() => {
             if (Date.now() - xauLastHeartbeat > 15000 && xauCurrentPrice > 0) {
                 xauFetchRestPrice();
