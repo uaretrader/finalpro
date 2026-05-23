@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v6.0 - DUAL ENGINE</title>
+    <title>TERMINAL v6.0.1 - FIXED DUAL ENGINE</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght=500;700&family=Inter:wght=400;600;800&display=swap');
 
         :root {
             --bg: #1a1d21; 
@@ -186,11 +186,7 @@
         .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
         .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
 
-        /* HTF Status - SEMBUNYIKAN */
-        .htf-status {
-            display: none;
-        }
-
+        .htf-status { display: none; }
         footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; opacity: 0.6; }
     </style>
 </head>
@@ -200,7 +196,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION SIGNAL v6.0</p>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION SIGNAL v6.0.1</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -215,8 +211,7 @@
     <div id="terminals"></div>
 
     <footer>
-        [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION<br>
-        [ METHOD ]: DELAYED VALIDATION BEFORE LOCK
+        [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION | [ METHOD ]: DELAYED VALIDATION BEFORE LOCK (PROTECTED)
     </footer>
 </div>
 
@@ -232,12 +227,12 @@
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
     let signalDebounceTimer = { xau: null, btc: null };
-    const SIGNAL_DEBOUNCE_MS = 50;
+    const SIGNAL_DEBOUNCE_MS = 30;
 
     // ==================== KONFIGURASI ====================
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
     const XAU_OFFSET = -3;
-    const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
+    const CONFIRMATION_DELAY_CYCLES = 3; 
     
     // ==================== STATE MANAGEMENT ====================
     let state = { xau: null, btc: null };
@@ -288,11 +283,10 @@
             if (signalBar) signalBar.classList.remove('confirm-wait');
             
             const l3Dot = document.getElementById(`l3-${id}`);
-            if (l3Dot && l3Dot.classList.contains('confirm-pending')) {
-                l3Dot.classList.remove('confirm-pending');
-            }
+            if (l3Dot) l3Dot.className = "dot";
             
-            updateSignalUIOnly(id);
+            pendingSignalData[id] = true;
+            throttledUpdateUI(id);
         }
     }
 
@@ -427,9 +421,7 @@
                 if (htfDataStore[id].ohlcCandles.length > 50) htfDataStore[id].ohlcCandles.shift();
             }
             htfTickCounter[id] = 0;
-            htfCurrentCandle[id] = {
-                open: price, high: price, low: price, close: price, closed: false
-            };
+            htfCurrentCandle[id] = { open: price, high: price, low: price, close: price, closed: false };
         } else {
             htfCurrentCandle[id].high = Math.max(htfCurrentCandle[id].high, price);
             htfCurrentCandle[id].low = Math.min(htfCurrentCandle[id].low, price);
@@ -451,7 +443,6 @@
             else if (c.close < c.open) bearishCount++;
         }
         
-        // Determine structure
         if (bullishCount > bearishCount + 2) {
             data.structure = 'BULLISH';
             data.confidence = 60 + (bullishCount * 5);
@@ -463,7 +454,6 @@
             data.confidence = 40;
         }
         
-        // Determine momentum
         const last3 = recentCandles.slice(-3);
         let upMomentum = 0, downMomentum = 0;
         for (let i = 1; i < last3.length; i++) {
@@ -490,11 +480,9 @@
         calculateSimpleHTF(id);
     }
 
-    // ==================== ENGINE 2 VALIDATION ====================
     function isHTFConfirmingDirection(id, direction) {
         const htf = htfDataStore[id];
         if (!htf) return false;
-        
         if (htf.confidence < 45) return false;
         
         if (direction === 'buy') {
@@ -536,19 +524,14 @@
                 if (htfConfirmed) {
                     executeLockSignal(id, direction, entryPrice);
                 } else {
-                    cancelPendingConfirmation(id);
-                    const s = state[id];
-                    s.l3 = false;
-                    s.confirmed = false;
-                    throttledSaveState(id);
-                    pendingSignalData[id] = true;
-                    throttledUpdateUI(id);
+                    // PROTEKSI INTERVENSI: Reset total secara bersih ke IDLE jika ditolak HTF
+                    resetSignal(id);
                     
                     const signalText = document.getElementById(`signal-text-${id}`);
                     if (signalText) {
                         signalText.innerText = 'HTF REJECT';
                         signalText.style.color = 'var(--danger)';
-                        setTimeout(() => updateSignalUIOnly(id), 1000);
+                        setTimeout(() => updateSignalUIOnly(id), 1500);
                     }
                 }
                 pendingConfirmation[id] = null;
@@ -626,7 +609,7 @@
 
     function processSignal(id, price) {
         const s = state[id];
-        let threshold = (id === 'xau') ? 0.8 : 12;
+        let threshold = (id === 'xau') ? 0.8 : 10;
         
         if (s.confirmed) {
             if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
@@ -636,8 +619,18 @@
             return;
         }
         
+        // 🛡️ PROTEKSI INTERVENSI AKTIF: Pantau pembalikan harga ekstrim saat fase pending
         if (pendingConfirmation[id]) {
-            s.lastPrice = price;
+            const pConfirm = pendingConfirmation[id];
+            const priceDeviation = price - pConfirm.entryPrice;
+            
+            // Jika arah buy tapi harga ambruk melewati batas threshold, batalkan!
+            if ((pConfirm.direction === 'buy' && priceDeviation < -threshold) ||
+                (pConfirm.direction === 'sell' && priceDeviation > threshold)) {
+                resetSignal(id);
+                return;
+            }
+            // Bekukan pembaruan parameter pemicu, namun jangan biarkan hanyut pasif
             return;
         }
         
@@ -652,17 +645,22 @@
                 pendingSignalData[id] = true;
                 throttledUpdateUI(id);
             } else if (!s.l2) { 
-                s.l2 = true;
-                throttledSaveState(id);
-                pendingSignalData[id] = true;
-                throttledUpdateUI(id);
+                // Pastikan arah eskalasi konsisten
+                if (direction === s.type) {
+                    s.l2 = true;
+                    throttledSaveState(id);
+                    pendingSignalData[id] = true;
+                    throttledUpdateUI(id);
+                }
             } else if (!s.l3 && !s.confirmed) { 
-                s.l3 = true;
-                throttledSaveState(id);
-                pendingSignalData[id] = true;
-                throttledUpdateUI(id);
-                
-                startConfirmationDelay(id, direction, price);
+                if (direction === s.type) {
+                    s.l3 = true;
+                    throttledSaveState(id);
+                    pendingSignalData[id] = true;
+                    throttledUpdateUI(id);
+                    
+                    startConfirmationDelay(id, direction, price);
+                }
             }
         }
         
@@ -682,13 +680,20 @@
     }
 
     function resetSignal(id) {
-        cancelPendingConfirmation(id);
+        if (pendingConfirmation[id]) {
+            if (pendingConfirmation[id].timerId) clearTimeout(pendingConfirmation[id].timerId);
+            pendingConfirmation[id] = null;
+        }
         
         const s = state[id];
         s.l1 = false; s.l2 = false; s.l3 = false;
         s.confirmed = false; s.type = 'none';
         s.entry = 0; s.sl = 0; s.tp = 0;
         s.trendScore = 0;
+        
+        const signalBar = document.getElementById(`signal-bar-${id}`);
+        if (signalBar) signalBar.classList.remove('confirm-wait');
+        
         throttledSaveState(id);
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
@@ -853,7 +858,7 @@
                 wsStatus.btc = false;
                 const statusEl = document.getElementById('ws-status-btc');
                 if (statusEl) {
-                    statusEl.textContent = '○ RECONNECTING...';
+                    statusEl.textContent = '◌ RECONNECTING...';
                     statusEl.className = 'ws-status disconnected';
                 }
                 updateGlobalPulse();
@@ -944,7 +949,7 @@
                     <div class="card-top">
                         <div class="pair-info">
                             <span class="pair">BTCUSD</span>
-                            <span id="ws-status-btc" class="ws-status disconnected">○ RECONNECTING...</span>
+                            <span id="ws-status-btc" class="ws-status disconnected">● RECONNECTING...</span>
                         </div>
                         <span class="price" id="price-btc">0.00</span>
                     </div>
