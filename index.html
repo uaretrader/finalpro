@@ -687,7 +687,7 @@
     // PROSES SIGNAL dengan debounce
     function processSignal(id, price) {
         const s = state[id];
-        let threshold = (id === 'xau') ? 0.6 : 10;
+        let threshold = (id === 'xau') ? 0.5 : 8;
         
         if (s.confirmed) {
             if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
