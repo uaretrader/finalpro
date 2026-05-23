@@ -609,7 +609,7 @@
 
     function processSignal(id, price) {
         const s = state[id];
-        let threshold = (id === 'xau') ? 0.8 : 10;
+        let threshold = (id === 'xau') ? 1.2 : 16;
         
         if (s.confirmed) {
             if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
