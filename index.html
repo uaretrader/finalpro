@@ -495,7 +495,7 @@
         const htf = htfDataStore[id];
         if (!htf) return false;
         
-        if (htf.confidence < 40) return false;
+        if (htf.confidence < 45) return false;
         
         if (direction === 'buy') {
             return htf.structure === 'BULLISH' && (htf.momentum === 'BULLISH' || htf.momentumStrength !== 'NONE');
