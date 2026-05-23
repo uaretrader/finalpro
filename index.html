@@ -462,10 +462,10 @@
         
         if (type === 'buy') {
             s.sl = adjustedEntry - risk;
-            s.tp = adjustedEntry + (risk * 1.5);
+            s.tp = adjustedEntry + (risk * 1.4);
         } else {
             s.sl = adjustedEntry + risk;
-            s.tp = adjustedEntry - (risk * 1.5);
+            s.tp = adjustedEntry - (risk * 1.4);
         }
         
         throttledSaveState(id);
