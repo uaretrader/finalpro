@@ -348,6 +348,9 @@
     function updateSignalUIOnly(id) {
         const s = state[id];
         if (!s) return;
+        const thresholdDebug = getDynamicThreshold(id).toFixed(2);
+        console.log(`[${id.toUpperCase()}] Dynamic Threshold:`, thresholdDebug);
+
         
         const l1Dot = document.getElementById(`l1-${id}`);
         if (l1Dot) l1Dot.className = s.l1 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
@@ -573,6 +576,61 @@
         if (navigator.vibrate) navigator.vibrate(50);
     }
 
+    
+    // ==================== DYNAMIC ATR THRESHOLD ENGINE ====================
+
+    function calculateATR(id, period = 14) {
+        const candles = htfDataStore[id]?.ohlcCandles || [];
+
+        if (candles.length < period + 1) {
+            return id === 'xau' ? 1.2 : 18;
+        }
+
+        let trs = [];
+
+        for (let i = 1; i < candles.length; i++) {
+            const current = candles[i];
+            const prev = candles[i - 1];
+
+            const tr = Math.max(
+                current.high - current.low,
+                Math.abs(current.high - prev.close),
+                Math.abs(current.low - prev.close)
+            );
+
+            trs.push(tr);
+        }
+
+        const recentTR = trs.slice(-period);
+
+        const atr = recentTR.reduce((sum, value) => sum + value, 0) / recentTR.length;
+
+        return atr;
+    }
+
+    function getDynamicThreshold(id) {
+        const atr = calculateATR(id);
+
+        let multiplier;
+
+        if (id === 'xau') {
+            multiplier = 0.35;
+        } else {
+            multiplier = 0.25;
+        }
+
+        let dynamicThreshold = atr * multiplier;
+
+        const minThreshold = id === 'xau' ? 0.8 : 8;
+        const maxThreshold = id === 'xau' ? 8 : 120;
+
+        dynamicThreshold = Math.max(dynamicThreshold, minThreshold);
+        dynamicThreshold = Math.min(dynamicThreshold, maxThreshold);
+
+        return dynamicThreshold;
+    }
+
+
     // ==================== SIGNAL ENGINE (ENGINE 1) ====================
     let paEma = { xau: 0, btc: 0 };
     let paEmaAlpha = 0.2;
@@ -609,7 +667,7 @@
 
     function processSignal(id, price) {
         const s = state[id];
-        let threshold = (id === 'xau') ? 1.2 : 18;
+        let threshold = getDynamicThreshold(id);
         
         if (s.confirmed) {
             if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
