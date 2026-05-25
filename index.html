@@ -557,7 +557,7 @@
         const impulseScore = impulseCount / recent.length;
         
         let regime = 'NORMAL';
-        let multiplier = 0.38;
+        let multiplier = 0.28;
         let confirmationReq = 2;
         let aggression = 1.0;
         let sensitivity = 1.0;
@@ -566,7 +566,7 @@
         
         if (volatilityScore < 0.85) {
             regime = 'RANGING';
-            multiplier = 0.68;
+            multiplier = 0.55;
             confirmationReq = 3;
             aggression = 0.55;
             sensitivity = 0.65;
@@ -582,7 +582,7 @@
             cooldown = 0;
         } else if (directionalScore > 2.8) {
             regime = 'TRENDING';
-            multiplier = 0.29;
+            multiplier = 0.24;
             confirmationReq = 2;
             aggression = 1.35;
             sensitivity = 1.28;
@@ -590,7 +590,7 @@
             cooldown = 1;
         } else {
             regime = 'NORMAL';
-            multiplier = 0.38;
+            multiplier = 0.28;
             confirmationReq = 2;
             aggression = 1.0;
             sensitivity = 1.0;
@@ -608,7 +608,7 @@
         const regime = detectAdaptiveRegime(id);
         let threshold = atr * regime.multiplier;
         
-        const minThreshold = id === 'xau' ? 0.6 : 10;
+        const minThreshold = id === 'xau' ? 0.35 : 8;
         const maxThreshold = id === 'xau' ? 10 : 200;
         
         return Math.max(minThreshold, Math.min(maxThreshold, threshold));
