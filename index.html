@@ -566,7 +566,7 @@
         
         if (volatilityScore < 0.85) {
             regime = 'RANGING';
-            multiplier = 0.45;
+            multiplier = 0.55;
             confirmationReq = 3;
             aggression = 0.55;
             sensitivity = 0.65;
@@ -582,7 +582,7 @@
             cooldown = 0;
         } else if (directionalScore > 2.8) {
             regime = 'TRENDING';
-            multiplier = 0.30;
+            multiplier = 0.35;
             confirmationReq = 2;
             aggression = 1.35;
             sensitivity = 1.28;
