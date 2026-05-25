@@ -531,7 +531,7 @@
         
         if (candles.length < 15) {
             currentRegime[id] = 'NORMAL';
-            return { regime: 'NORMAL', multiplier: 0.30, confirmationReq: 2, aggression: 1.0, sensitivity: 1.0, confidenceBoost: 1.0, cooldown: 1 };
+            return { regime: 'NORMAL', multiplier: 0.32, confirmationReq: 2, aggression: 1.0, sensitivity: 1.0, confidenceBoost: 1.0, cooldown: 1 };
         }
         
         const recent = candles.slice(-18);
@@ -557,7 +557,7 @@
         const impulseScore = impulseCount / recent.length;
         
         let regime = 'NORMAL';
-        let multiplier = 0.30;
+        let multiplier = 0.32;
         let confirmationReq = 2;
         let aggression = 1.0;
         let sensitivity = 1.0;
@@ -566,7 +566,7 @@
         
         if (volatilityScore < 0.85) {
             regime = 'RANGING';
-            multiplier = 0.50;
+            multiplier = 0.45;
             confirmationReq = 3;
             aggression = 0.55;
             sensitivity = 0.65;
@@ -582,7 +582,7 @@
             cooldown = 0;
         } else if (directionalScore > 2.8) {
             regime = 'TRENDING';
-            multiplier = 0.28;
+            multiplier = 0.30;
             confirmationReq = 2;
             aggression = 1.35;
             sensitivity = 1.28;
@@ -590,7 +590,7 @@
             cooldown = 1;
         } else {
             regime = 'NORMAL';
-            multiplier = 0.30;
+            multiplier = 0.32;
             confirmationReq = 2;
             aggression = 1.0;
             sensitivity = 1.0;
