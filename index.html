@@ -562,7 +562,7 @@
     
     function executeLockSignal(id, direction, entryPrice) {
         const s = state[id];
-        const offset = direction === 'buy' ? -1 : +1;
+        const offset = direction === 'buy' ? -0 : +0;
         const adjustedEntry = entryPrice + offset;
         
         s.l3 = true;
