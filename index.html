@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>TERMINAL v6.0 - DUAL ENGINE</title>
+    <title>PRECISION TERMINAL v6.0 - DUAL ENGINE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -200,7 +200,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">URA v6.0</p>
+            <p style="font-size: 0.55rem; color: var(--text-dim)">URA v6.0</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -216,7 +216,7 @@
 
     <footer>
         [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION<br>
-        [ METHOD ]: DELAYED VALIDATION BEFORE LOCK + ENTRY LEVEL RESET
+        [ METHOD ]: DELAYED VALIDATION BEFORE LOCK
     </footer>
 </div>
 
@@ -238,6 +238,8 @@
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
     const XAU_OFFSET = -4;
     const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
+    const RESET_THRESHOLD_XAU = 1.5;      // Reset jika harga bergerak 1.5 poin lalu kembali ke entry
+    const RESET_THRESHOLD_BTC = 16;       // Reset jika harga bergerak 16 poin lalu kembali ke entry
     
     // ==================== STATE MANAGEMENT ====================
     let state = { xau: null, btc: null };
@@ -308,7 +310,8 @@
             confirmed: s.confirmed,
             type: s.type,
             entry: s.entry, sl: s.sl, tp: s.tp,
-            entryPriceAtL1: s.entryPriceAtL1
+            tempHigh: s.tempHigh,
+            tempLow: s.tempLow
         };
         
         if (pendingSaveTimer[id]) return;
@@ -614,20 +617,33 @@
     }
 
     function createFreshState() {
-        return { lastPrice: 0, trendScore: 0, l1: false, l2: false, l3: false, confirmed: false, type: 'none', entry: 0, sl: 0, tp: 0, entryPriceAtL1: 0 };
+        return { 
+            lastPrice: 0, trendScore: 0, 
+            l1: false, l2: false, l3: false, 
+            confirmed: false, type: 'none', 
+            entry: 0, sl: 0, tp: 0,
+            tempHigh: 0,      // Untuk melacak harga tertinggi sementara
+            tempLow: 0        // Untuk melacak harga terendah sementara
+        };
     }
 
     function loadState(id) {
         const saved = localStorage.getItem(`ura_state_${id}`);
         if (saved) {
-            try { return JSON.parse(saved); } catch(e) { return createFreshState(); }
+            try { 
+                const parsed = JSON.parse(saved);
+                // Pastikan properti baru ada
+                if (parsed.tempHigh === undefined) parsed.tempHigh = 0;
+                if (parsed.tempLow === undefined) parsed.tempLow = 0;
+                return parsed;
+            } catch(e) { return createFreshState(); }
         }
         return createFreshState();
     }
 
     function processSignal(id, price) {
         const s = state[id];
-        let threshold = (id === 'xau') ? 0.5 : 6;
+        const resetThreshold = (id === 'xau') ? RESET_THRESHOLD_XAU : RESET_THRESHOLD_BTC;
         
         if (s.confirmed) {
             if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
@@ -644,27 +660,61 @@
         
         updatePA(id, price);
         
-        // ==================== CEK RESET SIGNAL JIKA HARGA KEMBALI KE ENTRY LEVEL ====================
-        if (s.l1 && !s.confirmed && !pendingConfirmation[id]) {
-            const entryLevel = s.entryPriceAtL1 || s.lastPrice;
-            const tolerance = id === 'xau' ? 1.0 : 15;
-            const priceDistance = Math.abs(price - entryLevel);
+        // ========== LOGIKA BARU: RESET SIGNAL JIKA HARGA KEMBALI KE ENTRY LEVEL ==========
+        // Jika signal sudah memiliki arah (L1 aktif), lacak harga ekstrim
+        if (s.l1 && s.type !== 'none') {
+            // Inisialisasi tempHigh/tempLow jika belum ada
+            if (s.tempHigh === 0 && s.tempLow === 0) {
+                s.tempHigh = s.lastPrice || price;
+                s.tempLow = s.lastPrice || price;
+            }
             
-            // Jika harga kembali mendekati entry level (dalam toleransi)
-            if (priceDistance <= tolerance) {
-                resetSignal(id);
-                return;
+            // Update harga tertinggi dan terendah yang dicapai
+            if (price > s.tempHigh) s.tempHigh = price;
+            if (price < s.tempLow) s.tempLow = price;
+            
+            // Cek apakah harga sudah bergerak minimal resetThreshold dari posisi awal
+            let hasMovedEnough = false;
+            if (s.type === 'buy') {
+                // Untuk BUY: harga harus naik minimal resetThreshold dari level terendah
+                hasMovedEnough = (s.tempHigh - s.tempLow) >= resetThreshold;
+            } else if (s.type === 'sell') {
+                // Untuk SELL: harga harus turun minimal resetThreshold dari level tertinggi
+                hasMovedEnough = (s.tempHigh - s.tempLow) >= resetThreshold;
+            }
+            
+            // Jika sudah bergerak cukup, cek apakah harga kembali mendekati level awal (entry/referensi)
+            if (hasMovedEnough) {
+                const referencePrice = s.lastPrice || price;
+                const isBackToEntry = Math.abs(price - referencePrice) <= (resetThreshold * 0.3);
+                
+                if (isBackToEntry) {
+                    // Reset signal karena harga kembali ke entry setelah bergerak jauh
+                    resetSignal(id);
+                    // Tampilkan pesan di console (opsional)
+                    console.log(`[${id.toUpperCase()}] Signal reset: Price returned to entry after moving ${resetThreshold} points`);
+                    return;
+                }
+            }
+        } else {
+            // Reset tracking jika tidak ada signal aktif
+            if (s.tempHigh !== 0 || s.tempLow !== 0) {
+                s.tempHigh = 0;
+                s.tempLow = 0;
             }
         }
-        // ==================== AKHIR CEK RESET ====================
+        // ========== END LOGIKA BARU ==========
+        
+        let threshold = (id === 'xau') ? 0.5 : 6;
         
         if (!s.confirmed && s.lastPrice !== 0 && Math.abs(price - s.lastPrice) > threshold) {
             const direction = price > s.lastPrice ? 'buy' : 'sell';
             
             if (!s.l1) { 
-                s.l1 = true; 
-                s.type = direction;
-                s.entryPriceAtL1 = price;  // Simpan harga trigger L1
+                s.l1 = true; s.type = direction;
+                // Reset tracking saat L1 aktif pertama kali
+                s.tempHigh = price;
+                s.tempLow = price;
                 throttledSaveState(id);
                 pendingSignalData[id] = true;
                 throttledUpdateUI(id);
@@ -706,7 +756,8 @@
         s.confirmed = false; s.type = 'none';
         s.entry = 0; s.sl = 0; s.tp = 0;
         s.trendScore = 0;
-        s.entryPriceAtL1 = 0;  // Reset entry price
+        s.tempHigh = 0;
+        s.tempLow = 0;
         throttledSaveState(id);
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
