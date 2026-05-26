@@ -561,29 +561,24 @@
     }
     
     function executeLockSignal(id, direction, entryPrice) {
-    const s = state[id];
-    
-    // Gunakan harga saat ini sebagai entry (bukan entryPrice lama)
-    const currentPrice = entryPrice;
-    
-    const risk = id === 'xau' ? 5 : currentPrice * 0.0040;
-    const offset = direction === 'buy' ? -1 : +1;
-    const adjustedEntry = currentPrice + offset;
-    
-    s.l3 = true;
-    s.confirmed = true;
-    s.type = direction;
-    s.entry = adjustedEntry;
-    
-    if (direction === 'buy') {
-        s.sl = adjustedEntry - risk;
-        s.tp = adjustedEntry + (risk * 1.8);
-    } else {
-        s.sl = adjustedEntry + risk;
-        s.tp = adjustedEntry - (risk * 1.8);
-    }
-    // ...
-}
+        const s = state[id];
+        const offset = direction === 'buy' ? -0 : +0;
+        const adjustedEntry = entryPrice + offset;
+        
+        s.l3 = true;
+        s.confirmed = true;
+        s.type = direction;
+        s.entry = adjustedEntry;
+        
+        const risk = id === 'xau' ? 5 : entryPrice * 0.0040;
+        
+        if (direction === 'buy') {
+            s.sl = adjustedEntry - risk;
+            s.tp = adjustedEntry + (risk * 1.8);
+        } else {
+            s.sl = adjustedEntry + risk;
+            s.tp = adjustedEntry - (risk * 1.8);
+        }
         
         throttledSaveState(id);
         pendingSignalData[id] = true;
