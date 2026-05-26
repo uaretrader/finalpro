@@ -223,7 +223,7 @@
 
     // ==================== KONFIGURASI ====================
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
-    const XAU_OFFSET = -3;
+    const XAU_OFFSET = -2;
     const CONFIRMATION_DELAY_CYCLES = 3; 
     
     // ==================== STATE MANAGEMENT ====================
@@ -675,7 +675,7 @@
     
     function executeLockSignal(id, direction, entryPrice) {
         const s = state[id];
-        const offset = direction === 'buy' ? -1 : +1;
+        const offset = direction === 'buy' ? -0 : +0;
         const adjustedEntry = entryPrice + offset;
         
         s.l3 = true;
@@ -683,14 +683,14 @@
         s.type = direction;
         s.entry = adjustedEntry;
         
-        const risk = id === 'xau' ? 7 : entryPrice * 0.0030;
+        const risk = id === 'xau' ? 8 : entryPrice * 0.0040;
         
         if (direction === 'buy') {
             s.sl = adjustedEntry - risk;
-            s.tp = adjustedEntry + (risk * 1.4);
+            s.tp = adjustedEntry + (risk * 1.6);
         } else {
             s.sl = adjustedEntry + risk;
-            s.tp = adjustedEntry - (risk * 1.4);
+            s.tp = adjustedEntry - (risk * 1.6);
         }
         
         throttledSaveState(id);
@@ -746,8 +746,8 @@ function getSmartThreshold(id) {
 
     let dynamicThreshold = atr * multiplier;
 
-    const minThreshold = id === 'xau' ? 0.8 : 8;
-    const maxThreshold = id === 'xau' ? 8 : 120;
+    const minThreshold = id === 'xau' ? 0.6 : 8;
+    const maxThreshold = id === 'xau' ? 8 : 80;
 
     dynamicThreshold = Math.max(dynamicThreshold, minThreshold);
     dynamicThreshold = Math.min(dynamicThreshold, maxThreshold);
