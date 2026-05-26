@@ -570,7 +570,7 @@
         s.type = direction;
         s.entry = adjustedEntry;
         
-        const risk = id === 'xau' ? 4.5 : entryPrice * 0.0040;
+        const risk = id === 'xau' ? 5 : entryPrice * 0.0040;
         
         if (direction === 'buy') {
             s.sl = adjustedEntry - risk;
