@@ -570,14 +570,14 @@
         s.type = direction;
         s.entry = adjustedEntry;
         
-        const risk = id === 'xau' ? 8 : entryPrice * 0.0040;
+        const risk = id === 'xau' ? 4.5 : entryPrice * 0.0040;
         
         if (direction === 'buy') {
             s.sl = adjustedEntry - risk;
-            s.tp = adjustedEntry + (risk * 1.6);
+            s.tp = adjustedEntry + (risk * 1.8);
         } else {
             s.sl = adjustedEntry + risk;
-            s.tp = adjustedEntry - (risk * 1.6);
+            s.tp = adjustedEntry - (risk * 1.8);
         }
         
         throttledSaveState(id);
