@@ -557,7 +557,7 @@ function detectAdaptiveRegime(id) {
     const impulseScore = impulseCount / recent.length;
     
     let regime = 'NORMAL';
-    let multiplier = 0.30;
+    let multiplier = 0.20;
     let confirmationReq = 2;
     let aggression = 1.0;
     let sensitivity = 1.0;
@@ -590,7 +590,7 @@ function detectAdaptiveRegime(id) {
         cooldown = 1;
     } else {
         regime = 'NORMAL';
-        multiplier = 0.30;
+        multiplier = 0.20;
         confirmationReq = 2;
         aggression = 1.0;
         sensitivity = 1.0;
@@ -608,7 +608,7 @@ function detectAdaptiveRegime(id) {
         const regime = detectAdaptiveRegime(id);
         let threshold = atr * regime.multiplier;
         
-        const minThreshold = id === 'xau' ? 0.35 : 8;
+        const minThreshold = id === 'xau' ? 0.20 : 5;
         const maxThreshold = id === 'xau' ? 10 : 200;
         
         return Math.max(minThreshold, Math.min(maxThreshold, threshold));
