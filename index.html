@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>TERMINAL v7.0 - FULL SELF ADAPTIVE ENGINE</title>
+    <title>TERMINAL v7.1 - SCALPING SEMI AGRESIF</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght=500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -210,8 +210,8 @@
 <div class="container">
     <header>
         <div class="brand">
-            <h1>uradvisor <span>v7.0</span></h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">FULL SELF-ADAPTIVE ENGINE</p>
+            <h1>uradvisor <span>v7.1</span></h1>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">SCALPING SEMI AGRESIF ENGINE</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -226,8 +226,8 @@
     <div id="terminals"></div>
 
     <footer>
-        [ ENGINE CORE ]: ADAPTIVE REGIME DETECTION + SMART SIGNAL + HTF CONFIRMATION<br>
-        [ METHOD ]: RANGING(3x) | TRENDING(2x) | BREAKOUT(1x) | NORMAL(2x)
+        [ ENGINE CORE ]: SCALPING SEMI AGRESIF + ADAPTIVE REGIME + SMART SIGNAL<br>
+        [ METHOD ]: RANGING(8s) | TRENDING(4s) | BREAKOUT(4s) | NORMAL(8s)
     </footer>
 </div>
 
@@ -525,90 +525,90 @@
         return atr;
     }
 
-// ==================== ADAPTIVE REGIME DETECTION (SEMI MODERATE SETUP) ====================
-function detectAdaptiveRegime(id) {
-    const candles = htfDataStore[id].candles;
-    
-    if (candles.length < 15) {
-        currentRegime[id] = 'NORMAL';
-        return { regime: 'NORMAL', multiplier: 0.30, confirmationReq: 2, aggression: 1.0, sensitivity: 1.0, confidenceBoost: 1.0, cooldown: 1 };
-    }
-    
-    const recent = candles.slice(-18);
-    let totalRange = 0;
-    let momentum = 0;
-    let impulseCount = 0;
-    
-    for (let i = 1; i < recent.length; i++) {
-        const c = recent[i];
-        const p = recent[i-1];
-        const range = c.high - c.low;
-        const delta = c.close - p.close;
-        totalRange += range;
-        momentum += delta;
-        if (Math.abs(delta) > range * 0.55) {
-            impulseCount++;
+    // ==================== ADAPTIVE REGIME DETECTION (SCALPING SEMI AGRESIF) ====================
+    function detectAdaptiveRegime(id) {
+        const candles = htfDataStore[id].candles;
+        
+        if (candles.length < 15) {
+            currentRegime[id] = 'NORMAL';
+            return { regime: 'NORMAL', multiplier: 0.24, confirmationReq: 2, aggression: 1.10, sensitivity: 1.05, confidenceBoost: 1.0, cooldown: 1 };
         }
+        
+        const recent = candles.slice(-18);
+        let totalRange = 0;
+        let momentum = 0;
+        let impulseCount = 0;
+        
+        for (let i = 1; i < recent.length; i++) {
+            const c = recent[i];
+            const p = recent[i-1];
+            const range = c.high - c.low;
+            const delta = c.close - p.close;
+            totalRange += range;
+            momentum += delta;
+            if (Math.abs(delta) > range * 0.55) {
+                impulseCount++;
+            }
+        }
+        
+        const atr = Math.max(calculateATR(id), 0.5);
+        const volatilityScore = totalRange / recent.length / atr;
+        const directionalScore = Math.abs(momentum) / atr;
+        const impulseScore = impulseCount / recent.length;
+        
+        let regime = 'NORMAL';
+        let multiplier = 0.24;
+        let confirmationReq = 2;
+        let aggression = 1.10;
+        let sensitivity = 1.05;
+        let confidenceBoost = 1.0;
+        let cooldown = 1;
+        
+        if (volatilityScore < 0.85) {
+            regime = 'RANGING';
+            multiplier = 0.35;
+            confirmationReq = 2;
+            aggression = 0.90;
+            sensitivity = 0.95;
+            confidenceBoost = 1.05;
+            cooldown = 2;
+        } else if (directionalScore > 5.5 && impulseScore > 0.35) {
+            regime = 'BREAKOUT';
+            multiplier = 0.15;
+            confirmationReq = 1;
+            aggression = 2.00;
+            sensitivity = 1.85;
+            confidenceBoost = 0.80;
+            cooldown = 0;
+        } else if (directionalScore > 2.8) {
+            regime = 'TRENDING';
+            multiplier = 0.18;
+            confirmationReq = 1;
+            aggression = 1.55;
+            sensitivity = 1.45;
+            confidenceBoost = 0.88;
+            cooldown = 0;
+        } else {
+            regime = 'NORMAL';
+            multiplier = 0.24;
+            confirmationReq = 2;
+            aggression = 1.10;
+            sensitivity = 1.05;
+            confidenceBoost = 1.0;
+            cooldown = 1;
+        }
+        
+        currentRegime[id] = regime;
+        
+        return { regime, multiplier, confirmationReq, aggression, sensitivity, confidenceBoost, cooldown };
     }
-    
-    const atr = Math.max(calculateATR(id), 0.5);
-    const volatilityScore = totalRange / recent.length / atr;
-    const directionalScore = Math.abs(momentum) / atr;
-    const impulseScore = impulseCount / recent.length;
-    
-    let regime = 'NORMAL';
-    let multiplier = 0.20;
-    let confirmationReq = 2;
-    let aggression = 1.0;
-    let sensitivity = 1.0;
-    let confidenceBoost = 1.0;
-    let cooldown = 1;
-    
-    if (volatilityScore < 0.85) {
-        regime = 'RANGING';
-        multiplier = 0.42;
-        confirmationReq = 2;      // turun dari 3
-        aggression = 0.85;
-        sensitivity = 0.90;
-        confidenceBoost = 1.08;
-        cooldown = 2;
-    } else if (directionalScore > 5.5 && impulseScore > 0.35) {
-        regime = 'BREAKOUT';
-        multiplier = 0.18;
-        confirmationReq = 1;
-        aggression = 1.85;
-        sensitivity = 1.65;
-        confidenceBoost = 0.85;
-        cooldown = 0;
-    } else if (directionalScore > 2.8) {
-        regime = 'TRENDING';
-        multiplier = 0.22;
-        confirmationReq = 1;      // turun dari 2
-        aggression = 1.45;
-        sensitivity = 1.35;
-        confidenceBoost = 0.90;
-        cooldown = 1;
-    } else {
-        regime = 'NORMAL';
-        multiplier = 0.20;
-        confirmationReq = 2;
-        aggression = 1.0;
-        sensitivity = 1.0;
-        confidenceBoost = 1.0;
-        cooldown = 1;
-    }
-    
-    currentRegime[id] = regime;
-    
-    return { regime, multiplier, confirmationReq, aggression, sensitivity, confidenceBoost, cooldown };
-}
     
     function getAdaptiveThreshold(id) {
         const atr = calculateATR(id);
         const regime = detectAdaptiveRegime(id);
         let threshold = atr * regime.multiplier;
         
-        const minThreshold = id === 'xau' ? 0.20 : 5;
+        const minThreshold = id === 'xau' ? 0.25 : 6;
         const maxThreshold = id === 'xau' ? 10 : 200;
         
         return Math.max(minThreshold, Math.min(maxThreshold, threshold));
@@ -1166,7 +1166,7 @@ function detectAdaptiveRegime(id) {
         const regimeDiv = document.createElement('div');
         regimeDiv.id = `regime-${id}`;
         regimeDiv.className = 'regime-indicator';
-        regimeDiv.innerHTML = `<span>📊 REGIME:</span><span class="regime-badge normal">NORMAL</span>`;
+        regimeDiv.innerHTML = `<span>MARKET REGIME:</span><span class="regime-badge normal">NORMAL</span>`;
         const cardBody = card.querySelector('.card');
         if (cardBody) cardBody.appendChild(regimeDiv);
     }
