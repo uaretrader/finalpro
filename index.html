@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>TERMINAL v6.1.0 - OPTIMIZED HTF ENGINE</title>
+    <title>PRECISION TERMINAL v6.0 - DUAL ENGINE</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght=500;700&family=Inter:wght=400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
         :root {
             --bg: #1a1d21; 
@@ -17,6 +17,12 @@
             --feed-lightning: #FFEA00;
             --border: rgba(255, 255, 255, 0.1);
             --phase-trending: #00FF88;
+            --htf-bullish: #00FFFF;
+            --htf-bearish: #FF5252;
+            --htf-neutral: #707a8a;
+            --htf-weak: #f0b90b;
+            --phase-expansion: #FF6B6B;
+            --phase-lowvol: #4ECDC4;
             --confirm-pending: #f0b90b;
         }
 
@@ -115,7 +121,10 @@
             align-items: flex-start; 
             margin-bottom: 8px; 
         }
-        .pair-info { display: flex; flex-direction: column; }
+        .pair-info {
+            display: flex;
+            flex-direction: column;
+        }
         .pair { font-weight: 800; font-size: 1.1rem; letter-spacing: 1px; color: var(--text); }
         .price { 
             font-family: 'JetBrains Mono', monospace; 
@@ -155,7 +164,7 @@
         }
 
         .signal-dot-group { display: flex; gap: 12px; align-items: center; }
-        .dot { width: 7px; height: 7px; border-radius: 5px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: all 0.1s; }
+        .dot { width: 7px; height: 7px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: all 0.1s; }
         .dot.active { background: var(--success); box-shadow: 0 0 4px var(--success); }
         .dot.active-down { background: var(--danger); box-shadow: 0 0 4px var(--danger); }
         .dot.confirm-pending { background: var(--confirm-pending); animation: pulseDot 0.8s infinite; }
@@ -177,7 +186,11 @@
         .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
         .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
 
-        .htf-status { display: none; }
+        /* HTF Status - SEMBUNYIKAN */
+        .htf-status {
+            display: none;
+        }
+
         footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; opacity: 0.6; }
     </style>
 </head>
@@ -187,7 +200,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION SIGNAL v6.1.0</p>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION SIGNAL v6.0</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -202,8 +215,8 @@
     <div id="terminals"></div>
 
     <footer>
-        [ ENGINE CORE ]: SWEEP + CHoCH + FVG + OPTIMIZED HTF CONFIRMATION<br>
-        [ METHOD ]: PIVOT FRACTAL + TREND STRUCTURE + CONFIDENCE SCORING
+        [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION<br>
+        [ METHOD ]: DELAYED VALIDATION BEFORE LOCK
     </footer>
 </div>
 
@@ -219,12 +232,12 @@
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
     let signalDebounceTimer = { xau: null, btc: null };
-    const SIGNAL_DEBOUNCE_MS = 30;
+    const SIGNAL_DEBOUNCE_MS = 50;
 
     // ==================== KONFIGURASI ====================
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
     const XAU_OFFSET = -3;
-    const CONFIRMATION_DELAY_CYCLES = 3; 
+    const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
     
     // ==================== STATE MANAGEMENT ====================
     let state = { xau: null, btc: null };
@@ -275,10 +288,11 @@
             if (signalBar) signalBar.classList.remove('confirm-wait');
             
             const l3Dot = document.getElementById(`l3-${id}`);
-            if (l3Dot) l3Dot.className = "dot";
+            if (l3Dot && l3Dot.classList.contains('confirm-pending')) {
+                l3Dot.classList.remove('confirm-pending');
+            }
             
-            pendingSignalData[id] = true;
-            throttledUpdateUI(id);
+            updateSignalUIOnly(id);
         }
     }
 
@@ -340,10 +354,6 @@
     function updateSignalUIOnly(id) {
         const s = state[id];
         if (!s) return;
-
-    const thresholdDebug = getSmartThreshold(id).toFixed(2);
-    console.log(`[${id.toUpperCase()}] Dynamic Threshold:`, thresholdDebug);
-
         
         const l1Dot = document.getElementById(`l1-${id}`);
         if (l1Dot) l1Dot.className = s.l1 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
@@ -397,36 +407,15 @@
         if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
     }
 
-    // ==================== OPTIMIZED HTF ENGINE (ENGINE 2) ====================
+    // ==================== HTF ENGINE (ENGINE 2) ====================
     let htfDataStore = {
-        xau: { 
-            ohlcCandles: [], 
-            structure: 'NEUTRAL', 
-            momentum: 'STABLE', 
-            momentumStrength: 'NONE', 
-            confidence: 0,
-            pivotHighs: [],
-            pivotLows: [],
-            swings: [],
-            trendStructure: 'SIDEWAYS'
-        },
-        btc: { 
-            ohlcCandles: [], 
-            structure: 'NEUTRAL', 
-            momentum: 'STABLE', 
-            momentumStrength: 'NONE', 
-            confidence: 0,
-            pivotHighs: [],
-            pivotLows: [],
-            swings: [],
-            trendStructure: 'SIDEWAYS'
-        }
+        xau: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 },
+        btc: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 }
     };
     
     let htfTickCounter = { xau: 0, btc: 0 };
     let htfCurrentCandle = { xau: null, btc: null };
     const HTF_TICK_PER_CANDLE = 8;
-    const HTF_PIVOT_LOOKBACK = 2;
 
     function buildOHLCCandle(id, price) {
         htfTickCounter[id]++;
@@ -438,98 +427,17 @@
                 if (htfDataStore[id].ohlcCandles.length > 50) htfDataStore[id].ohlcCandles.shift();
             }
             htfTickCounter[id] = 0;
-            htfCurrentCandle[id] = { 
-                open: price, high: price, low: price, close: price, 
-                closed: false, body: 0, isBullish: true 
+            htfCurrentCandle[id] = {
+                open: price, high: price, low: price, close: price, closed: false
             };
         } else {
             htfCurrentCandle[id].high = Math.max(htfCurrentCandle[id].high, price);
             htfCurrentCandle[id].low = Math.min(htfCurrentCandle[id].low, price);
             htfCurrentCandle[id].close = price;
-            htfCurrentCandle[id].body = Math.abs(htfCurrentCandle[id].close - htfCurrentCandle[id].open);
-            htfCurrentCandle[id].isBullish = htfCurrentCandle[id].close >= htfCurrentCandle[id].open;
         }
     }
 
-    // ========== PIVOT FRACTAL DETECTION (Diaktifkan) ==========
-    function detectPivotFractals(id) {
-        const data = htfDataStore[id];
-        const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < HTF_PIVOT_LOOKBACK * 2 + 1) return;
-
-        data.pivotHighs = [];
-        data.pivotLows = [];
-
-        for (let i = HTF_PIVOT_LOOKBACK; i < candles.length - HTF_PIVOT_LOOKBACK; i++) {
-            const current = candles[i];
-            let isPivotHigh = true;
-            let isPivotLow = true;
-
-            for (let j = 1; j <= HTF_PIVOT_LOOKBACK; j++) {
-                if (candles[i - j].high >= current.high) isPivotHigh = false;
-                if (candles[i + j].high >= current.high) isPivotHigh = false;
-                if (candles[i - j].low <= current.low) isPivotLow = false;
-                if (candles[i + j].low <= current.low) isPivotLow = false;
-            }
-
-            if (isPivotHigh) data.pivotHighs.push({ index: i, price: current.high });
-            if (isPivotLow) data.pivotLows.push({ index: i, price: current.low });
-        }
-
-        // Build swings dari pivot points
-        const allPivots = [
-            ...data.pivotHighs.map(p => ({ ...p, type: 'H' })),
-            ...data.pivotLows.map(p => ({ ...p, type: 'L' }))
-        ];
-        allPivots.sort((a, b) => a.index - b.index);
-        
-        data.swings = [];
-        let lastType = null;
-        allPivots.forEach(pivot => {
-            if (pivot.type !== lastType) {
-                data.swings.push({ val: pivot.price, type: pivot.type, index: pivot.index });
-                lastType = pivot.type;
-            }
-        });
-    }
-
-    // ========== TREND STRUCTURE DETECTION (Fitur Baru) ==========
-    function detectTrendStructure(id) {
-        const data = htfDataStore[id];
-        const swings = data.swings;
-        
-        if (swings.length < 4) {
-            data.trendStructure = 'SIDEWAYS';
-            return;
-        }
-        
-        const recentSwings = swings.slice(-6);
-        const highs = recentSwings.filter(s => s.type === 'H').map(s => s.val);
-        const lows = recentSwings.filter(s => s.type === 'L').map(s => s.val);
-        
-        if (highs.length >= 2 && lows.length >= 2) {
-            const last2Highs = highs.slice(-2);
-            const last2Lows = lows.slice(-2);
-            
-            const isHH = last2Highs[1] > last2Highs[0];
-            const isHL = last2Lows[1] > last2Lows[0];
-            const isLH = last2Highs[1] < last2Highs[0];
-            const isLL = last2Lows[1] < last2Lows[0];
-            
-            if (isHH && isHL) {
-                data.trendStructure = 'UPTREND';
-                data.structure = 'BULLISH';
-            } else if (isLH && isLL) {
-                data.trendStructure = 'DOWNTREND';
-                data.structure = 'BEARISH';
-            } else {
-                data.trendStructure = 'SIDEWAYS';
-            }
-        }
-    }
-
-    // ========== BASIC STRUCTURE & MOMENTUM ==========
-    function calculateBasicHTF(id) {
+    function calculateSimpleHTF(id) {
         const data = htfDataStore[id];
         const candles = data.ohlcCandles.filter(c => c.closed);
         if (candles.length < 10) return;
@@ -539,14 +447,23 @@
         
         for (let i = 0; i < recentCandles.length; i++) {
             const c = recentCandles[i];
-            if (c.isBullish) bullishCount++;
-            else bearishCount++;
+            if (c.close > c.open) bullishCount++;
+            else if (c.close < c.open) bearishCount++;
         }
         
-        if (bullishCount > bearishCount + 2) data.structure = 'BULLISH';
-        else if (bearishCount > bullishCount + 2) data.structure = 'BEARISH';
-        else data.structure = 'NEUTRAL';
+        // Determine structure
+        if (bullishCount > bearishCount + 2) {
+            data.structure = 'BULLISH';
+            data.confidence = 60 + (bullishCount * 5);
+        } else if (bearishCount > bullishCount + 2) {
+            data.structure = 'BEARISH';
+            data.confidence = 60 + (bearishCount * 5);
+        } else {
+            data.structure = 'NEUTRAL';
+            data.confidence = 40;
+        }
         
+        // Determine momentum
         const last3 = recentCandles.slice(-3);
         let upMomentum = 0, downMomentum = 0;
         for (let i = 1; i < last3.length; i++) {
@@ -564,62 +481,26 @@
             data.momentum = 'STABLE';
             data.momentumStrength = 'NONE';
         }
-    }
-
-    // ========== IMPROVED CONFIDENCE SCORING ==========
-    function calculateImprovedConfidence(id) {
-        const data = htfDataStore[id];
-        let confidence = 0;
         
-        // Faktor 1: Trend Structure (40% bobot)
-        if (data.trendStructure === 'UPTREND') confidence += 40;
-        else if (data.trendStructure === 'DOWNTREND') confidence += 40;
-        else confidence += 15;
-        
-        // Faktor 2: Momentum Strength (35% bobot)
-        if (data.momentumStrength === 'STRONG') confidence += 35;
-        else if (data.momentumStrength === 'MODERATE') confidence += 25;
-        else if (data.momentumStrength === 'WEAK') confidence += 10;
-        
-        // Faktor 3: Candle Body Dominance (25% bobot)
-        const candles = data.ohlcCandles.filter(c => c.closed).slice(-10);
-        let bullishBody = 0, bearishBody = 0;
-        candles.forEach(c => {
-            if (c.isBullish) bullishBody += c.body;
-            else bearishBody += c.body;
-        });
-        const totalBody = bullishBody + bearishBody;
-        if (totalBody > 0) {
-            const dominance = Math.abs(bullishBody - bearishBody) / totalBody;
-            confidence += dominance * 25;
-        }
-        
-        data.confidence = Math.min(100, Math.max(0, confidence));
+        data.confidence = Math.min(100, Math.max(0, data.confidence));
     }
 
     function updateHTFEngine(id, price) {
         buildOHLCCandle(id, price);
-        calculateBasicHTF(id);
-        detectPivotFractals(id);      // ← AKTIF!
-        detectTrendStructure(id);      // ← FITUR BARU!
-        calculateImprovedConfidence(id); // ← CONFIDENCE LEBIH AKURAT!
+        calculateSimpleHTF(id);
     }
 
-    // ========== ENGINE 2 VALIDATION (DITINGKATKAN) ==========
+    // ==================== ENGINE 2 VALIDATION ====================
     function isHTFConfirmingDirection(id, direction) {
         const htf = htfDataStore[id];
         if (!htf) return false;
         
-        // Confidence minimal 50 (naik dari 45)
-        if (htf.confidence < 50) return false;
+        if (htf.confidence < 40) return false;
         
         if (direction === 'buy') {
-            // Valid jika UPTREND ATAU (BULLISH structure dengan momentum positif)
-            return htf.trendStructure === 'UPTREND' || 
-                   (htf.structure === 'BULLISH' && htf.momentum === 'BULLISH');
+            return htf.structure === 'BULLISH' && (htf.momentum === 'BULLISH' || htf.momentumStrength !== 'NONE');
         } else if (direction === 'sell') {
-            return htf.trendStructure === 'DOWNTREND' || 
-                   (htf.structure === 'BEARISH' && htf.momentum === 'BEARISH');
+            return htf.structure === 'BEARISH' && (htf.momentum === 'BEARISH' || htf.momentumStrength !== 'NONE');
         }
         return false;
     }
@@ -655,13 +536,19 @@
                 if (htfConfirmed) {
                     executeLockSignal(id, direction, entryPrice);
                 } else {
-                    resetSignal(id);
+                    cancelPendingConfirmation(id);
+                    const s = state[id];
+                    s.l3 = false;
+                    s.confirmed = false;
+                    throttledSaveState(id);
+                    pendingSignalData[id] = true;
+                    throttledUpdateUI(id);
                     
                     const signalText = document.getElementById(`signal-text-${id}`);
                     if (signalText) {
                         signalText.innerText = 'HTF REJECT';
                         signalText.style.color = 'var(--danger)';
-                        setTimeout(() => updateSignalUIOnly(id), 1500);
+                        setTimeout(() => updateSignalUIOnly(id), 1000);
                     }
                 }
                 pendingConfirmation[id] = null;
@@ -703,62 +590,7 @@
         if (navigator.vibrate) navigator.vibrate(50);
     }
 
-    
-// ==================== DYNAMIC ATR THRESHOLD ENGINE ====================
-
-function calculateATR(id, period = 14) {
-    const candles = htfDataStore[id]?.ohlcCandles || [];
-
-    if (candles.length < period + 1) {
-        return id === 'xau' ? 1.2 : 18;
-    }
-
-    let trs = [];
-
-    for (let i = 1; i < candles.length; i++) {
-        const current = candles[i];
-        const prev = candles[i - 1];
-
-        const tr = Math.max(
-            current.high - current.low,
-            Math.abs(current.high - prev.close),
-            Math.abs(current.low - prev.close)
-        );
-
-        trs.push(tr);
-    }
-
-    const recentTR = trs.slice(-period);
-
-    return recentTR.reduce((sum, value) => sum + value, 0) / recentTR.length;
-}
-
-function getSmartThreshold(id) {
-    const atr = calculateATR(id);
-
-    let multiplier;
-
-    if (id === 'xau') {
-        multiplier = 0.35;
-    } else {
-        multiplier = 0.25;
-    }
-
-    let dynamicThreshold = atr * multiplier;
-
-    const minThreshold = id === 'xau' ? 0.6 : 8;
-    const maxThreshold = id === 'xau' ? 8 : 80;
-
-    dynamicThreshold = Math.max(dynamicThreshold, minThreshold);
-    dynamicThreshold = Math.min(dynamicThreshold, maxThreshold);
-
-    return dynamicThreshold;
-}
-
-// ==================== END DYNAMIC ATR ENGINE ====================
-
-
-// ==================== SIGNAL ENGINE (ENGINE 1) ====================
+    // ==================== SIGNAL ENGINE (ENGINE 1) ====================
     let paEma = { xau: 0, btc: 0 };
     let paEmaAlpha = 0.2;
 
@@ -794,7 +626,7 @@ function getSmartThreshold(id) {
 
     function processSignal(id, price) {
         const s = state[id];
-        let threshold = getSmartThreshold(id);
+        let threshold = (id === 'xau') ? 0.5 : 8;
         
         if (s.confirmed) {
             if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
@@ -805,14 +637,7 @@ function getSmartThreshold(id) {
         }
         
         if (pendingConfirmation[id]) {
-            const pConfirm = pendingConfirmation[id];
-            const priceDeviation = price - pConfirm.entryPrice;
-            
-            if ((pConfirm.direction === 'buy' && priceDeviation < -threshold) ||
-                (pConfirm.direction === 'sell' && priceDeviation > threshold)) {
-                resetSignal(id);
-                return;
-            }
+            s.lastPrice = price;
             return;
         }
         
@@ -827,21 +652,17 @@ function getSmartThreshold(id) {
                 pendingSignalData[id] = true;
                 throttledUpdateUI(id);
             } else if (!s.l2) { 
-                if (direction === s.type) {
-                    s.l2 = true;
-                    throttledSaveState(id);
-                    pendingSignalData[id] = true;
-                    throttledUpdateUI(id);
-                }
+                s.l2 = true;
+                throttledSaveState(id);
+                pendingSignalData[id] = true;
+                throttledUpdateUI(id);
             } else if (!s.l3 && !s.confirmed) { 
-                if (direction === s.type) {
-                    s.l3 = true;
-                    throttledSaveState(id);
-                    pendingSignalData[id] = true;
-                    throttledUpdateUI(id);
-                    
-                    startConfirmationDelay(id, direction, price);
-                }
+                s.l3 = true;
+                throttledSaveState(id);
+                pendingSignalData[id] = true;
+                throttledUpdateUI(id);
+                
+                startConfirmationDelay(id, direction, price);
             }
         }
         
@@ -861,20 +682,13 @@ function getSmartThreshold(id) {
     }
 
     function resetSignal(id) {
-        if (pendingConfirmation[id]) {
-            if (pendingConfirmation[id].timerId) clearTimeout(pendingConfirmation[id].timerId);
-            pendingConfirmation[id] = null;
-        }
+        cancelPendingConfirmation(id);
         
         const s = state[id];
         s.l1 = false; s.l2 = false; s.l3 = false;
         s.confirmed = false; s.type = 'none';
         s.entry = 0; s.sl = 0; s.tp = 0;
         s.trendScore = 0;
-        
-        const signalBar = document.getElementById(`signal-bar-${id}`);
-        if (signalBar) signalBar.classList.remove('confirm-wait');
-        
         throttledSaveState(id);
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
@@ -1039,7 +853,7 @@ function getSmartThreshold(id) {
                 wsStatus.btc = false;
                 const statusEl = document.getElementById('ws-status-btc');
                 if (statusEl) {
-                    statusEl.textContent = '◌ RECONNECTING...';
+                    statusEl.textContent = '○ RECONNECTING...';
                     statusEl.className = 'ws-status disconnected';
                 }
                 updateGlobalPulse();
@@ -1075,16 +889,9 @@ function getSmartThreshold(id) {
             const close = basePrice + (Math.random() - 0.5) * volatility;
             const high = Math.max(open, close) + Math.random() * volatility * 0.5;
             const low = Math.min(open, close) - Math.random() * volatility * 0.5;
-            const body = Math.abs(close - open);
-            htfDataStore[id].ohlcCandles.push({ 
-                open, high, low, close, closed: true, 
-                body: body, isBullish: close >= open 
-            });
+            htfDataStore[id].ohlcCandles.push({ open, high, low, close, closed: true });
         }
-        calculateBasicHTF(id);
-        detectPivotFractals(id);
-        detectTrendStructure(id);
-        calculateImprovedConfidence(id);
+        calculateSimpleHTF(id);
     }
 
     function init() {
@@ -1137,7 +944,7 @@ function getSmartThreshold(id) {
                     <div class="card-top">
                         <div class="pair-info">
                             <span class="pair">BTCUSD</span>
-                            <span id="ws-status-btc" class="ws-status disconnected">● RECONNECTING...</span>
+                            <span id="ws-status-btc" class="ws-status disconnected">○ RECONNECTING...</span>
                         </div>
                         <span class="price" id="price-btc">0.00</span>
                     </div>
@@ -1218,173 +1025,6 @@ function getSmartThreshold(id) {
     }
     
 })();
-
-/* ==================== V9 SMART ADAPTIVE LOCK ENGINE ==================== */
-
-const SMART_ADAPTIVE_ENGINE = {
-    regime: "NORMAL",
-    confidenceGate: 32,
-    thresholdMultiplier: 0.35,
-    confirmationRequirement: 2,
-    aggression: 1.0,
-    cooldown: 1,
-    lockTolerance: 1.0
-};
-
-const regimeStateCache = {};
-
-function detectSmartRegime(id){
-
-    const candles = (marketData?.[id]?.recentCandles || []).slice(-18);
-
-    if(candles.length < 10){
-        return SMART_ADAPTIVE_ENGINE;
-    }
-
-    let momentum = 0;
-    let rangeTotal = 0;
-    let impulseCount = 0;
-
-    for(let i=1;i<candles.length;i++){
-
-        const c = candles[i];
-        const p = candles[i-1];
-
-        const range = Math.abs(c.high - c.low);
-        const delta = c.close - p.close;
-
-        rangeTotal += range;
-        momentum += delta;
-
-        if(Math.abs(delta) > range * 0.52){
-            impulseCount++;
-        }
-    }
-
-    const atr = Math.max(calculateATR(id), 1);
-
-    const volatilityScore = rangeTotal / candles.length / atr;
-    const directionalScore = Math.abs(momentum) / atr;
-    const impulseScore = impulseCount / candles.length;
-
-    const prevRegime = regimeStateCache[id]?.regime || "NORMAL";
-
-    if(volatilityScore < 0.85){
-
-        SMART_ADAPTIVE_ENGINE.regime = "RANGING";
-        SMART_ADAPTIVE_ENGINE.thresholdMultiplier = 0.66;
-        SMART_ADAPTIVE_ENGINE.confirmationRequirement = 3;
-        SMART_ADAPTIVE_ENGINE.confidenceGate = 42;
-        SMART_ADAPTIVE_ENGINE.aggression = 0.55;
-        SMART_ADAPTIVE_ENGINE.cooldown = 3;
-        SMART_ADAPTIVE_ENGINE.lockTolerance = 0.85;
-
-    }else if(directionalScore > 5.2 && impulseScore > 0.32){
-
-        SMART_ADAPTIVE_ENGINE.regime = "BREAKOUT";
-        SMART_ADAPTIVE_ENGINE.thresholdMultiplier = 0.20;
-        SMART_ADAPTIVE_ENGINE.confirmationRequirement = 1;
-        SMART_ADAPTIVE_ENGINE.confidenceGate = 24;
-        SMART_ADAPTIVE_ENGINE.aggression = 1.95;
-        SMART_ADAPTIVE_ENGINE.cooldown = 0;
-        SMART_ADAPTIVE_ENGINE.lockTolerance = 1.45;
-
-    }else if(directionalScore > 2.6){
-
-        SMART_ADAPTIVE_ENGINE.regime = "TRENDING";
-        SMART_ADAPTIVE_ENGINE.thresholdMultiplier = 0.29;
-        SMART_ADAPTIVE_ENGINE.confirmationRequirement = 2;
-        SMART_ADAPTIVE_ENGINE.confidenceGate = 30;
-        SMART_ADAPTIVE_ENGINE.aggression = 1.35;
-        SMART_ADAPTIVE_ENGINE.cooldown = 1;
-        SMART_ADAPTIVE_ENGINE.lockTolerance = 1.15;
-
-    }else{
-
-        SMART_ADAPTIVE_ENGINE.regime = "NORMAL";
-        SMART_ADAPTIVE_ENGINE.thresholdMultiplier = 0.38;
-        SMART_ADAPTIVE_ENGINE.confirmationRequirement = 2;
-        SMART_ADAPTIVE_ENGINE.confidenceGate = 32;
-        SMART_ADAPTIVE_ENGINE.aggression = 1.0;
-        SMART_ADAPTIVE_ENGINE.cooldown = 1;
-        SMART_ADAPTIVE_ENGINE.lockTolerance = 1.0;
-    }
-
-    if(prevRegime !== SMART_ADAPTIVE_ENGINE.regime){
-        SMART_ADAPTIVE_ENGINE.cooldown = 0;
-    }
-
-    regimeStateCache[id] = {
-        regime: SMART_ADAPTIVE_ENGINE.regime,
-        timestamp: Date.now()
-    };
-
-    return SMART_ADAPTIVE_ENGINE;
-}
-
-function getSmartThreshold(id){
-
-    const atr = Math.max(calculateATR(id), 1);
-    return atr * detectSmartRegime(id).thresholdMultiplier;
-}
-
-function getSmartConfirmation(id){
-
-    return detectSmartRegime(id).confirmationRequirement;
-}
-
-function getSmartConfidenceGate(id){
-
-    return detectSmartRegime(id).confidenceGate;
-}
-
-function getSmartAggression(id){
-
-    return detectSmartRegime(id).aggression;
-}
-
-function getSmartCooldown(id){
-
-    return detectSmartRegime(id).cooldown;
-}
-
-function validateAdaptiveSignal(id, signal){
-
-    const regime = detectSmartRegime(id);
-
-    const confidence = signal.confidence || 0;
-    const stages = signal.stages || 0;
-    const htfBias = signal.htfBias || "NEUTRAL";
-
-    const softHTF =
-        htfBias === signal.direction ||
-        htfBias === "NEUTRAL";
-
-    const weightedScore =
-        (confidence * 0.55) +
-        (stages * 18) +
-        (regime.aggression * 12);
-
-    const dynamicLockThreshold =
-        regime.confidenceGate *
-        regime.lockTolerance;
-
-    const adaptiveValid =
-        weightedScore >= dynamicLockThreshold &&
-        stages >= regime.confirmationRequirement &&
-        softHTF;
-
-    return {
-        valid: adaptiveValid,
-        weightedScore,
-        dynamicLockThreshold,
-        regime: regime.regime,
-        aggression: regime.aggression
-    };
-}
-
-/* ==================== END V9 SMART ADAPTIVE LOCK ENGINE ==================== */
-
 </script>
 </body>
 </html>
