@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v6.0 - DUAL ENGINE</title>
+    <title>TERMINAL v6.0 - DUAL ENGINE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -200,7 +200,7 @@
     <header>
         <div class="brand">
             <h1>uradvisor</h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION SIGNAL v6.0</p>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">URA v6.0</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -216,7 +216,7 @@
 
     <footer>
         [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION<br>
-        [ METHOD ]: DELAYED VALIDATION BEFORE LOCK
+        [ METHOD ]: DELAYED VALIDATION BEFORE LOCK + ENTRY LEVEL RESET
     </footer>
 </div>
 
@@ -307,7 +307,8 @@
             l1: s.l1, l2: s.l2, l3: s.l3,
             confirmed: s.confirmed,
             type: s.type,
-            entry: s.entry, sl: s.sl, tp: s.tp
+            entry: s.entry, sl: s.sl, tp: s.tp,
+            entryPriceAtL1: s.entryPriceAtL1
         };
         
         if (pendingSaveTimer[id]) return;
@@ -574,10 +575,10 @@
         
         if (direction === 'buy') {
             s.sl = adjustedEntry - risk;
-            s.tp = adjustedEntry + (risk * 1.8);
+            s.tp = adjustedEntry + (risk * 1.7);
         } else {
             s.sl = adjustedEntry + risk;
-            s.tp = adjustedEntry - (risk * 1.8);
+            s.tp = adjustedEntry - (risk * 1.7);
         }
         
         throttledSaveState(id);
@@ -613,7 +614,7 @@
     }
 
     function createFreshState() {
-        return { lastPrice: 0, trendScore: 0, l1: false, l2: false, l3: false, confirmed: false, type: 'none', entry: 0, sl: 0, tp: 0 };
+        return { lastPrice: 0, trendScore: 0, l1: false, l2: false, l3: false, confirmed: false, type: 'none', entry: 0, sl: 0, tp: 0, entryPriceAtL1: 0 };
     }
 
     function loadState(id) {
@@ -626,7 +627,7 @@
 
     function processSignal(id, price) {
         const s = state[id];
-        let threshold = (id === 'xau') ? 0.5 : 8;
+        let threshold = (id === 'xau') ? 0.5 : 6;
         
         if (s.confirmed) {
             if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
@@ -643,11 +644,27 @@
         
         updatePA(id, price);
         
+        // ==================== CEK RESET SIGNAL JIKA HARGA KEMBALI KE ENTRY LEVEL ====================
+        if (s.l1 && !s.confirmed && !pendingConfirmation[id]) {
+            const entryLevel = s.entryPriceAtL1 || s.lastPrice;
+            const tolerance = id === 'xau' ? 1.0 : 15;
+            const priceDistance = Math.abs(price - entryLevel);
+            
+            // Jika harga kembali mendekati entry level (dalam toleransi)
+            if (priceDistance <= tolerance) {
+                resetSignal(id);
+                return;
+            }
+        }
+        // ==================== AKHIR CEK RESET ====================
+        
         if (!s.confirmed && s.lastPrice !== 0 && Math.abs(price - s.lastPrice) > threshold) {
             const direction = price > s.lastPrice ? 'buy' : 'sell';
             
             if (!s.l1) { 
-                s.l1 = true; s.type = direction;
+                s.l1 = true; 
+                s.type = direction;
+                s.entryPriceAtL1 = price;  // Simpan harga trigger L1
                 throttledSaveState(id);
                 pendingSignalData[id] = true;
                 throttledUpdateUI(id);
@@ -689,6 +706,7 @@
         s.confirmed = false; s.type = 'none';
         s.entry = 0; s.sl = 0; s.tp = 0;
         s.trendScore = 0;
+        s.entryPriceAtL1 = 0;  // Reset entry price
         throttledSaveState(id);
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
