@@ -236,7 +236,7 @@
 
     // ==================== KONFIGURASI ====================
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
-    const XAU_OFFSET = -3.5;
+    const XAU_OFFSET = -3.6;
     const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
     const RESET_THRESHOLD_XAU = 1.5;      // Reset jika harga bergerak 1.5 poin lalu kembali ke entry
     const RESET_THRESHOLD_BTC = 16;       // Reset jika harga bergerak 16 poin lalu kembali ke entry
@@ -387,13 +387,13 @@
                 signalText.innerText = s.type.toUpperCase();
                 signalText.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)';
             } else if (s.l3) {
-                signalText.innerText = 'FVG';
+                signalText.innerText = 'LOCKED';
                 signalText.style.color = 'var(--accent)';
             } else if (s.l2) {
-                signalText.innerText = 'CHoCH';
+                signalText.innerText = 'STAGE 2';
                 signalText.style.color = 'var(--accent)';
             } else if (s.l1) {
-                signalText.innerText = 'SWEEP';
+                signalText.innerText = 'STAGE 1';
                 signalText.style.color = 'var(--feed-lightning)';
             } else {
                 signalText.innerText = 'IDLE';
