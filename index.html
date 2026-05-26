@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>TERMINAL v7.2 - 3x KONFIRMASI</title>
+    <title>TERMINAL v6.1.0 - OPTIMIZED HTF ENGINE</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght=500;700&family=Inter:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght=500;700&family=Inter:wght=400;600;800&display=swap');
 
         :root {
             --bg: #1a1d21; 
@@ -43,7 +43,6 @@
         }
 
         .brand h1 { font-size: 1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
-        .brand h1 span { font-size: 0.6rem; background: rgba(0,255,255,0.15); padding: 2px 6px; border-radius: 10px; margin-left: 6px; }
         .sys-status { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; text-align: right; color: var(--text-dim); }
         
         .pulse { 
@@ -156,9 +155,9 @@
         }
 
         .signal-dot-group { display: flex; gap: 12px; align-items: center; }
-        .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); transition: all 0.1s; }
-        .dot.active { background: var(--success); box-shadow: 0 0 6px var(--success); transform: scale(1.1); }
-        .dot.active-down { background: var(--danger); box-shadow: 0 0 6px var(--danger); transform: scale(1.1); }
+        .dot { width: 7px; height: 7px; border-radius: 5px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: all 0.1s; }
+        .dot.active { background: var(--success); box-shadow: 0 0 4px var(--success); }
+        .dot.active-down { background: var(--danger); box-shadow: 0 0 4px var(--danger); }
         .dot.confirm-pending { background: var(--confirm-pending); animation: pulseDot 0.8s infinite; }
         @keyframes pulseDot { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
@@ -171,35 +170,12 @@
             padding: 10px;
             border-radius: 4px;
         }
-        .level-item { display: flex; flex-direction: column; cursor: pointer; transition: 0.1s; }
-        .level-item:active { background: rgba(255,255,255,0.05); }
+        .level-item { display: flex; flex-direction: column; cursor: pointer; }
         .level-item:nth-child(1) { align-items: flex-start; text-align: left; }
         .level-item:nth-child(2) { align-items: center; text-align: center; }
         .level-item:nth-child(3) { align-items: flex-end; text-align: right; }
         .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
         .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
-
-        /* Regime Indicator */
-        .regime-indicator {
-            margin-top: 8px;
-            padding: 4px 8px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 4px;
-            font-size: 0.55rem;
-            font-family: 'JetBrains Mono', monospace;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .regime-badge {
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-weight: 700;
-        }
-        .regime-badge.ranging { background: rgba(114, 137, 218, 0.3); color: #7289da; }
-        .regime-badge.trending { background: rgba(0, 255, 170, 0.2); color: #00FFAA; }
-        .regime-badge.breakout { background: rgba(240, 185, 11, 0.3); color: #f0b90b; }
-        .regime-badge.normal { background: rgba(255,255,255,0.1); color: var(--text-dim); }
 
         .htf-status { display: none; }
         footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; opacity: 0.6; }
@@ -210,8 +186,8 @@
 <div class="container">
     <header>
         <div class="brand">
-            <h1>uradvisor <span>v7.2</span></h1>
-            <p style="font-size: 0.5rem; color: var(--text-dim)">3x KONFIRMASI ENGINE</p>
+            <h1>uradvisor</h1>
+            <p style="font-size: 0.5rem; color: var(--text-dim)">PRECISION SIGNAL v6.1.0</p>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="sys-status">
@@ -226,8 +202,8 @@
     <div id="terminals"></div>
 
     <footer>
-        [ ENGINE CORE ]: 3x KONFIRMASI + ADAPTIVE REGIME + SMART SIGNAL<br>
-        [ METHOD ]: RANGING(3x) | TRENDING(3x) | BREAKOUT(3x) | NORMAL(3x)
+        [ ENGINE CORE ]: SWEEP + CHoCH + FVG + OPTIMIZED HTF CONFIRMATION<br>
+        [ METHOD ]: PIVOT FRACTAL + TREND STRUCTURE + CONFIDENCE SCORING
     </footer>
 </div>
 
@@ -238,7 +214,7 @@
     // ==================== OPTIMASI ANTI-LAG ====================
     let pendingSaveData = { xau: null, btc: null };
     let pendingSaveTimer = { xau: null, btc: null };
-    const SAVE_INTERVAL = 3000;
+    const SAVE_INTERVAL = 1000;
     let rafPending = { xau: false, btc: false };
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
@@ -257,9 +233,6 @@
     
     // ==================== PENDING CONFIRMATION STATE ====================
     let pendingConfirmation = { xau: null, btc: null };
-    
-    // ==================== REGIME STATE (ADAPTIVE) ====================
-    let currentRegime = { xau: 'NORMAL', btc: 'NORMAL' };
     
     // ==================== TRIPLE TAP RESET ====================
     let tapCounters = { xau: 0, btc: 0 };
@@ -364,23 +337,13 @@
         }
     }
     
-    function updateRegimeDisplay(id) {
-        const regime = currentRegime[id] || 'NORMAL';
-        const regimeEl = document.getElementById(`regime-${id}`);
-        if (regimeEl) {
-            let regimeClass = 'normal';
-            if (regime === 'RANGING') regimeClass = 'ranging';
-            else if (regime === 'TRENDING') regimeClass = 'trending';
-            else if (regime === 'BREAKOUT') regimeClass = 'breakout';
-            else regimeClass = 'normal';
-            
-            regimeEl.innerHTML = `<span>MARKET REGIME:</span><span class="regime-badge ${regimeClass}">${regime}</span>`;
-        }
-    }
-    
     function updateSignalUIOnly(id) {
         const s = state[id];
         if (!s) return;
+
+    const thresholdDebug = getSmartThreshold(id).toFixed(2);
+    console.log(`[${id.toUpperCase()}] Dynamic Threshold:`, thresholdDebug);
+
         
         const l1Dot = document.getElementById(`l1-${id}`);
         if (l1Dot) l1Dot.className = s.l1 ? (s.type === 'sell' ? "dot active-down" : "dot active") : "dot";
@@ -432,318 +395,231 @@
         
         const slEl = document.getElementById(`sl-${id}`);
         if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
-        
-        updateRegimeDisplay(id);
     }
 
-    // ==================== SMART HTF ENGINE V7 ====================
-    const HTF_CANDLE_DURATION = 15000;
-
-    function createHTFState() {
-        return {
-            candles: [],
-            currentCandle: null,
-            swings: [],
-            structure: 'NEUTRAL',
-            trend: 'SIDEWAYS',
-            confidence: 0,
-            momentum: 0,
-            lastSwingHigh: null,
-            lastSwingLow: null,
-            atr: 1.5
-        };
-    }
-
+    // ==================== OPTIMIZED HTF ENGINE (ENGINE 2) ====================
     let htfDataStore = {
-        xau: createHTFState(),
-        btc: createHTFState()
+        xau: { 
+            ohlcCandles: [], 
+            structure: 'NEUTRAL', 
+            momentum: 'STABLE', 
+            momentumStrength: 'NONE', 
+            confidence: 0,
+            pivotHighs: [],
+            pivotLows: [],
+            swings: [],
+            trendStructure: 'SIDEWAYS'
+        },
+        btc: { 
+            ohlcCandles: [], 
+            structure: 'NEUTRAL', 
+            momentum: 'STABLE', 
+            momentumStrength: 'NONE', 
+            confidence: 0,
+            pivotHighs: [],
+            pivotLows: [],
+            swings: [],
+            trendStructure: 'SIDEWAYS'
+        }
     };
+    
+    let htfTickCounter = { xau: 0, btc: 0 };
+    let htfCurrentCandle = { xau: null, btc: null };
+    const HTF_TICK_PER_CANDLE = 8;
+    const HTF_PIVOT_LOOKBACK = 2;
 
-    function buildTimeCandle(id, price) {
-        const htf = htfDataStore[id];
-        const now = Date.now();
-
-        if (!htf.currentCandle) {
-            htf.currentCandle = {
-                open: price,
-                high: price,
-                low: price,
-                close: price,
-                start: now,
-                closed: false
-            };
-            return;
-        }
-
-        if (now - htf.currentCandle.start >= HTF_CANDLE_DURATION) {
-            htf.currentCandle.closed = true;
-            htf.candles.push(htf.currentCandle);
-
-            if (htf.candles.length > 120) {
-                htf.candles.shift();
+    function buildOHLCCandle(id, price) {
+        htfTickCounter[id]++;
+        
+        if (!htfCurrentCandle[id] || htfTickCounter[id] >= HTF_TICK_PER_CANDLE) {
+            if (htfCurrentCandle[id]) {
+                htfCurrentCandle[id].closed = true;
+                htfDataStore[id].ohlcCandles.push(htfCurrentCandle[id]);
+                if (htfDataStore[id].ohlcCandles.length > 50) htfDataStore[id].ohlcCandles.shift();
             }
-
-            htf.currentCandle = {
-                open: price,
-                high: price,
-                low: price,
-                close: price,
-                start: now,
-                closed: false
+            htfTickCounter[id] = 0;
+            htfCurrentCandle[id] = { 
+                open: price, high: price, low: price, close: price, 
+                closed: false, body: 0, isBullish: true 
             };
         } else {
-            htf.currentCandle.high = Math.max(htf.currentCandle.high, price);
-            htf.currentCandle.low = Math.min(htf.currentCandle.low, price);
-            htf.currentCandle.close = price;
+            htfCurrentCandle[id].high = Math.max(htfCurrentCandle[id].high, price);
+            htfCurrentCandle[id].low = Math.min(htfCurrentCandle[id].low, price);
+            htfCurrentCandle[id].close = price;
+            htfCurrentCandle[id].body = Math.abs(htfCurrentCandle[id].close - htfCurrentCandle[id].open);
+            htfCurrentCandle[id].isBullish = htfCurrentCandle[id].close >= htfCurrentCandle[id].open;
         }
     }
 
-    function calculateATR(id, period = 14) {
-        const candles = htfDataStore[id].candles;
+    // ========== PIVOT FRACTAL DETECTION (Diaktifkan) ==========
+    function detectPivotFractals(id) {
+        const data = htfDataStore[id];
+        const candles = data.ohlcCandles.filter(c => c.closed);
+        if (candles.length < HTF_PIVOT_LOOKBACK * 2 + 1) return;
 
-        if (candles.length < period + 1) {
-            return id === 'xau' ? 1.5 : 30;
-        }
+        data.pivotHighs = [];
+        data.pivotLows = [];
 
-        let trSum = 0;
-
-        for (let i = candles.length - period; i < candles.length; i++) {
+        for (let i = HTF_PIVOT_LOOKBACK; i < candles.length - HTF_PIVOT_LOOKBACK; i++) {
             const current = candles[i];
-            const prev = candles[i - 1];
+            let isPivotHigh = true;
+            let isPivotLow = true;
 
-            const tr = Math.max(
-                current.high - current.low,
-                Math.abs(current.high - prev.close),
-                Math.abs(current.low - prev.close)
-            );
+            for (let j = 1; j <= HTF_PIVOT_LOOKBACK; j++) {
+                if (candles[i - j].high >= current.high) isPivotHigh = false;
+                if (candles[i + j].high >= current.high) isPivotHigh = false;
+                if (candles[i - j].low <= current.low) isPivotLow = false;
+                if (candles[i + j].low <= current.low) isPivotLow = false;
+            }
 
-            trSum += tr;
+            if (isPivotHigh) data.pivotHighs.push({ index: i, price: current.high });
+            if (isPivotLow) data.pivotLows.push({ index: i, price: current.low });
         }
 
-        const atr = trSum / period;
-        htfDataStore[id].atr = atr;
-        return atr;
+        // Build swings dari pivot points
+        const allPivots = [
+            ...data.pivotHighs.map(p => ({ ...p, type: 'H' })),
+            ...data.pivotLows.map(p => ({ ...p, type: 'L' }))
+        ];
+        allPivots.sort((a, b) => a.index - b.index);
+        
+        data.swings = [];
+        let lastType = null;
+        allPivots.forEach(pivot => {
+            if (pivot.type !== lastType) {
+                data.swings.push({ val: pivot.price, type: pivot.type, index: pivot.index });
+                lastType = pivot.type;
+            }
+        });
     }
 
-    // ==================== ADAPTIVE REGIME DETECTION (3x KONFIRMASI) ====================
-    function detectAdaptiveRegime(id) {
-        const candles = htfDataStore[id].candles;
+    // ========== TREND STRUCTURE DETECTION (Fitur Baru) ==========
+    function detectTrendStructure(id) {
+        const data = htfDataStore[id];
+        const swings = data.swings;
         
-        if (candles.length < 15) {
-            currentRegime[id] = 'NORMAL';
-            return { regime: 'NORMAL', multiplier: 0.24, confirmationReq: 3, aggression: 1.10, sensitivity: 1.05, confidenceBoost: 1.0, cooldown: 1 };
+        if (swings.length < 4) {
+            data.trendStructure = 'SIDEWAYS';
+            return;
         }
         
-        const recent = candles.slice(-18);
-        let totalRange = 0;
-        let momentum = 0;
-        let impulseCount = 0;
+        const recentSwings = swings.slice(-6);
+        const highs = recentSwings.filter(s => s.type === 'H').map(s => s.val);
+        const lows = recentSwings.filter(s => s.type === 'L').map(s => s.val);
         
-        for (let i = 1; i < recent.length; i++) {
-            const c = recent[i];
-            const p = recent[i-1];
-            const range = c.high - c.low;
-            const delta = c.close - p.close;
-            totalRange += range;
-            momentum += delta;
-            if (Math.abs(delta) > range * 0.55) {
-                impulseCount++;
+        if (highs.length >= 2 && lows.length >= 2) {
+            const last2Highs = highs.slice(-2);
+            const last2Lows = lows.slice(-2);
+            
+            const isHH = last2Highs[1] > last2Highs[0];
+            const isHL = last2Lows[1] > last2Lows[0];
+            const isLH = last2Highs[1] < last2Highs[0];
+            const isLL = last2Lows[1] < last2Lows[0];
+            
+            if (isHH && isHL) {
+                data.trendStructure = 'UPTREND';
+                data.structure = 'BULLISH';
+            } else if (isLH && isLL) {
+                data.trendStructure = 'DOWNTREND';
+                data.structure = 'BEARISH';
+            } else {
+                data.trendStructure = 'SIDEWAYS';
             }
         }
+    }
+
+    // ========== BASIC STRUCTURE & MOMENTUM ==========
+    function calculateBasicHTF(id) {
+        const data = htfDataStore[id];
+        const candles = data.ohlcCandles.filter(c => c.closed);
+        if (candles.length < 10) return;
         
-        const atr = Math.max(calculateATR(id), 0.5);
-        const volatilityScore = totalRange / recent.length / atr;
-        const directionalScore = Math.abs(momentum) / atr;
-        const impulseScore = impulseCount / recent.length;
+        const recentCandles = candles.slice(-10);
+        let bullishCount = 0, bearishCount = 0;
         
-        let regime = 'NORMAL';
-        let multiplier = 0.24;
-        let confirmationReq = 3;
-        let aggression = 1.10;
-        let sensitivity = 1.05;
-        let confidenceBoost = 1.0;
-        let cooldown = 1;
+        for (let i = 0; i < recentCandles.length; i++) {
+            const c = recentCandles[i];
+            if (c.isBullish) bullishCount++;
+            else bearishCount++;
+        }
         
-        if (volatilityScore < 0.85) {
-            regime = 'RANGING';
-            multiplier = 0.35;
-            confirmationReq = 3;
-            aggression = 0.90;
-            sensitivity = 0.95;
-            confidenceBoost = 1.05;
-            cooldown = 2;
-        } else if (directionalScore > 5.5 && impulseScore > 0.35) {
-            regime = 'BREAKOUT';
-            multiplier = 0.15;
-            confirmationReq = 3;
-            aggression = 2.00;
-            sensitivity = 1.85;
-            confidenceBoost = 0.80;
-            cooldown = 0;
-        } else if (directionalScore > 2.8) {
-            regime = 'TRENDING';
-            multiplier = 0.18;
-            confirmationReq = 3;
-            aggression = 1.55;
-            sensitivity = 1.45;
-            confidenceBoost = 0.88;
-            cooldown = 0;
+        if (bullishCount > bearishCount + 2) data.structure = 'BULLISH';
+        else if (bearishCount > bullishCount + 2) data.structure = 'BEARISH';
+        else data.structure = 'NEUTRAL';
+        
+        const last3 = recentCandles.slice(-3);
+        let upMomentum = 0, downMomentum = 0;
+        for (let i = 1; i < last3.length; i++) {
+            if (last3[i].close > last3[i-1].close) upMomentum++;
+            else if (last3[i].close < last3[i-1].close) downMomentum++;
+        }
+        
+        if (upMomentum >= 2) {
+            data.momentum = 'BULLISH';
+            data.momentumStrength = upMomentum === 2 ? 'MODERATE' : 'STRONG';
+        } else if (downMomentum >= 2) {
+            data.momentum = 'BEARISH';
+            data.momentumStrength = downMomentum === 2 ? 'MODERATE' : 'STRONG';
         } else {
-            regime = 'NORMAL';
-            multiplier = 0.24;
-            confirmationReq = 3;
-            aggression = 1.10;
-            sensitivity = 1.05;
-            confidenceBoost = 1.0;
-            cooldown = 1;
+            data.momentum = 'STABLE';
+            data.momentumStrength = 'NONE';
         }
+    }
+
+    // ========== IMPROVED CONFIDENCE SCORING ==========
+    function calculateImprovedConfidence(id) {
+        const data = htfDataStore[id];
+        let confidence = 0;
         
-        currentRegime[id] = regime;
+        // Faktor 1: Trend Structure (40% bobot)
+        if (data.trendStructure === 'UPTREND') confidence += 40;
+        else if (data.trendStructure === 'DOWNTREND') confidence += 40;
+        else confidence += 15;
         
-        return { regime, multiplier, confirmationReq, aggression, sensitivity, confidenceBoost, cooldown };
-    }
-    
-    function getAdaptiveThreshold(id) {
-        const atr = calculateATR(id);
-        const regime = detectAdaptiveRegime(id);
-        let threshold = atr * regime.multiplier;
+        // Faktor 2: Momentum Strength (35% bobot)
+        if (data.momentumStrength === 'STRONG') confidence += 35;
+        else if (data.momentumStrength === 'MODERATE') confidence += 25;
+        else if (data.momentumStrength === 'WEAK') confidence += 10;
         
-        const minThreshold = id === 'xau' ? 0.20 : 5;
-        const maxThreshold = id === 'xau' ? 10 : 200;
-        
-        return Math.max(minThreshold, Math.min(maxThreshold, threshold));
-    }
-    
-    function getAdaptiveConfirmationReq(id) {
-        return detectAdaptiveRegime(id).confirmationReq;
-    }
-    
-    function getAdaptiveConfidenceBoost(id) {
-        return detectAdaptiveRegime(id).confidenceBoost;
-    }
-    
-    function getAdaptiveAggression(id) {
-        return detectAdaptiveRegime(id).aggression;
-    }
-    
-    function getAdaptiveCooldown(id) {
-        return detectAdaptiveRegime(id).cooldown;
-    }
-
-    function detectSmartSwings(id) {
-        const htf = htfDataStore[id];
-        const candles = htf.candles;
-
-        if (candles.length < 5) return;
-
-        const atr = calculateATR(id);
-        const threshold = atr * 1.2;
-
-        const recent = candles[candles.length - 2];
-        if (!recent) return;
-
-        if (!htf.lastSwingHigh || recent.high > htf.lastSwingHigh.price + threshold) {
-            htf.lastSwingHigh = { price: recent.high, time: Date.now() };
-            htf.swings.push({ type: 'H', value: recent.high });
-        }
-
-        if (!htf.lastSwingLow || recent.low < htf.lastSwingLow.price - threshold) {
-            htf.lastSwingLow = { price: recent.low, time: Date.now() };
-            htf.swings.push({ type: 'L', value: recent.low });
-        }
-
-        if (htf.swings.length > 20) {
-            htf.swings.shift();
-        }
-    }
-
-    function detectTrend(id) {
-        const htf = htfDataStore[id];
-
-        if (htf.swings.length < 4) {
-            htf.trend = 'SIDEWAYS';
-            return;
-        }
-
-        const highs = htf.swings.filter(s => s.type === 'H');
-        const lows = htf.swings.filter(s => s.type === 'L');
-
-        if (highs.length < 2 || lows.length < 2) return;
-
-        const h1 = highs[highs.length - 2]?.value;
-        const h2 = highs[highs.length - 1]?.value;
-        const l1 = lows[lows.length - 2]?.value;
-        const l2 = lows[lows.length - 1]?.value;
-
-        if (h2 > h1 && l2 > l1) {
-            htf.trend = 'UPTREND';
-            htf.structure = 'BULLISH';
-        } else if (h2 < h1 && l2 < l1) {
-            htf.trend = 'DOWNTREND';
-            htf.structure = 'BEARISH';
-        } else {
-            htf.trend = 'SIDEWAYS';
-            htf.structure = 'NEUTRAL';
-        }
-    }
-
-    function calculateNormalizedConfidence(id) {
-        const htf = htfDataStore[id];
-        const atr = calculateATR(id);
-        const regimeBoost = getAdaptiveConfidenceBoost(id);
-
-        if (htf.candles.length < 10) {
-            htf.confidence = 0;
-            return;
-        }
-
-        const recent = htf.candles.slice(-10);
-        let directionalMove = 0;
-
-        recent.forEach(c => {
-            directionalMove += Math.abs(c.close - c.open);
+        // Faktor 3: Candle Body Dominance (25% bobot)
+        const candles = data.ohlcCandles.filter(c => c.closed).slice(-10);
+        let bullishBody = 0, bearishBody = 0;
+        candles.forEach(c => {
+            if (c.isBullish) bullishBody += c.body;
+            else bearishBody += c.body;
         });
-
-        const normalizedMove = directionalMove / (atr * recent.length);
-        let confidence = normalizedMove * 18;
-
-        if (htf.trend === 'UPTREND' || htf.trend === 'DOWNTREND') {
-            confidence += 30;
-        }
-
-        const closes = recent.map(c => c.close);
-        const momentum = closes[closes.length - 1] - closes[0];
-        
-        if (Math.abs(momentum) > atr * 2) {
-            confidence += 25;
+        const totalBody = bullishBody + bearishBody;
+        if (totalBody > 0) {
+            const dominance = Math.abs(bullishBody - bearishBody) / totalBody;
+            confidence += dominance * 25;
         }
         
-        confidence = confidence / regimeBoost;
-
-        htf.confidence = Math.max(0, Math.min(100, confidence));
+        data.confidence = Math.min(100, Math.max(0, confidence));
     }
 
     function updateHTFEngine(id, price) {
-        buildTimeCandle(id, price);
-        detectSmartSwings(id);
-        detectTrend(id);
-        calculateNormalizedConfidence(id);
+        buildOHLCCandle(id, price);
+        calculateBasicHTF(id);
+        detectPivotFractals(id);      // ← AKTIF!
+        detectTrendStructure(id);      // ← FITUR BARU!
+        calculateImprovedConfidence(id); // ← CONFIDENCE LEBIH AKURAT!
     }
 
+    // ========== ENGINE 2 VALIDATION (DITINGKATKAN) ==========
     function isHTFConfirmingDirection(id, direction) {
         const htf = htfDataStore[id];
-        const regime = currentRegime[id];
-        const regimeConfidenceThreshold = (regime === 'RANGING') ? 35 : 45;
-
-        if (!htf || htf.confidence < regimeConfidenceThreshold) {
-            return false;
-        }
-
+        if (!htf) return false;
+        
+        // Confidence minimal 50 (naik dari 45)
+        if (htf.confidence < 50) return false;
+        
         if (direction === 'buy') {
-            return htf.trend === 'UPTREND';
-        }
-        if (direction === 'sell') {
-            return htf.trend === 'DOWNTREND';
+            // Valid jika UPTREND ATAU (BULLISH structure dengan momentum positif)
+            return htf.trendStructure === 'UPTREND' || 
+                   (htf.structure === 'BULLISH' && htf.momentum === 'BULLISH');
+        } else if (direction === 'sell') {
+            return htf.trendStructure === 'DOWNTREND' || 
+                   (htf.structure === 'BEARISH' && htf.momentum === 'BEARISH');
         }
         return false;
     }
@@ -752,15 +628,11 @@
     function startConfirmationDelay(id, direction, entryPrice) {
         if (pendingConfirmation[id]) cancelPendingConfirmation(id);
         
-        const adaptiveReq = getAdaptiveConfirmationReq(id);
-        const cycles = Math.min(adaptiveReq, 3);
-        
         pendingConfirmation[id] = {
             direction: direction,
             entryPrice: entryPrice,
             cycleCounter: 0,
-            timerId: null,
-            requiredCycles: cycles
+            timerId: null
         };
         
         const signalBar = document.getElementById(`signal-bar-${id}`);
@@ -777,14 +649,14 @@
             pendingConfirmation[id].cycleCounter++;
             updateSignalUIOnly(id);
             
-            const required = pendingConfirmation[id].requiredCycles;
-            if (pendingConfirmation[id].cycleCounter >= required) {
+            if (pendingConfirmation[id].cycleCounter >= CONFIRMATION_DELAY_CYCLES) {
                 const htfConfirmed = isHTFConfirmingDirection(id, direction);
                 
                 if (htfConfirmed) {
                     executeLockSignal(id, direction, entryPrice);
                 } else {
                     resetSignal(id);
+                    
                     const signalText = document.getElementById(`signal-text-${id}`);
                     if (signalText) {
                         signalText.innerText = 'HTF REJECT';
@@ -803,141 +675,180 @@
     
     function executeLockSignal(id, direction, entryPrice) {
         const s = state[id];
-        const atr = calculateATR(id);
-        const aggression = getAdaptiveAggression(id);
+        const offset = direction === 'buy' ? -1 : +1;
+        const adjustedEntry = entryPrice + offset;
         
         s.l3 = true;
         s.confirmed = true;
         s.type = direction;
+        s.entry = adjustedEntry;
         
-        const offset = (id === 'xau') ? 0.5 : 5;
-        s.entry = direction === 'buy' ? entryPrice - offset : entryPrice + offset;
+        const risk = id === 'xau' ? 7 : entryPrice * 0.0030;
         
-        const slDistance = atr * 1.3 * (1 / aggression);
-        const tpDistance = atr * 2.4 * aggression;
-
         if (direction === 'buy') {
-            s.sl = s.entry - slDistance;
-            s.tp = s.entry + tpDistance;
+            s.sl = adjustedEntry - risk;
+            s.tp = adjustedEntry + (risk * 1.4);
         } else {
-            s.sl = s.entry + slDistance;
-            s.tp = s.entry - tpDistance;
+            s.sl = adjustedEntry + risk;
+            s.tp = adjustedEntry - (risk * 1.4);
         }
-
+        
         throttledSaveState(id);
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
-
+        
         const signalBar = document.getElementById(`signal-bar-${id}`);
         if (signalBar) signalBar.classList.remove('confirm-wait');
-
+        
         if (navigator.vibrate) navigator.vibrate(50);
     }
 
-    // ==================== SMART SIGNAL ENGINE ====================
+    
+// ==================== DYNAMIC ATR THRESHOLD ENGINE ====================
+
+function calculateATR(id, period = 14) {
+    const candles = htfDataStore[id]?.ohlcCandles || [];
+
+    if (candles.length < period + 1) {
+        return id === 'xau' ? 1.2 : 18;
+    }
+
+    let trs = [];
+
+    for (let i = 1; i < candles.length; i++) {
+        const current = candles[i];
+        const prev = candles[i - 1];
+
+        const tr = Math.max(
+            current.high - current.low,
+            Math.abs(current.high - prev.close),
+            Math.abs(current.low - prev.close)
+        );
+
+        trs.push(tr);
+    }
+
+    const recentTR = trs.slice(-period);
+
+    return recentTR.reduce((sum, value) => sum + value, 0) / recentTR.length;
+}
+
+function getSmartThreshold(id) {
+    const atr = calculateATR(id);
+
+    let multiplier;
+
+    if (id === 'xau') {
+        multiplier = 0.35;
+    } else {
+        multiplier = 0.25;
+    }
+
+    let dynamicThreshold = atr * multiplier;
+
+    const minThreshold = id === 'xau' ? 0.8 : 8;
+    const maxThreshold = id === 'xau' ? 8 : 120;
+
+    dynamicThreshold = Math.max(dynamicThreshold, minThreshold);
+    dynamicThreshold = Math.min(dynamicThreshold, maxThreshold);
+
+    return dynamicThreshold;
+}
+
+// ==================== END DYNAMIC ATR ENGINE ====================
+
+
+// ==================== SIGNAL ENGINE (ENGINE 1) ====================
     let paEma = { xau: 0, btc: 0 };
     let paEmaAlpha = 0.2;
-    let signalCooldown = { xau: 0, btc: 0 };
 
     function updatePA(id, price) {
         const s = state[id];
-
         if (paEma[id] === 0) {
             paEma[id] = price;
         } else {
             paEma[id] = (price * paEmaAlpha) + (paEma[id] * (1 - paEmaAlpha));
         }
-
-        const emaDiff = paEma[id] - price;
-        s.trendScore += emaDiff * 0.15;
-
-        const clamp = id === 'xau' ? 12 : 1200;
-        s.trendScore = Math.max(-clamp, Math.min(clamp, s.trendScore));
+        
+        if (s.lastPrice !== 0) {
+            const emaDiff = paEma[id] - s.lastPrice;
+            s.trendScore += emaDiff * 0.5;
+        }
+        
+        const maxTrend = id === 'xau' ? 5 : 500;
+        if (s.trendScore > maxTrend) s.trendScore = maxTrend;
+        if (s.trendScore < -maxTrend) s.trendScore = -maxTrend;
     }
 
     function createFreshState() {
-        return {
-            lastPrice: 0,
-            trendScore: 0,
-            l1: false,
-            l2: false,
-            l3: false,
-            confirmed: false,
-            type: 'none',
-            entry: 0,
-            sl: 0,
-            tp: 0
-        };
+        return { lastPrice: 0, trendScore: 0, l1: false, l2: false, l3: false, confirmed: false, type: 'none', entry: 0, sl: 0, tp: 0 };
     }
 
     function loadState(id) {
         const saved = localStorage.getItem(`ura_state_${id}`);
         if (saved) {
-            try { return JSON.parse(saved); }
-            catch(e) { return createFreshState(); }
+            try { return JSON.parse(saved); } catch(e) { return createFreshState(); }
         }
         return createFreshState();
     }
 
     function processSignal(id, price) {
         const s = state[id];
+        let threshold = getSmartThreshold(id);
         
-        if (signalCooldown[id] > 0) {
-            signalCooldown[id]--;
-            s.lastPrice = price;
+        if (s.confirmed) {
+            if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
+                (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
+                resetSignal(id);
+            }
+            return;
+        }
+        
+        if (pendingConfirmation[id]) {
+            const pConfirm = pendingConfirmation[id];
+            const priceDeviation = price - pConfirm.entryPrice;
+            
+            if ((pConfirm.direction === 'buy' && priceDeviation < -threshold) ||
+                (pConfirm.direction === 'sell' && priceDeviation > threshold)) {
+                resetSignal(id);
+                return;
+            }
             return;
         }
         
         updatePA(id, price);
         
-        const threshold = getAdaptiveThreshold(id);
-        const cooldownVal = getAdaptiveCooldown(id);
-
-        if (s.confirmed) {
-            if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
-                (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
-                resetSignal(id);
-                signalCooldown[id] = cooldownVal;
+        if (!s.confirmed && s.lastPrice !== 0 && Math.abs(price - s.lastPrice) > threshold) {
+            const direction = price > s.lastPrice ? 'buy' : 'sell';
+            
+            if (!s.l1) { 
+                s.l1 = true; s.type = direction;
+                throttledSaveState(id);
+                pendingSignalData[id] = true;
+                throttledUpdateUI(id);
+            } else if (!s.l2) { 
+                if (direction === s.type) {
+                    s.l2 = true;
+                    throttledSaveState(id);
+                    pendingSignalData[id] = true;
+                    throttledUpdateUI(id);
+                }
+            } else if (!s.l3 && !s.confirmed) { 
+                if (direction === s.type) {
+                    s.l3 = true;
+                    throttledSaveState(id);
+                    pendingSignalData[id] = true;
+                    throttledUpdateUI(id);
+                    
+                    startConfirmationDelay(id, direction, price);
+                }
             }
-            s.lastPrice = price;
-            return;
         }
-
-        if (s.lastPrice === 0) {
-            s.lastPrice = price;
-            return;
-        }
-
-        const impulse = price - s.lastPrice;
-        const emaBias = paEma[id] - s.lastPrice;
-        const trendBias = Math.sign(s.trendScore || 0);
-        const direction = impulse > 0 ? 'buy' : 'sell';
         
-        const validImpulse = Math.abs(impulse) > threshold;
-        const emaAligned = (direction === 'buy' && emaBias > 0) || (direction === 'sell' && emaBias < 0);
-        const trendAligned = (direction === 'buy' && trendBias >= 0) || (direction === 'sell' && trendBias <= 0);
-
-        if (!validImpulse || !emaAligned || !trendAligned) {
-            s.lastPrice = price;
-            return;
-        }
-
-        if (!s.l1) {
-            s.l1 = true;
-            s.type = direction;
-        } else if (!s.l2 && direction === s.type) {
-            s.l2 = true;
-        } else if (!s.l3 && direction === s.type) {
-            s.l3 = true;
-            startConfirmationDelay(id, direction, price);
-        }
-
         s.lastPrice = price;
         throttledSaveState(id);
-        pendingSignalData[id] = true;
-        throttledUpdateUI(id);
     }
-
+    
     function updateSignal(id, price) {
         if (signalDebounceTimer[id]) {
             clearTimeout(signalDebounceTimer[id]);
@@ -1156,35 +1067,32 @@
         }
     }
 
-    // ==================== CREATE REGIME INDICATORS ====================
-    function createRegimeIndicator(id) {
-        const card = document.getElementById(`card-${id}`);
-        if (!card) return;
-        const existing = document.getElementById(`regime-${id}`);
-        if (existing) return;
-        
-        const regimeDiv = document.createElement('div');
-        regimeDiv.id = `regime-${id}`;
-        regimeDiv.className = 'regime-indicator';
-        regimeDiv.innerHTML = `<span>MARKET REGIME:</span><span class="regime-badge normal">NORMAL</span>`;
-        const cardBody = card.querySelector('.card');
-        if (cardBody) cardBody.appendChild(regimeDiv);
+    // ==================== INITIALIZATION ====================
+    function seedHTFData(id, basePrice) {
+        const volatility = id === 'xau' ? 0.3 : 30;
+        for (let i = 0; i < 15; i++) {
+            const open = basePrice + (Math.random() - 0.5) * volatility;
+            const close = basePrice + (Math.random() - 0.5) * volatility;
+            const high = Math.max(open, close) + Math.random() * volatility * 0.5;
+            const low = Math.min(open, close) - Math.random() * volatility * 0.5;
+            const body = Math.abs(close - open);
+            htfDataStore[id].ohlcCandles.push({ 
+                open, high, low, close, closed: true, 
+                body: body, isBullish: close >= open 
+            });
+        }
+        calculateBasicHTF(id);
+        detectPivotFractals(id);
+        detectTrendStructure(id);
+        calculateImprovedConfidence(id);
     }
 
-    // ==================== INITIALIZATION ====================
     function init() {
         state.xau = loadState('xau');
         state.btc = loadState('btc');
         
-        // Seed initial candles
-        for (let i = 0; i < 20; i++) {
-            const priceXau = 2620 + (Math.random() - 0.5) * 2;
-            const priceBtc = 60000 + (Math.random() - 0.5) * 100;
-            buildTimeCandle('xau', priceXau);
-            buildTimeCandle('btc', priceBtc);
-        }
-        calculateATR('xau');
-        calculateATR('btc');
+        seedHTFData('xau', 2620);
+        seedHTFData('btc', 60000);
         
         const container = document.getElementById('terminals');
         container.innerHTML = '';
@@ -1260,9 +1168,6 @@
             </div>
         `;
         
-        createRegimeIndicator('xau');
-        createRegimeIndicator('btc');
-        
         const xauBar = document.getElementById('signal-bar-xau');
         const btcBar = document.getElementById('signal-bar-btc');
         if (xauBar) xauBar.addEventListener('click', () => handleSignalBarTap('xau'));
@@ -1296,18 +1201,6 @@
             }
             updateGlobalPulse();
         }, 10000);
-        
-        // Update regime periodically
-        setInterval(() => {
-            if (htfDataStore.xau.candles.length > 0) {
-                detectAdaptiveRegime('xau');
-                updateRegimeDisplay('xau');
-            }
-            if (htfDataStore.btc.candles.length > 0) {
-                detectAdaptiveRegime('btc');
-                updateRegimeDisplay('btc');
-            }
-        }, 30000);
     }
     
     window.copyValue = (id, type) => {
@@ -1325,6 +1218,173 @@
     }
     
 })();
+
+/* ==================== V9 SMART ADAPTIVE LOCK ENGINE ==================== */
+
+const SMART_ADAPTIVE_ENGINE = {
+    regime: "NORMAL",
+    confidenceGate: 32,
+    thresholdMultiplier: 0.35,
+    confirmationRequirement: 2,
+    aggression: 1.0,
+    cooldown: 1,
+    lockTolerance: 1.0
+};
+
+const regimeStateCache = {};
+
+function detectSmartRegime(id){
+
+    const candles = (marketData?.[id]?.recentCandles || []).slice(-18);
+
+    if(candles.length < 10){
+        return SMART_ADAPTIVE_ENGINE;
+    }
+
+    let momentum = 0;
+    let rangeTotal = 0;
+    let impulseCount = 0;
+
+    for(let i=1;i<candles.length;i++){
+
+        const c = candles[i];
+        const p = candles[i-1];
+
+        const range = Math.abs(c.high - c.low);
+        const delta = c.close - p.close;
+
+        rangeTotal += range;
+        momentum += delta;
+
+        if(Math.abs(delta) > range * 0.52){
+            impulseCount++;
+        }
+    }
+
+    const atr = Math.max(calculateATR(id), 1);
+
+    const volatilityScore = rangeTotal / candles.length / atr;
+    const directionalScore = Math.abs(momentum) / atr;
+    const impulseScore = impulseCount / candles.length;
+
+    const prevRegime = regimeStateCache[id]?.regime || "NORMAL";
+
+    if(volatilityScore < 0.85){
+
+        SMART_ADAPTIVE_ENGINE.regime = "RANGING";
+        SMART_ADAPTIVE_ENGINE.thresholdMultiplier = 0.66;
+        SMART_ADAPTIVE_ENGINE.confirmationRequirement = 3;
+        SMART_ADAPTIVE_ENGINE.confidenceGate = 42;
+        SMART_ADAPTIVE_ENGINE.aggression = 0.55;
+        SMART_ADAPTIVE_ENGINE.cooldown = 3;
+        SMART_ADAPTIVE_ENGINE.lockTolerance = 0.85;
+
+    }else if(directionalScore > 5.2 && impulseScore > 0.32){
+
+        SMART_ADAPTIVE_ENGINE.regime = "BREAKOUT";
+        SMART_ADAPTIVE_ENGINE.thresholdMultiplier = 0.20;
+        SMART_ADAPTIVE_ENGINE.confirmationRequirement = 1;
+        SMART_ADAPTIVE_ENGINE.confidenceGate = 24;
+        SMART_ADAPTIVE_ENGINE.aggression = 1.95;
+        SMART_ADAPTIVE_ENGINE.cooldown = 0;
+        SMART_ADAPTIVE_ENGINE.lockTolerance = 1.45;
+
+    }else if(directionalScore > 2.6){
+
+        SMART_ADAPTIVE_ENGINE.regime = "TRENDING";
+        SMART_ADAPTIVE_ENGINE.thresholdMultiplier = 0.29;
+        SMART_ADAPTIVE_ENGINE.confirmationRequirement = 2;
+        SMART_ADAPTIVE_ENGINE.confidenceGate = 30;
+        SMART_ADAPTIVE_ENGINE.aggression = 1.35;
+        SMART_ADAPTIVE_ENGINE.cooldown = 1;
+        SMART_ADAPTIVE_ENGINE.lockTolerance = 1.15;
+
+    }else{
+
+        SMART_ADAPTIVE_ENGINE.regime = "NORMAL";
+        SMART_ADAPTIVE_ENGINE.thresholdMultiplier = 0.38;
+        SMART_ADAPTIVE_ENGINE.confirmationRequirement = 2;
+        SMART_ADAPTIVE_ENGINE.confidenceGate = 32;
+        SMART_ADAPTIVE_ENGINE.aggression = 1.0;
+        SMART_ADAPTIVE_ENGINE.cooldown = 1;
+        SMART_ADAPTIVE_ENGINE.lockTolerance = 1.0;
+    }
+
+    if(prevRegime !== SMART_ADAPTIVE_ENGINE.regime){
+        SMART_ADAPTIVE_ENGINE.cooldown = 0;
+    }
+
+    regimeStateCache[id] = {
+        regime: SMART_ADAPTIVE_ENGINE.regime,
+        timestamp: Date.now()
+    };
+
+    return SMART_ADAPTIVE_ENGINE;
+}
+
+function getSmartThreshold(id){
+
+    const atr = Math.max(calculateATR(id), 1);
+    return atr * detectSmartRegime(id).thresholdMultiplier;
+}
+
+function getSmartConfirmation(id){
+
+    return detectSmartRegime(id).confirmationRequirement;
+}
+
+function getSmartConfidenceGate(id){
+
+    return detectSmartRegime(id).confidenceGate;
+}
+
+function getSmartAggression(id){
+
+    return detectSmartRegime(id).aggression;
+}
+
+function getSmartCooldown(id){
+
+    return detectSmartRegime(id).cooldown;
+}
+
+function validateAdaptiveSignal(id, signal){
+
+    const regime = detectSmartRegime(id);
+
+    const confidence = signal.confidence || 0;
+    const stages = signal.stages || 0;
+    const htfBias = signal.htfBias || "NEUTRAL";
+
+    const softHTF =
+        htfBias === signal.direction ||
+        htfBias === "NEUTRAL";
+
+    const weightedScore =
+        (confidence * 0.55) +
+        (stages * 18) +
+        (regime.aggression * 12);
+
+    const dynamicLockThreshold =
+        regime.confidenceGate *
+        regime.lockTolerance;
+
+    const adaptiveValid =
+        weightedScore >= dynamicLockThreshold &&
+        stages >= regime.confirmationRequirement &&
+        softHTF;
+
+    return {
+        valid: adaptiveValid,
+        weightedScore,
+        dynamicLockThreshold,
+        regime: regime.regime,
+        aggression: regime.aggression
+    };
+}
+
+/* ==================== END V9 SMART ADAPTIVE LOCK ENGINE ==================== */
+
 </script>
 </body>
 </html>
