@@ -1,2 +1,2 @@
 # finalpro
-URA v6.0 — PRECISION ENTRY SIGNAL
+URA v6.0 — TERMINAL 
