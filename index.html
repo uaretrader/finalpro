@@ -525,83 +525,83 @@
         return atr;
     }
 
-    // ==================== ADAPTIVE REGIME DETECTION (FIXED) ====================
-    function detectAdaptiveRegime(id) {
-        const candles = htfDataStore[id].candles;
-        
-        if (candles.length < 15) {
-            currentRegime[id] = 'NORMAL';
-            return { regime: 'NORMAL', multiplier: 0.38, confirmationReq: 2, aggression: 1.0, sensitivity: 1.0, confidenceBoost: 1.0, cooldown: 1 };
-        }
-        
-        const recent = candles.slice(-18);
-        let totalRange = 0;
-        let momentum = 0;
-        let impulseCount = 0;
-        
-        for (let i = 1; i < recent.length; i++) {
-            const c = recent[i];
-            const p = recent[i-1];
-            const range = c.high - c.low;
-            const delta = c.close - p.close;
-            totalRange += range;
-            momentum += delta;
-            if (Math.abs(delta) > range * 0.55) {
-                impulseCount++;
-            }
-        }
-        
-        const atr = Math.max(calculateATR(id), 0.5);
-        const volatilityScore = totalRange / recent.length / atr;
-        const directionalScore = Math.abs(momentum) / atr;
-        const impulseScore = impulseCount / recent.length;
-        
-        let regime = 'NORMAL';
-        let multiplier = 0.28;
-        let confirmationReq = 2;
-        let aggression = 1.0;
-        let sensitivity = 1.0;
-        let confidenceBoost = 1.0;
-        let cooldown = 1;
-        
-        if (volatilityScore < 0.85) {
-            regime = 'RANGING';
-            multiplier = 0.55;
-            confirmationReq = 3;
-            aggression = 0.55;
-            sensitivity = 0.65;
-            confidenceBoost = 1.25;
-            cooldown = 3;
-        } else if (directionalScore > 5.5 && impulseScore > 0.35) {
-            regime = 'BREAKOUT';
-            multiplier = 0.20;
-            confirmationReq = 1;
-            aggression = 1.95;
-            sensitivity = 1.75;
-            confidenceBoost = 0.82;
-            cooldown = 0;
-        } else if (directionalScore > 2.8) {
-            regime = 'TRENDING';
-            multiplier = 0.24;
-            confirmationReq = 2;
-            aggression = 1.35;
-            sensitivity = 1.28;
-            confidenceBoost = 0.92;
-            cooldown = 1;
-        } else {
-            regime = 'NORMAL';
-            multiplier = 0.28;
-            confirmationReq = 2;
-            aggression = 1.0;
-            sensitivity = 1.0;
-            confidenceBoost = 1.0;
-            cooldown = 1;
-        }
-        
-        currentRegime[id] = regime;
-        
-        return { regime, multiplier, confirmationReq, aggression, sensitivity, confidenceBoost, cooldown };
+// ==================== ADAPTIVE REGIME DETECTION (MODERATE SETUP) ====================
+function detectAdaptiveRegime(id) {
+    const candles = htfDataStore[id].candles;
+    
+    if (candles.length < 15) {
+        currentRegime[id] = 'NORMAL';
+        return { regime: 'NORMAL', multiplier: 0.32, confirmationReq: 2, aggression: 1.0, sensitivity: 1.0, confidenceBoost: 1.0, cooldown: 1 };
     }
+    
+    const recent = candles.slice(-18);
+    let totalRange = 0;
+    let momentum = 0;
+    let impulseCount = 0;
+    
+    for (let i = 1; i < recent.length; i++) {
+        const c = recent[i];
+        const p = recent[i-1];
+        const range = c.high - c.low;
+        const delta = c.close - p.close;
+        totalRange += range;
+        momentum += delta;
+        if (Math.abs(delta) > range * 0.55) {
+            impulseCount++;
+        }
+    }
+    
+    const atr = Math.max(calculateATR(id), 0.5);
+    const volatilityScore = totalRange / recent.length / atr;
+    const directionalScore = Math.abs(momentum) / atr;
+    const impulseScore = impulseCount / recent.length;
+    
+    let regime = 'NORMAL';
+    let multiplier = 0.32;
+    let confirmationReq = 2;
+    let aggression = 1.0;
+    let sensitivity = 1.0;
+    let confidenceBoost = 1.0;
+    let cooldown = 1;
+    
+    if (volatilityScore < 0.85) {
+        regime = 'RANGING';
+        multiplier = 0.48;
+        confirmationReq = 3;
+        aggression = 0.70;
+        sensitivity = 0.75;
+        confidenceBoost = 1.15;
+        cooldown = 2;
+    } else if (directionalScore > 5.5 && impulseScore > 0.35) {
+        regime = 'BREAKOUT';
+        multiplier = 0.22;
+        confirmationReq = 1;
+        aggression = 1.65;
+        sensitivity = 1.50;
+        confidenceBoost = 0.88;
+        cooldown = 0;
+    } else if (directionalScore > 2.8) {
+        regime = 'TRENDING';
+        multiplier = 0.26;
+        confirmationReq = 2;
+        aggression = 1.20;
+        sensitivity = 1.15;
+        confidenceBoost = 0.96;
+        cooldown = 1;
+    } else {
+        regime = 'NORMAL';
+        multiplier = 0.32;
+        confirmationReq = 2;
+        aggression = 1.0;
+        sensitivity = 1.0;
+        confidenceBoost = 1.0;
+        cooldown = 1;
+    }
+    
+    currentRegime[id] = regime;
+    
+    return { regime, multiplier, confirmationReq, aggression, sensitivity, confidenceBoost, cooldown };
+}
     
     function getAdaptiveThreshold(id) {
         const atr = calculateATR(id);
