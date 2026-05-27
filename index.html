@@ -192,6 +192,35 @@
         }
 
         footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; opacity: 0.6; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .stats-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .stats-label {
+            font-size: 0.55rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .stats-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
     </style>
 </head>
 <body>
@@ -235,12 +264,26 @@
     const SIGNAL_DEBOUNCE_MS = 50;
 
     // ==================== KONFIGURASI ====================
+    // ==================== ADVANCED ENGINE CONFIG ====================
+    const ATR_PERIOD = 14;
+    const EMA_PERIOD = 21;
+    const VOLUME_LOOKBACK = 12;
+    const VOLATILITY_MULTIPLIER = 1.35;
+    const HTF_EMA_PERIOD = 50;
+
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
     const XAU_OFFSET = -3;
     const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
-    const RESET_THRESHOLD_XAU = 1.5;      // Reset jika harga bergerak 1.5 poin lalu kembali ke entry
-    const RESET_THRESHOLD_BTC = 18;       // Reset jika harga bergerak 18 poin lalu kembali ke entry
+    const RESET_THRESHOLD_XAU = 2;      // Reset jika harga bergerak 2 poin lalu kembali ke entry
+    const RESET_THRESHOLD_BTC = 20;       // Reset jika harga bergerak 20 poin lalu kembali ke entry
     
+    
+    // ==================== ADVANCED MARKET DATA ====================
+    let marketData = {
+        xau: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0 },
+        btc: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0 }
+    };
+
     // ==================== STATE MANAGEMENT ====================
     let state = { xau: null, btc: null };
     let wsStatus = { xau: true, btc: false };
@@ -252,6 +295,8 @@
     // ==================== TRIPLE TAP RESET ====================
     let tapCounters = { xau: 0, btc: 0 };
     let tapTimers = { xau: null, btc: null };
+    let historyTapCounters = { xau: 0, btc: 0 };
+    let historyTapTimers = { xau: null, btc: null };
     const TAP_TIMEOUT = 500;
 
     function handleSignalBarTap(id) {
@@ -278,6 +323,36 @@
             if (navigator.vibrate) navigator.vibrate(30);
         }
     }
+
+    function handleHistoryPanelTap(id) {
+        if (historyTapTimers[id]) {
+            clearTimeout(historyTapTimers[id]);
+            historyTapTimers[id] = null;
+        }
+
+        historyTapCounters[id]++;
+
+        historyTapTimers[id] = setTimeout(() => {
+            historyTapCounters[id] = 0;
+            historyTapTimers[id] = null;
+        }, TAP_TIMEOUT);
+
+        if (historyTapCounters[id] === 3) {
+            performanceStats[id] = createDefaultStats();
+            savePerformanceStats(id);
+            updatePerformanceUI(id);
+
+            historyTapCounters[id] = 0;
+
+            if (historyTapTimers[id]) {
+                clearTimeout(historyTapTimers[id]);
+                historyTapTimers[id] = null;
+            }
+
+            if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+        }
+    }
+
 
     function cancelPendingConfirmation(id) {
         if (pendingConfirmation[id]) {
@@ -411,6 +486,79 @@
         if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
     }
 
+    
+    // ==================== PERFORMANCE TRACKER ====================
+    let performanceStats = {
+        xau: loadPerformanceStats('xau'),
+        btc: loadPerformanceStats('btc')
+    };
+
+    function createDefaultStats() {
+        return {
+            tpHits: 0,
+            losses: 0,
+            total: 0,
+            winrate: 0.0
+        };
+    }
+
+    function loadPerformanceStats(id) {
+        try {
+            const saved = localStorage.getItem(`ura_stats_${id}`);
+            if (!saved) return createDefaultStats();
+
+            const parsed = JSON.parse(saved);
+
+            return {
+                tpHits: parsed.tpHits || 0,
+                losses: parsed.losses || 0,
+                total: parsed.total || 0,
+                winrate: parsed.winrate || 0
+            };
+        } catch(e) {
+            return createDefaultStats();
+        }
+    }
+
+    function savePerformanceStats(id) {
+        localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id]));
+    }
+
+    function updateWinrate(id) {
+        const stats = performanceStats[id];
+        stats.total = stats.tpHits + stats.losses;
+        stats.winrate = stats.total > 0
+            ? ((stats.tpHits / stats.total) * 100).toFixed(1)
+            : 0.0;
+    }
+
+    function recordSignalResult(id, resultType) {
+        const stats = performanceStats[id];
+
+        if (resultType === 'tp') {
+            stats.tpHits++;
+        } else if (resultType === 'loss') {
+            stats.losses++;
+        }
+
+        updateWinrate(id);
+        savePerformanceStats(id);
+        updatePerformanceUI(id);
+    }
+
+    function updatePerformanceUI(id) {
+        const stats = performanceStats[id];
+
+        const tpEl = document.getElementById(`stats-tp-${id}`);
+        const lossEl = document.getElementById(`stats-loss-${id}`);
+        const winrateEl = document.getElementById(`stats-winrate-${id}`);
+
+        if (tpEl) tpEl.innerText = stats.tpHits;
+        if (lossEl) lossEl.innerText = stats.losses;
+        if (winrateEl) winrateEl.innerText = `${stats.winrate}%`;
+    }
+
+
     // ==================== HTF ENGINE (ENGINE 2) ====================
     let htfDataStore = {
         xau: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 },
@@ -502,9 +650,9 @@
         if (htf.confidence < 40) return false;
         
         if (direction === 'buy') {
-            return htf.structure === 'BULLISH' && (htf.momentum === 'BULLISH' || htf.momentumStrength !== 'NONE');
+            return htf.structure === 'BULLISH' && (htf.momentum === 'BULLISH' || htf.momentumStrength !== 'NONE') && marketData[id].ema > 0;
         } else if (direction === 'sell') {
-            return htf.structure === 'BEARISH' && (htf.momentum === 'BEARISH' || htf.momentumStrength !== 'NONE');
+            return htf.structure === 'BEARISH' && (htf.momentum === 'BEARISH' || htf.momentumStrength !== 'NONE') && marketData[id].ema > 0;
         }
         return false;
     }
@@ -594,6 +742,160 @@
         if (navigator.vibrate) navigator.vibrate(50);
     }
 
+    
+    // ==================== ADVANCED INSTITUTIONAL ENGINE ====================
+    function buildRealCandle(id, price) {
+        const md = marketData[id];
+        const now = Date.now();
+
+        if (!md.currentCandle) {
+            md.currentCandle = {
+                open: price,
+                high: price,
+                low: price,
+                close: price,
+                volume: 1,
+                timestamp: now
+            };
+            return;
+        }
+
+        md.currentCandle.high = Math.max(md.currentCandle.high, price);
+        md.currentCandle.low = Math.min(md.currentCandle.low, price);
+        md.currentCandle.close = price;
+        md.currentCandle.volume++;
+
+        if (now - md.currentCandle.timestamp >= 5000) {
+            md.candles.push({...md.currentCandle});
+
+            if (md.candles.length > 120) {
+                md.candles.shift();
+            }
+
+            md.currentCandle = {
+                open: price,
+                high: price,
+                low: price,
+                close: price,
+                volume: 1,
+                timestamp: now
+            };
+
+            calculateAdvancedMetrics(id);
+        }
+    }
+
+    function calculateAdvancedMetrics(id) {
+        const md = marketData[id];
+        const candles = md.candles;
+
+        if (candles.length < ATR_PERIOD + 5) return;
+
+        // ATR Dynamic
+        let trValues = [];
+
+        for (let i = 1; i < candles.length; i++) {
+            const high = candles[i].high;
+            const low = candles[i].low;
+            const prevClose = candles[i - 1].close;
+
+            const tr = Math.max(
+                high - low,
+                Math.abs(high - prevClose),
+                Math.abs(low - prevClose)
+            );
+
+            trValues.push(tr);
+        }
+
+        md.atr = trValues.slice(-ATR_PERIOD).reduce((a,b)=>a+b,0) / ATR_PERIOD;
+
+        // Real EMA Candle
+        const closes = candles.map(c => c.close);
+        let ema = closes[0];
+
+        const alpha = 2 / (EMA_PERIOD + 1);
+
+        for (let i = 1; i < closes.length; i++) {
+            ema = (closes[i] * alpha) + (ema * (1 - alpha));
+        }
+
+        md.ema = ema;
+
+        // Volume impulse tracking
+        md.volume = candles.slice(-VOLUME_LOOKBACK).map(c => c.volume);
+
+        // Structure tracking
+        const recent = candles.slice(-10);
+
+        md.structureHigh = Math.max(...recent.map(c => c.high));
+        md.structureLow = Math.min(...recent.map(c => c.low));
+    }
+
+    function getAdaptiveThreshold(id) {
+        const md = marketData[id];
+
+        if (!md.atr || md.atr <= 0) {
+            return id === 'xau' ? 0.5 : 8;
+        }
+
+        return md.atr * VOLATILITY_MULTIPLIER;
+    }
+
+    function detectLiquiditySweep(id, price) {
+        const md = marketData[id];
+
+        if (!md.structureHigh || !md.structureLow) return null;
+
+        if (price > md.structureHigh) {
+            return 'buy';
+        }
+
+        if (price < md.structureLow) {
+            return 'sell';
+        }
+
+        return null;
+    }
+
+    function detectBOSCHOCH(id, direction) {
+        const md = marketData[id];
+        const candles = md.candles;
+
+        if (candles.length < 6) return false;
+
+        const last = candles[candles.length - 1];
+        const prev = candles[candles.length - 2];
+
+        if (direction === 'buy') {
+            return last.close > prev.high;
+        }
+
+        return last.close < prev.low;
+    }
+
+    function isVolumeImpulse(id) {
+        const md = marketData[id];
+
+        if (!md.volume || md.volume.length < 5) return false;
+
+        const current = md.volume[md.volume.length - 1];
+        const avg = md.volume.reduce((a,b)=>a+b,0) / md.volume.length;
+
+        return current > (avg * 1.3);
+    }
+
+    function isCandleClosedConfirmed(id) {
+        const md = marketData[id];
+
+        if (!md.candles || md.candles.length < 2) return false;
+
+        const last = md.candles[md.candles.length - 1];
+
+        return Math.abs(last.close - last.open) > (md.atr * 0.2);
+    }
+
+
     // ==================== SIGNAL ENGINE (ENGINE 1) ====================
     let paEma = { xau: 0, btc: 0 };
     let paEmaAlpha = 0.2;
@@ -646,10 +948,24 @@
         const resetThreshold = (id === 'xau') ? RESET_THRESHOLD_XAU : RESET_THRESHOLD_BTC;
         
         if (s.confirmed) {
-            if ((s.type === 'buy' && (price >= s.tp || price <= s.sl)) ||
-                (s.type === 'sell' && (price <= s.tp || price >= s.sl))) {
+            const hitTP = (
+                (s.type === 'buy' && price >= s.tp) ||
+                (s.type === 'sell' && price <= s.tp)
+            );
+
+            const hitSL = (
+                (s.type === 'buy' && price <= s.sl) ||
+                (s.type === 'sell' && price >= s.sl)
+            );
+
+            if (hitTP) {
+                recordSignalResult(id, 'tp');
+                resetSignal(id);
+            } else if (hitSL) {
+                recordSignalResult(id, 'loss');
                 resetSignal(id);
             }
+
             return;
         }
         
@@ -705,7 +1021,17 @@
         }
         // ========== END LOGIKA BARU ==========
         
-        let threshold = (id === 'xau') ? 0.5 : 8;
+        let threshold = getAdaptiveThreshold(id);
+
+        buildRealCandle(id, price);
+
+        const md = marketData[id];
+        const liquidityDirection = detectLiquiditySweep(id, price);
+        const bosConfirmed = detectBOSCHOCH(id, liquidityDirection || s.type);
+        const volumeImpulse = isVolumeImpulse(id);
+        const candleConfirmed = isCandleClosedConfirmed(id);
+        const emaTrendBullish = md.ema > 0 ? price > md.ema : true;
+        const emaTrendBearish = md.ema > 0 ? price < md.ema : true;
         
         if (!s.confirmed && s.lastPrice !== 0 && Math.abs(price - s.lastPrice) > threshold) {
             const direction = price > s.lastPrice ? 'buy' : 'sell';
@@ -1006,6 +1332,22 @@
                             <span class="level-value" id="sl-xau" style="color:var(--danger)">--</span>
                         </div>
                     </div>
+
+                    <div class="stats-grid" id="history-panel-xau">
+                        <div class="stats-item">
+                            <span class="stats-label">TP HIT</span>
+                            <span class="stats-value" id="stats-tp-xau" style="color:var(--success)">0</span>
+                        </div>
+                        <div class="stats-item">
+                            <span class="stats-label">LOSS</span>
+                            <span class="stats-value" id="stats-loss-xau" style="color:var(--danger)">0</span>
+                        </div>
+                        <div class="stats-item">
+                            <span class="stats-label">WINRATE</span>
+                            <span class="stats-value" id="stats-winrate-xau" style="color:var(--accent)">0%</span>
+                        </div>
+                    </div>
+
                 </div>
             </div>
             <div class="pair-card ${activePairId === 'btc' ? 'active' : ''}" id="card-btc">
@@ -1040,17 +1382,41 @@
                             <span class="level-value" id="sl-btc" style="color:var(--danger)">--</span>
                         </div>
                     </div>
+
+                    <div class="stats-grid" id="history-panel-btc">
+                        <div class="stats-item">
+                            <span class="stats-label">TP HIT</span>
+                            <span class="stats-value" id="stats-tp-btc" style="color:var(--success)">0</span>
+                        </div>
+                        <div class="stats-item">
+                            <span class="stats-label">LOSS</span>
+                            <span class="stats-value" id="stats-loss-btc" style="color:var(--danger)">0</span>
+                        </div>
+                        <div class="stats-item">
+                            <span class="stats-label">WINRATE</span>
+                            <span class="stats-value" id="stats-winrate-btc" style="color:var(--accent)">0%</span>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         `;
         
         const xauBar = document.getElementById('signal-bar-xau');
         const btcBar = document.getElementById('signal-bar-btc');
+        const xauHistoryPanel = document.getElementById('history-panel-xau');
+        const btcHistoryPanel = document.getElementById('history-panel-btc');
+
         if (xauBar) xauBar.addEventListener('click', () => handleSignalBarTap('xau'));
         if (btcBar) btcBar.addEventListener('click', () => handleSignalBarTap('btc'));
+
+        if (xauHistoryPanel) xauHistoryPanel.addEventListener('click', () => handleHistoryPanelTap('xau'));
+        if (btcHistoryPanel) btcHistoryPanel.addEventListener('click', () => handleHistoryPanelTap('btc'));
         
         updateSignalUIOnly('xau');
         updateSignalUIOnly('btc');
+        updatePerformanceUI('xau');
+        updatePerformanceUI('btc');
         
         initXAUWebSocket();
         xauFetchRestPrice();
