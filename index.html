@@ -925,7 +925,8 @@
             confirmed: false, type: 'none', 
             entry: 0, sl: 0, tp: 0,
             tempHigh: 0,      // Untuk melacak harga tertinggi sementara
-            tempLow: 0        // Untuk melacak harga terendah sementara
+            tempLow: 0,       // Untuk melacak harga terendah sementara
+            originPrice: 0    // Harga origin saat signal pertama terbentuk
         };
     }
 
@@ -937,6 +938,7 @@
                 // Pastikan properti baru ada
                 if (parsed.tempHigh === undefined) parsed.tempHigh = 0;
                 if (parsed.tempLow === undefined) parsed.tempLow = 0;
+                if (parsed.originPrice === undefined) parsed.originPrice = 0;
                 return parsed;
             } catch(e) { return createFreshState(); }
         }
@@ -999,16 +1001,24 @@
                 hasMovedEnough = (s.tempHigh - s.tempLow) >= resetThreshold;
             }
             
-            // Jika sudah bergerak cukup, cek apakah harga kembali mendekati level awal (entry/referensi)
+            // Jika market sudah bergerak cukup jauh
             if (hasMovedEnough) {
-                const referencePrice = s.lastPrice || price;
-                const isBackToEntry = Math.abs(price - referencePrice) <= (resetThreshold * 0.3);
-                
+
+                // Gunakan origin price tetap
+                const referencePrice = s.originPrice;
+
+                // Harga kembali dekat area origin signal
+                const isBackToEntry =
+                    Math.abs(price - referencePrice)
+                    <= (resetThreshold * 0.3);
+
                 if (isBackToEntry) {
-                    // Reset signal karena harga kembali ke entry setelah bergerak jauh
+
+                    console.log(
+                        `[${id.toUpperCase()}] Reset signal: retrace back to origin after expansion`
+                    );
+
                     resetSignal(id);
-                    // Tampilkan pesan di console (opsional)
-                    console.log(`[${id.toUpperCase()}] Signal reset: Price returned to entry after moving ${resetThreshold} points`);
                     return;
                 }
             }
@@ -1037,8 +1047,13 @@
             const direction = price > s.lastPrice ? 'buy' : 'sell';
             
             if (!s.l1) { 
-                s.l1 = true; s.type = direction;
-                // Reset tracking saat L1 aktif pertama kali
+                s.l1 = true;
+                s.type = direction;
+
+                // Simpan harga origin signal
+                s.originPrice = price;
+
+                // Tracking movement dimulai dari origin
                 s.tempHigh = price;
                 s.tempLow = price;
                 throttledSaveState(id);
@@ -1084,6 +1099,7 @@
         s.trendScore = 0;
         s.tempHigh = 0;
         s.tempLow = 0;
+        s.originPrice = 0;
         throttledSaveState(id);
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
