@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>TERMINAL v6.0 - DUAL ENGINE</title>
+    <title>PRECISION TERMINAL v6.0 - DUAL ENGINE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -261,7 +261,7 @@
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
     let signalDebounceTimer = { xau: null, btc: null };
-    const SIGNAL_DEBOUNCE_MS = 20;
+    const SIGNAL_DEBOUNCE_MS = 50;
 
     // ==================== KONFIGURASI ====================
     // ==================== ADVANCED ENGINE CONFIG ====================
@@ -274,7 +274,7 @@
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
     const XAU_OFFSET = -3;
     const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
-    const RESET_THRESHOLD_XAU = 5.5;      // Reset jika harga bergerak 5.5 poin lalu kembali ke entry
+    const RESET_THRESHOLD_XAU = 5;      // Reset jika harga bergerak 5 poin lalu kembali ke entry
     const RESET_THRESHOLD_BTC = 30;       // Reset jika harga bergerak 30 poin lalu kembali ke entry
     
     
@@ -359,9 +359,7 @@
             if (pendingConfirmation[id].timerId) {
                 clearTimeout(pendingConfirmation[id].timerId);
             }
-            if (pendingConfirmation[id]) {
-                    pendingConfirmation[id] = null;
-                }
+            pendingConfirmation[id] = null;
             
             const signalBar = document.getElementById(`signal-bar-${id}`);
             if (signalBar) signalBar.classList.remove('confirm-wait');
@@ -688,41 +686,30 @@
                 const htfConfirmed = isHTFConfirmingDirection(id, direction);
                 
                 if (htfConfirmed) {
-
-    executeLockSignal(id, direction, entryPrice);
-
-} else {
-
-    resetSignal(id);
-
-    const signalText = document.getElementById(`signal-text-${id}`);
-
-    if (signalText) {
-
-        signalText.innerText = 'HTF REJECT';
-        signalText.style.color = 'var(--danger)';
-
-        setTimeout(() => {
-            updateSignalUIOnly(id);
-        }, 1000);
-    }
-}
-
-if (pendingConfirmation[id]) {
-                    pendingConfirmation[id] = null;
+                    executeLockSignal(id, direction, entryPrice);
+                } else {
+                    cancelPendingConfirmation(id);
+                    const s = state[id];
+                    s.l3 = false;
+                    s.confirmed = false;
+                    throttledSaveState(id);
+                    pendingSignalData[id] = true;
+                    throttledUpdateUI(id);
+                    
+                    const signalText = document.getElementById(`signal-text-${id}`);
+                    if (signalText) {
+                        signalText.innerText = 'HTF REJECT';
+                        signalText.style.color = 'var(--danger)';
+                        setTimeout(() => updateSignalUIOnly(id), 1000);
+                    }
                 }
+                pendingConfirmation[id] = null;
             } else {
-                pendingConfirmation[id].timerId = setTimeout(() => {
-                if (!pendingConfirmation[id]) return;
-                checkConfirmationCycle();
-            }, 4000);
+                pendingConfirmation[id].timerId = setTimeout(checkConfirmationCycle, 4000);
             }
         }
         
-        pendingConfirmation[id].timerId = setTimeout(() => {
-                if (!pendingConfirmation[id]) return;
-                checkConfirmationCycle();
-            }, 4000);
+        pendingConfirmation[id].timerId = setTimeout(checkConfirmationCycle, 4000);
     }
     
     function executeLockSignal(id, direction, entryPrice) {
@@ -732,7 +719,6 @@ if (pendingConfirmation[id]) {
         
         s.l3 = true;
         s.confirmed = true;
-        s.confirmedAt = Date.now();
         s.type = direction;
         s.entry = adjustedEntry;
 
@@ -941,9 +927,7 @@ if (pendingConfirmation[id]) {
         return { 
             lastPrice: 0, trendScore: 0, 
             l1: false, l2: false, l3: false, 
-            confirmed: false,
-            confirmedAt: 0,
-            resetInProgress: false, type: 'none', 
+            confirmed: false, type: 'none', 
             entry: 0, sl: 0, tp: 0,
             tempHigh: 0,      // Untuk melacak harga tertinggi sementara
             tempLow: 0,       // Untuk melacak harga terendah sementara
@@ -983,26 +967,18 @@ if (pendingConfirmation[id]) {
                 if (price > s.tempHigh) s.tempHigh = price;
                 if (price < s.tempLow) s.tempLow = price;
 
-                
-                const referencePrice = s.entry || s.originPrice;
-
-                // Directional expansion validation
-                let expansionDistance = 0;
-
-                if (s.type === 'buy') {
-                    expansionDistance = s.tempHigh - referencePrice;
-                } else if (s.type === 'sell') {
-                    expansionDistance = referencePrice - s.tempLow;
-                }
+                const expansionDistance = Math.abs(s.tempHigh - s.tempLow);
 
                 const hasExpandedEnough = expansionDistance >= resetThreshold;
 
                 if (hasExpandedEnough) {
 
-                    // Tolerance diperlebar agar retrace normal tidak dianggap invalid
+                    const referencePrice = s.entry || s.originPrice;
+
                     const retraceTolerance =
-                        Math.max(resetThreshold * 0.45, getAdaptiveThreshold(id) * 0.9);
-const isBackToEntry =
+                        Math.max(resetThreshold * 0.35, getAdaptiveThreshold(id) * 0.8);
+
+                    const isBackToEntry =
                         Math.abs(price - referencePrice) <= retraceTolerance;
 
                     if (isBackToEntry) {
@@ -1059,19 +1035,16 @@ const isBackToEntry =
             if (price < s.tempLow) s.tempLow = price;
             
             // Cek apakah harga sudah bergerak minimal resetThreshold dari posisi awal
-            
             let hasMovedEnough = false;
-
-            // Directional movement validation
             if (s.type === 'buy') {
-                hasMovedEnough =
-                    (s.tempHigh - s.originPrice) >= resetThreshold;
-
+                // Untuk BUY: harga harus naik minimal resetThreshold dari level terendah
+                hasMovedEnough = (s.tempHigh - s.tempLow) >= resetThreshold;
             } else if (s.type === 'sell') {
-                hasMovedEnough =
-                    (s.originPrice - s.tempLow) >= resetThreshold;
+                // Untuk SELL: harga harus turun minimal resetThreshold dari level tertinggi
+                hasMovedEnough = (s.tempHigh - s.tempLow) >= resetThreshold;
             }
-// Jika market sudah bergerak cukup jauh
+            
+            // Jika market sudah bergerak cukup jauh
             if (hasMovedEnough) {
 
                 // Gunakan origin price tetap
@@ -1079,7 +1052,7 @@ const isBackToEntry =
 
                 // Harga kembali dekat area origin signal
                 const adaptiveTolerance =
-                    Math.max(resetThreshold * 0.45, getAdaptiveThreshold(id) * 0.9);
+                    Math.max(resetThreshold * 0.35, getAdaptiveThreshold(id) * 0.8);
 
                 const isBackToEntry =
                     Math.abs(price - referencePrice)
@@ -1166,33 +1139,16 @@ const isBackToEntry =
     }
 
     function resetSignal(id) {
-
-        const s = state[id];
-
-        // Anti double-reset execution
-        if (s.resetInProgress) return;
-
-        s.resetInProgress = true;
-
         cancelPendingConfirmation(id);
-
-        // Bersihkan debounce signal agar tidak ghost re-entry
-        if (signalDebounceTimer[id]) {
-            clearTimeout(signalDebounceTimer[id]);
-            signalDebounceTimer[id] = null;
-        }
+        
+        const s = state[id];
         s.l1 = false; s.l2 = false; s.l3 = false;
         s.confirmed = false; s.type = 'none';
-        s.resetInProgress = false;
         s.entry = 0; s.sl = 0; s.tp = 0;
         s.trendScore = 0;
         s.tempHigh = 0;
         s.tempLow = 0;
         s.originPrice = 0;
-        s.confirmedAt = 0;
-
-        // Penting: reset lastPrice untuk mencegah ghost signal
-        s.lastPrice = 0;
 
         // Bersihkan pending state tambahan
         pendingSignalData[id] = null;
@@ -1200,10 +1156,6 @@ const isBackToEntry =
         throttledSaveState(id);
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
-
-        requestAnimationFrame(() => {
-            s.resetInProgress = false;
-        });
     }
 
     // ==================== XAU PRICE ENGINE ====================
