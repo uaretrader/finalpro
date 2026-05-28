@@ -844,7 +844,7 @@ pendingConfirmation[id] = null;
         const md = marketData[id];
 
         if (!md.atr || md.atr <= 0) {
-            return id === 'xau' ? 0.8 : 10;
+            return id === 'xau' ? 0.7 : 15;
         }
 
         return md.atr * VOLATILITY_MULTIPLIER;
