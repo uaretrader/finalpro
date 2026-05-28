@@ -359,7 +359,9 @@
             if (pendingConfirmation[id].timerId) {
                 clearTimeout(pendingConfirmation[id].timerId);
             }
-            pendingConfirmation[id] = null;
+            if (pendingConfirmation[id]) {
+                    pendingConfirmation[id] = null;
+                }
             
             const signalBar = document.getElementById(`signal-bar-${id}`);
             if (signalBar) signalBar.classList.remove('confirm-wait');
@@ -706,7 +708,9 @@
     }
 }
 
-pendingConfirmation[id] = null;
+if (pendingConfirmation[id]) {
+                    pendingConfirmation[id] = null;
+                }
             } else {
                 pendingConfirmation[id].timerId = setTimeout(checkConfirmationCycle, 4000);
             }
@@ -970,18 +974,26 @@ pendingConfirmation[id] = null;
                 if (price > s.tempHigh) s.tempHigh = price;
                 if (price < s.tempLow) s.tempLow = price;
 
-                const expansionDistance = Math.abs(s.tempHigh - s.tempLow);
+                
+                const referencePrice = s.entry || s.originPrice;
+
+                // Directional expansion validation
+                let expansionDistance = 0;
+
+                if (s.type === 'buy') {
+                    expansionDistance = s.tempHigh - referencePrice;
+                } else if (s.type === 'sell') {
+                    expansionDistance = referencePrice - s.tempLow;
+                }
 
                 const hasExpandedEnough = expansionDistance >= resetThreshold;
 
                 if (hasExpandedEnough) {
 
-                    const referencePrice = s.entry || s.originPrice;
-
+                    // Tolerance diperlebar agar retrace normal tidak dianggap invalid
                     const retraceTolerance =
-                        Math.max(resetThreshold * 0.25, getAdaptiveThreshold(id) * 0.5);
-
-                    const isBackToEntry =
+                        Math.max(resetThreshold * 0.45, getAdaptiveThreshold(id) * 0.9);
+const isBackToEntry =
                         Math.abs(price - referencePrice) <= retraceTolerance;
 
                     if (isBackToEntry) {
@@ -1038,16 +1050,19 @@ pendingConfirmation[id] = null;
             if (price < s.tempLow) s.tempLow = price;
             
             // Cek apakah harga sudah bergerak minimal resetThreshold dari posisi awal
-            let hasMovedEnough = false;
-            if (s.type === 'buy') {
-                // Untuk BUY: harga harus naik minimal resetThreshold dari level terendah
-                hasMovedEnough = (s.tempHigh - s.tempLow) >= resetThreshold;
-            } else if (s.type === 'sell') {
-                // Untuk SELL: harga harus turun minimal resetThreshold dari level tertinggi
-                hasMovedEnough = (s.tempHigh - s.tempLow) >= resetThreshold;
-            }
             
-            // Jika market sudah bergerak cukup jauh
+            let hasMovedEnough = false;
+
+            // Directional movement validation
+            if (s.type === 'buy') {
+                hasMovedEnough =
+                    (s.tempHigh - s.originPrice) >= resetThreshold;
+
+            } else if (s.type === 'sell') {
+                hasMovedEnough =
+                    (s.originPrice - s.tempLow) >= resetThreshold;
+            }
+// Jika market sudah bergerak cukup jauh
             if (hasMovedEnough) {
 
                 // Gunakan origin price tetap
@@ -1055,7 +1070,7 @@ pendingConfirmation[id] = null;
 
                 // Harga kembali dekat area origin signal
                 const adaptiveTolerance =
-                    Math.max(resetThreshold * 0.3, getAdaptiveThreshold(id) * 0.5);
+                    Math.max(resetThreshold * 0.45, getAdaptiveThreshold(id) * 0.9);
 
                 const isBackToEntry =
                     Math.abs(price - referencePrice)
@@ -1143,6 +1158,12 @@ pendingConfirmation[id] = null;
 
     function resetSignal(id) {
         cancelPendingConfirmation(id);
+
+        // Bersihkan debounce signal agar tidak ghost re-entry
+        if (signalDebounceTimer[id]) {
+            clearTimeout(signalDebounceTimer[id]);
+            signalDebounceTimer[id] = null;
+        }
         
         const s = state[id];
         s.l1 = false; s.l2 = false; s.l3 = false;
@@ -1152,6 +1173,9 @@ pendingConfirmation[id] = null;
         s.tempHigh = 0;
         s.tempLow = 0;
         s.originPrice = 0;
+
+        // Penting: reset lastPrice untuk mencegah ghost signal
+        s.lastPrice = 0;
 
         // Bersihkan pending state tambahan
         pendingSignalData[id] = null;
