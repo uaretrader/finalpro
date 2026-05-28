@@ -274,7 +274,7 @@
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
     const XAU_OFFSET = -3;
     const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
-    const RESET_THRESHOLD_XAU = 7;      // Reset jika harga bergerak 7 poin lalu kembali ke entry
+    const RESET_THRESHOLD_XAU = 6;      // Reset jika harga bergerak 6 poin lalu kembali ke entry
     const RESET_THRESHOLD_BTC = 25;       // Reset jika harga bergerak 25 poin lalu kembali ke entry
     
     
@@ -836,7 +836,7 @@
         const md = marketData[id];
 
         if (!md.atr || md.atr <= 0) {
-            return id === 'xau' ? 0.5 : 8;
+            return id === 'xau' ? 0.6 : 8;
         }
 
         return md.atr * VOLATILITY_MULTIPLIER;
