@@ -686,24 +686,27 @@
                 const htfConfirmed = isHTFConfirmingDirection(id, direction);
                 
                 if (htfConfirmed) {
-                    executeLockSignal(id, direction, entryPrice);
-                } else {
-                    cancelPendingConfirmation(id);
-                    const s = state[id];
-                    s.l3 = false;
-                    s.confirmed = false;
-                    throttledSaveState(id);
-                    pendingSignalData[id] = true;
-                    throttledUpdateUI(id);
-                    
-                    const signalText = document.getElementById(`signal-text-${id}`);
-                    if (signalText) {
-                        signalText.innerText = 'HTF REJECT';
-                        signalText.style.color = 'var(--danger)';
-                        setTimeout(() => updateSignalUIOnly(id), 1000);
-                    }
-                }
-                pendingConfirmation[id] = null;
+
+    executeLockSignal(id, direction, entryPrice);
+
+} else {
+
+    resetSignal(id);
+
+    const signalText = document.getElementById(`signal-text-${id}`);
+
+    if (signalText) {
+
+        signalText.innerText = 'HTF REJECT';
+        signalText.style.color = 'var(--danger)';
+
+        setTimeout(() => {
+            updateSignalUIOnly(id);
+        }, 1000);
+    }
+}
+
+pendingConfirmation[id] = null;
             } else {
                 pendingConfirmation[id].timerId = setTimeout(checkConfirmationCycle, 4000);
             }
@@ -841,7 +844,7 @@
         const md = marketData[id];
 
         if (!md.atr || md.atr <= 0) {
-            return id === 'xau' ? 0.6 : 8;
+            return id === 'xau' ? 0.8 : 10;
         }
 
         return md.atr * VOLATILITY_MULTIPLIER;
