@@ -844,7 +844,7 @@ pendingConfirmation[id] = null;
         const md = marketData[id];
 
         if (!md.atr || md.atr <= 0) {
-            return id === 'xau' ? 0.7 : 15;
+            return id === 'xau' ? 0.7 : 12;
         }
 
         return md.atr * VOLATILITY_MULTIPLIER;
@@ -1400,22 +1400,22 @@ pendingConfirmation[id] = null;
                             <span class="level-value" id="tp-xau" style="color:var(--success)">--</span>
                         </div>
                         <div class="level-item" onclick="window.copyValue('xau','sl')">
-                            <span class="level-label">S-Loss</span>
+                            <span class="level-label">DEEP</span>
                             <span class="level-value" id="sl-xau" style="color:var(--danger)">--</span>
                         </div>
                     </div>
 
                     <div class="stats-grid" id="history-panel-xau">
                         <div class="stats-item">
-                            <span class="stats-label">TP HIT</span>
+                            <span class="stats-label">TOTAL</span>
                             <span class="stats-value" id="stats-tp-xau" style="color:var(--success)">0</span>
                         </div>
                         <div class="stats-item">
-                            <span class="stats-label">LOSS</span>
+                            <span class="stats-label">RESET</span>
                             <span class="stats-value" id="stats-loss-xau" style="color:var(--danger)">0</span>
                         </div>
                         <div class="stats-item">
-                            <span class="stats-label">WINRATE</span>
+                            <span class="stats-label">WIN</span>
                             <span class="stats-value" id="stats-winrate-xau" style="color:var(--accent)">0%</span>
                         </div>
                     </div>
@@ -1450,22 +1450,22 @@ pendingConfirmation[id] = null;
                             <span class="level-value" id="tp-btc" style="color:var(--success)">--</span>
                         </div>
                         <div class="level-item" onclick="window.copyValue('btc','sl')">
-                            <span class="level-label">S-Loss</span>
+                            <span class="level-label">DEEP</span>
                             <span class="level-value" id="sl-btc" style="color:var(--danger)">--</span>
                         </div>
                     </div>
 
                     <div class="stats-grid" id="history-panel-btc">
                         <div class="stats-item">
-                            <span class="stats-label">TP HIT</span>
+                            <span class="stats-label">TOTAL</span>
                             <span class="stats-value" id="stats-tp-btc" style="color:var(--success)">0</span>
                         </div>
                         <div class="stats-item">
-                            <span class="stats-label">LOSS</span>
+                            <span class="stats-label">RESET</span>
                             <span class="stats-value" id="stats-loss-btc" style="color:var(--danger)">0</span>
                         </div>
                         <div class="stats-item">
-                            <span class="stats-label">WINRATE</span>
+                            <span class="stats-label">WIN</span>
                             <span class="stats-value" id="stats-winrate-btc" style="color:var(--accent)">0%</span>
                         </div>
                     </div>
