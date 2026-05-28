@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v6.0 - DUAL ENGINE</title>
+    <title>TERMINAL v6.0 - DUAL ENGINE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
@@ -275,7 +275,7 @@
     const XAU_OFFSET = -3;
     const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
     const RESET_THRESHOLD_XAU = 6;      // Reset jika harga bergerak 6 poin lalu kembali ke entry
-    const RESET_THRESHOLD_BTC = 25;       // Reset jika harga bergerak 25 poin lalu kembali ke entry
+    const RESET_THRESHOLD_BTC = 30;       // Reset jika harga bergerak 30 poin lalu kembali ke entry
     
     
     // ==================== ADVANCED MARKET DATA ====================
@@ -721,6 +721,11 @@
         s.confirmed = true;
         s.type = direction;
         s.entry = adjustedEntry;
+
+        // Sinkronisasi origin dengan entry final confirmed
+        s.originPrice = adjustedEntry;
+        s.tempHigh = adjustedEntry;
+        s.tempLow = adjustedEntry;
         
         const risk = id === 'xau' ? 5 : entryPrice * 0.0035;
         
@@ -950,6 +955,44 @@
         const resetThreshold = (id === 'xau') ? RESET_THRESHOLD_XAU : RESET_THRESHOLD_BTC;
         
         if (s.confirmed) {
+
+            // ================= RETRACE RESET AFTER CONFIRMED =================
+            if (s.type !== 'none') {
+
+                if (s.tempHigh === 0 && s.tempLow === 0) {
+                    s.tempHigh = s.entry || price;
+                    s.tempLow = s.entry || price;
+                }
+
+                if (price > s.tempHigh) s.tempHigh = price;
+                if (price < s.tempLow) s.tempLow = price;
+
+                const expansionDistance = Math.abs(s.tempHigh - s.tempLow);
+
+                const hasExpandedEnough = expansionDistance >= resetThreshold;
+
+                if (hasExpandedEnough) {
+
+                    const referencePrice = s.entry || s.originPrice;
+
+                    const retraceTolerance =
+                        Math.max(resetThreshold * 0.25, getAdaptiveThreshold(id) * 0.5);
+
+                    const isBackToEntry =
+                        Math.abs(price - referencePrice) <= retraceTolerance;
+
+                    if (isBackToEntry) {
+
+                        console.log(
+                            `[${id.toUpperCase()}] Confirmed signal auto-reset after retrace`
+                        );
+
+                        resetSignal(id);
+                        return;
+                    }
+                }
+            }
+
             const hitTP = (
                 (s.type === 'buy' && price >= s.tp) ||
                 (s.type === 'sell' && price <= s.tp)
@@ -1008,9 +1051,12 @@
                 const referencePrice = s.originPrice;
 
                 // Harga kembali dekat area origin signal
+                const adaptiveTolerance =
+                    Math.max(resetThreshold * 0.3, getAdaptiveThreshold(id) * 0.5);
+
                 const isBackToEntry =
                     Math.abs(price - referencePrice)
-                    <= (resetThreshold * 0.3);
+                    <= adaptiveTolerance;
 
                 if (isBackToEntry) {
 
@@ -1044,7 +1090,10 @@
         const emaTrendBearish = md.ema > 0 ? price < md.ema : true;
         
         if (!s.confirmed && s.lastPrice !== 0 && Math.abs(price - s.lastPrice) > threshold) {
-            const direction = price > s.lastPrice ? 'buy' : 'sell';
+            // Lock direction awal agar tidak mutasi antar tick
+            const direction = s.type !== 'none'
+                ? s.type
+                : (price > s.lastPrice ? 'buy' : 'sell');
             
             if (!s.l1) { 
                 s.l1 = true;
@@ -1100,6 +1149,10 @@
         s.tempHigh = 0;
         s.tempLow = 0;
         s.originPrice = 0;
+
+        // Bersihkan pending state tambahan
+        pendingSignalData[id] = null;
+
         throttledSaveState(id);
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
