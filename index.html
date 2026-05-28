@@ -1,10 +1,11 @@
 <!DOCTYPE html>
+
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>TERMINAL v6.0 - DUAL ENGINE</title>
-    <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
+<title>TERMINAL v6.0 - DUAL ENGINE</title>
+<style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
         :root {
@@ -224,31 +225,27 @@
     </style>
 </head>
 <body>
-
 <div class="container">
-    <header>
-        <div class="brand">
-            <h1>uradvisor</h1>
-            <p style="font-size: 0.55rem; color: var(--text-dim)">URA v6.0</p>
-        </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div class="sys-status">
-                <div><span class="pulse" id="globalPulse"></span>LIVE</div>
-            </div>
-            <button id="switchPairBtn" class="switch-pair-btn">
-                <span id="switchLabel">XAUUSD</span>
-            </button>
-        </div>
-    </header>
-
-    <div id="terminals"></div>
-
-    <footer>
-        [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION<br>
+<header>
+<div class="brand">
+<h1>uradvisor</h1>
+<p style="font-size: 0.55rem; color: var(--text-dim)">URA v6.0</p>
+</div>
+<div style="display: flex; align-items: center; gap: 12px;">
+<div class="sys-status">
+<div><span class="pulse" id="globalPulse"></span>LIVE</div>
+</div>
+<button class="switch-pair-btn" id="switchPairBtn">
+<span id="switchLabel">XAUUSD</span>
+</button>
+</div>
+</header>
+<div id="terminals"></div>
+<footer>
+        [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION<br/>
         [ METHOD ]: DELAYED VALIDATION BEFORE LOCK
     </footer>
 </div>
-
 <script>
 (function() {
     'use strict';
@@ -261,7 +258,7 @@
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
     let signalDebounceTimer = { xau: null, btc: null };
-    const SIGNAL_DEBOUNCE_MS = 50;
+    const SIGNAL_DEBOUNCE_MS = 20;
 
     // ==================== KONFIGURASI ====================
     // ==================== ADVANCED ENGINE CONFIG ====================
@@ -645,19 +642,47 @@
     }
 
     // ==================== ENGINE 2 VALIDATION ====================
-    function isHTFConfirmingDirection(id, direction) {
-        const htf = htfDataStore[id];
-        if (!htf) return false;
-        
-        if (htf.confidence < 40) return false;
-        
-        if (direction === 'buy') {
-            return htf.structure === 'BULLISH' && (htf.momentum === 'BULLISH' || htf.momentumStrength !== 'NONE') && marketData[id].ema > 0;
-        } else if (direction === 'sell') {
-            return htf.structure === 'BEARISH' && (htf.momentum === 'BEARISH' || htf.momentumStrength !== 'NONE') && marketData[id].ema > 0;
-        }
-        return false;
+    
+function isHTFConfirmingDirection(id, direction) {
+    const htf = htfDataStore[id];
+    const market = marketData[id];
+
+    if (!htf || !market) return false;
+
+    const ema = market.ema || 0;
+    const price = market.price || 0;
+
+    if (ema <= 0 || price <= 0) return false;
+
+    // Directional EMA validation
+    const isAboveEMA = price > ema;
+    const isBelowEMA = price < ema;
+
+    // Optional EMA slope validation
+    const emaSlope =
+        market.prevEMA !== undefined
+            ? (ema - market.prevEMA)
+            : 0;
+
+    if (direction === 'buy') {
+        return (
+            htf.structure === 'BULLISH' &&
+            isAboveEMA &&
+            emaSlope >= 0
+        );
     }
+
+    if (direction === 'sell') {
+        return (
+            htf.structure === 'BEARISH' &&
+            isBelowEMA &&
+            emaSlope <= 0
+        );
+    }
+
+    return false;
+}
+
 
     // ==================== DELAYED CONFIRMATION ====================
     function startConfirmationDelay(id, direction, entryPrice) {
@@ -712,11 +737,17 @@ if (pendingConfirmation[id]) {
                     pendingConfirmation[id] = null;
                 }
             } else {
-                pendingConfirmation[id].timerId = setTimeout(checkConfirmationCycle, 4000);
+                pendingConfirmation[id].timerId = setTimeout(() => {
+                if (!pendingConfirmation[id]) return;
+                checkConfirmationCycle();
+            }, 4000);
             }
         }
         
-        pendingConfirmation[id].timerId = setTimeout(checkConfirmationCycle, 4000);
+        pendingConfirmation[id].timerId = setTimeout(() => {
+                if (!pendingConfirmation[id]) return;
+                checkConfirmationCycle();
+            }, 4000);
     }
     
     function executeLockSignal(id, direction, entryPrice) {
@@ -726,6 +757,8 @@ if (pendingConfirmation[id]) {
         
         s.l3 = true;
         s.confirmed = true;
+        s.confirmedAt = Date.now();
+        s.warmupUntil = Date.now() + 2500;
         s.type = direction;
         s.entry = adjustedEntry;
 
@@ -934,7 +967,10 @@ if (pendingConfirmation[id]) {
         return { 
             lastPrice: 0, trendScore: 0, 
             l1: false, l2: false, l3: false, 
-            confirmed: false, type: 'none', 
+            confirmed: false,
+            confirmedAt: 0,
+            resetInProgress: false,
+            warmupUntil: 0, type: 'none', 
             entry: 0, sl: 0, tp: 0,
             tempHigh: 0,      // Untuk melacak harga tertinggi sementara
             tempLow: 0,       // Untuk melacak harga terendah sementara
@@ -993,8 +1029,37 @@ if (pendingConfirmation[id]) {
                     // Tolerance diperlebar agar retrace normal tidak dianggap invalid
                     const retraceTolerance =
                         Math.max(resetThreshold * 0.45, getAdaptiveThreshold(id) * 0.9);
+
+// Warm-up protection
+const isWarmupActive =
+    Date.now() < (s.warmupUntil || 0);
+
+if (isWarmupActive) {
+    return;
+}
+
+// Volatility adaptive tolerance
+const adaptiveVolatility =
+    getAdaptiveThreshold(id);
+
+const contextualTolerance =
+    Math.max(
+        resetThreshold * 0.60,
+        adaptiveVolatility * 1.35
+    );
+
+// Contextual midpoint reference
+const contextualReference =
+    s.entry > 0
+        ? ((s.entry + referencePrice) / 2)
+        : referencePrice;
+
+const retraceDistance =
+    Math.abs(price - contextualReference);
+
 const isBackToEntry =
-                        Math.abs(price - referencePrice) <= retraceTolerance;
+    retraceDistance <= contextualTolerance;
+
 
                     if (isBackToEntry) {
 
@@ -1156,34 +1221,55 @@ const isBackToEntry =
         }, SIGNAL_DEBOUNCE_MS);
     }
 
-    function resetSignal(id) {
+    
+function resetSignal(id) {
+
+        const s = state[id];
+
+        // Unified anti double reset protection
+        if (s.resetInProgress) return;
+
+        s.resetInProgress = true;
+
         cancelPendingConfirmation(id);
 
-        // Bersihkan debounce signal agar tidak ghost re-entry
         if (signalDebounceTimer[id]) {
             clearTimeout(signalDebounceTimer[id]);
             signalDebounceTimer[id] = null;
         }
-        
-        const s = state[id];
-        s.l1 = false; s.l2 = false; s.l3 = false;
-        s.confirmed = false; s.type = 'none';
-        s.entry = 0; s.sl = 0; s.tp = 0;
+
+        // Full clean reset state
+        s.l1 = false;
+        s.l2 = false;
+        s.l3 = false;
+
+        s.confirmed = false;
+        s.confirmedAt = 0;
+        s.warmupUntil = 0;
+
+        s.type = 'none';
+
+        s.entry = 0;
+        s.sl = 0;
+        s.tp = 0;
+
         s.trendScore = 0;
+
         s.tempHigh = 0;
         s.tempLow = 0;
-        s.originPrice = 0;
 
-        // Penting: reset lastPrice untuk mencegah ghost signal
+        s.originPrice = 0;
         s.lastPrice = 0;
 
-        // Bersihkan pending state tambahan
         pendingSignalData[id] = null;
 
         throttledSaveState(id);
-        pendingSignalData[id] = true;
         throttledUpdateUI(id);
-    }
+
+        requestAnimationFrame(() => {
+            s.resetInProgress = false;
+        });
+}
 
     // ==================== XAU PRICE ENGINE ====================
     let xauWs = null;
