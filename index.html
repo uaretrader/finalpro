@@ -275,7 +275,7 @@
     const XAU_OFFSET = -3;
     const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
     const RESET_THRESHOLD_XAU = 5.5;      // Reset jika harga bergerak 5.5 poin lalu kembali ke entry
-    const RESET_THRESHOLD_BTC = 35;       // Reset jika harga bergerak 35 poin lalu kembali ke entry
+    const RESET_THRESHOLD_BTC = 30;       // Reset jika harga bergerak 30 poin lalu kembali ke entry
     
     
     // ==================== ADVANCED MARKET DATA ====================
@@ -976,7 +976,7 @@
                     const referencePrice = s.entry || s.originPrice;
 
                     const retraceTolerance =
-                        Math.max(resetThreshold * 0.30, getAdaptiveThreshold(id) * 0.6);
+                        Math.max(resetThreshold * 0.25, getAdaptiveThreshold(id) * 0.5);
 
                     const isBackToEntry =
                         Math.abs(price - referencePrice) <= retraceTolerance;
@@ -1052,7 +1052,7 @@
 
                 // Harga kembali dekat area origin signal
                 const adaptiveTolerance =
-                    Math.max(resetThreshold * 0.3, getAdaptiveThreshold(id) * 0.6);
+                    Math.max(resetThreshold * 0.3, getAdaptiveThreshold(id) * 0.5);
 
                 const isBackToEntry =
                     Math.abs(price - referencePrice)
