@@ -269,7 +269,7 @@
     const HTF_EMA_PERIOD = 21;
 
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
-    const XAU_OFFSET = -2;
+    const XAU_OFFSET = -2.5;
     const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
     const RESET_THRESHOLD_XAU = 5;      // Reset jika harga bergerak 5 poin lalu kembali ke entry
     const RESET_THRESHOLD_BTC = 80;       // Reset jika harga bergerak 80 poin lalu kembali ke entry
@@ -552,7 +552,6 @@
     function updateWinrate(id) {
         const stats = performanceStats[id];
         stats.total = stats.tpHits + stats.retraceResets;
-
         stats.winrate = stats.total > 0
             ? ((stats.tpHits / stats.total) * 100).toFixed(1)
             : 0.0;
@@ -575,13 +574,26 @@
     function updatePerformanceUI(id) {
         const stats = performanceStats[id];
 
+        if (!stats) return;
+
         const tpEl = document.getElementById(`stats-tp-${id}`);
         const lossEl = document.getElementById(`stats-loss-${id}`);
         const winrateEl = document.getElementById(`stats-winrate-${id}`);
 
         if (tpEl) tpEl.innerText = stats.tpHits;
-        if (lossEl) lossEl.innerText = stats.retraceResets;
-        if (winrateEl) winrateEl.innerText = `${stats.winrate}%`;
+
+        if (lossEl) {
+
+            const resetPercent = stats.total > 0
+                ? ((stats.retraceResets / stats.total) * 100).toFixed(1)
+                : 0.0;
+
+            lossEl.innerText = `${stats.retraceResets} (${resetPercent}%)`;
+        }
+
+        if (winrateEl) {
+            winrateEl.innerText = `${stats.winrate}%`;
+        }
     }
 
 
@@ -1118,7 +1130,6 @@ const isBackToEntry =
                             `[${id.toUpperCase()}] Confirmed signal auto-reset after retrace`
                         );
 
-                        recordSignalResult(id, 'retrace');
                         resetSignal(id);
                         return;
                     }
@@ -1139,7 +1150,6 @@ const isBackToEntry =
                 recordSignalResult(id, 'tp');
                 resetSignal(id);
             } else if (hitSL) {
-                recordSignalResult(id, 'loss');
                 resetSignal(id);
             }
 
@@ -1200,6 +1210,7 @@ const isBackToEntry =
                     );
 
                     recordSignalResult(id, 'retrace');
+
                     resetSignal(id);
                     return;
                 }
