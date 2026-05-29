@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="id">
 <head>
 <meta charset="utf-8"/>
@@ -583,12 +582,11 @@
         if (tpEl) tpEl.innerText = stats.tpHits;
 
         if (lossEl) {
-
-            const resetPercent = stats.total > 0
+            // [SATU-SATUNYA PERUBAHAN] Menampilkan jumlah retrace + persentase
+            const retracePercent = stats.total > 0
                 ? ((stats.retraceResets / stats.total) * 100).toFixed(1)
                 : 0.0;
-
-            lossEl.innerText = `${stats.retraceResets} (${resetPercent}%)`;
+            lossEl.innerText = `${stats.retraceResets} (${retracePercent}%)`;
         }
 
         if (winrateEl) {
