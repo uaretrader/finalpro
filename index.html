@@ -1,10 +1,11 @@
 <!DOCTYPE html>
+
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>PRECISION TERMINAL v6.0 - DUAL ENGINE</title>
-    <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
+<title>TERMINAL v6.0 - DUAL ENGINE</title>
+<style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;800&display=swap');
 
         :root {
@@ -224,31 +225,27 @@
     </style>
 </head>
 <body>
-
 <div class="container">
-    <header>
-        <div class="brand">
-            <h1>uradvisor</h1>
-            <p style="font-size: 0.55rem; color: var(--text-dim)">URA v6.0</p>
-        </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div class="sys-status">
-                <div><span class="pulse" id="globalPulse"></span>LIVE</div>
-            </div>
-            <button id="switchPairBtn" class="switch-pair-btn">
-                <span id="switchLabel">XAUUSD</span>
-            </button>
-        </div>
-    </header>
-
-    <div id="terminals"></div>
-
-    <footer>
-        [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION<br>
+<header>
+<div class="brand">
+<h1>uradvisor</h1>
+<p style="font-size: 0.55rem; color: var(--text-dim)">URA v6.0</p>
+</div>
+<div style="display: flex; align-items: center; gap: 12px;">
+<div class="sys-status">
+<div><span class="pulse" id="globalPulse"></span>LIVE</div>
+</div>
+<button class="switch-pair-btn" id="switchPairBtn">
+<span id="switchLabel">XAUUSD</span>
+</button>
+</div>
+</header>
+<div id="terminals"></div>
+<footer>
+        [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION<br/>
         [ METHOD ]: DELAYED VALIDATION BEFORE LOCK
     </footer>
 </div>
-
 <script>
 (function() {
     'use strict';
@@ -261,7 +258,7 @@
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
     let signalDebounceTimer = { xau: null, btc: null };
-    const SIGNAL_DEBOUNCE_MS = 50;
+    const SIGNAL_DEBOUNCE_MS = 20;
 
     // ==================== KONFIGURASI ====================
     // ==================== ADVANCED ENGINE CONFIG ====================
@@ -269,13 +266,13 @@
     const EMA_PERIOD = 21;
     const VOLUME_LOOKBACK = 12;
     const VOLATILITY_MULTIPLIER = 1.35;
-    const HTF_EMA_PERIOD = 50;
+    const HTF_EMA_PERIOD = 21;
 
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
     const XAU_OFFSET = -3;
     const CONFIRMATION_DELAY_CYCLES = 3;  // Delay 3 cycle sebelum lock
     const RESET_THRESHOLD_XAU = 5;      // Reset jika harga bergerak 5 poin lalu kembali ke entry
-    const RESET_THRESHOLD_BTC = 30;       // Reset jika harga bergerak 30 poin lalu kembali ke entry
+    const RESET_THRESHOLD_BTC = 80;       // Reset jika harga bergerak 80 poin lalu kembali ke entry
     
     
     // ==================== ADVANCED MARKET DATA ====================
@@ -314,12 +311,17 @@
         
         if (tapCounters[id] === 3) {
             if (pendingConfirmation[id]) cancelPendingConfirmation(id);
+
+            // Reset signal + entry level only
             resetSignal(id);
+
             tapCounters[id] = 0;
+
             if (tapTimers[id]) {
                 clearTimeout(tapTimers[id]);
                 tapTimers[id] = null;
             }
+
             if (navigator.vibrate) navigator.vibrate(30);
         }
     }
@@ -338,9 +340,30 @@
         }, TAP_TIMEOUT);
 
         if (historyTapCounters[id] === 3) {
+
+            // Reset trade history only
             performanceStats[id] = createDefaultStats();
+
             savePerformanceStats(id);
             updatePerformanceUI(id);
+
+            const signalText = document.getElementById(`signal-text-${id}`);
+
+            if (signalText) {
+
+                const previousText = signalText.innerText;
+                const previousColor = signalText.style.color;
+
+                signalText.innerText = 'HISTORY RESET';
+                signalText.style.color = 'var(--accent)';
+
+                setTimeout(() => {
+
+                    signalText.innerText = previousText;
+                    signalText.style.color = previousColor;
+
+                }, 1200);
+            }
 
             historyTapCounters[id] = 0;
 
@@ -359,7 +382,9 @@
             if (pendingConfirmation[id].timerId) {
                 clearTimeout(pendingConfirmation[id].timerId);
             }
-            pendingConfirmation[id] = null;
+            if (pendingConfirmation[id]) {
+                    pendingConfirmation[id] = null;
+                }
             
             const signalBar = document.getElementById(`signal-bar-${id}`);
             if (signalBar) signalBar.classList.remove('confirm-wait');
@@ -643,19 +668,68 @@
     }
 
     // ==================== ENGINE 2 VALIDATION ====================
-    function isHTFConfirmingDirection(id, direction) {
-        const htf = htfDataStore[id];
-        if (!htf) return false;
-        
-        if (htf.confidence < 40) return false;
-        
-        if (direction === 'buy') {
-            return htf.structure === 'BULLISH' && (htf.momentum === 'BULLISH' || htf.momentumStrength !== 'NONE') && marketData[id].ema > 0;
-        } else if (direction === 'sell') {
-            return htf.structure === 'BEARISH' && (htf.momentum === 'BEARISH' || htf.momentumStrength !== 'NONE') && marketData[id].ema > 0;
-        }
-        return false;
+    
+function isHTFConfirmingDirection(id, direction) {
+    const htf = htfDataStore[id];
+    const market = marketData[id];
+
+    if (!htf || !market) return false;
+
+    const ema = market.ema || 0;
+    const price = market.price || state[id]?.lastPrice || 0;
+
+    if (ema <= 0 || price <= 0) return false;
+
+    // EMA21 tolerance agar signal tetap cepat namun tetap terfilter
+    const atrTolerance =
+        Math.max(
+            (market.atr || 0) * 0.18,
+            id === 'xau' ? 0.35 : 18
+        );
+
+    const isAboveEMA =
+        price >= (ema - atrTolerance);
+
+    const isBelowEMA =
+        price <= (ema + atrTolerance);
+
+    // Slope dibuat lebih fleksibel agar tidak terlalu telat lock
+    const emaSlope =
+        market.prevEMA !== undefined
+            ? (ema - market.prevEMA)
+            : 0;
+
+    const slopeThreshold =
+        Math.max(
+            0.00001,
+            (market.atr || 0) * 0.0045
+        );
+
+    const bullishBias =
+        emaSlope >= -slopeThreshold;
+
+    const bearishBias =
+        emaSlope <= slopeThreshold;
+
+    if (direction === 'buy') {
+        return (
+            (htf.structure === 'BULLISH' || htf.momentum === 'BULLISH') &&
+            isAboveEMA &&
+            bullishBias
+        );
     }
+
+    if (direction === 'sell') {
+        return (
+            (htf.structure === 'BEARISH' || htf.momentum === 'BEARISH') &&
+            isBelowEMA &&
+            bearishBias
+        );
+    }
+
+    return false;
+}
+
 
     // ==================== DELAYED CONFIRMATION ====================
     function startConfirmationDelay(id, direction, entryPrice) {
@@ -686,30 +760,41 @@
                 const htfConfirmed = isHTFConfirmingDirection(id, direction);
                 
                 if (htfConfirmed) {
-                    executeLockSignal(id, direction, entryPrice);
-                } else {
-                    cancelPendingConfirmation(id);
-                    const s = state[id];
-                    s.l3 = false;
-                    s.confirmed = false;
-                    throttledSaveState(id);
-                    pendingSignalData[id] = true;
-                    throttledUpdateUI(id);
-                    
-                    const signalText = document.getElementById(`signal-text-${id}`);
-                    if (signalText) {
-                        signalText.innerText = 'HTF REJECT';
-                        signalText.style.color = 'var(--danger)';
-                        setTimeout(() => updateSignalUIOnly(id), 1000);
-                    }
+
+    executeLockSignal(id, direction, entryPrice);
+
+} else {
+
+    resetSignal(id);
+
+    const signalText = document.getElementById(`signal-text-${id}`);
+
+    if (signalText) {
+
+        signalText.innerText = 'HTF REJECT';
+        signalText.style.color = 'var(--danger)';
+
+        setTimeout(() => {
+            updateSignalUIOnly(id);
+        }, 1000);
+    }
+}
+
+if (pendingConfirmation[id]) {
+                    pendingConfirmation[id] = null;
                 }
-                pendingConfirmation[id] = null;
             } else {
-                pendingConfirmation[id].timerId = setTimeout(checkConfirmationCycle, 4000);
+                pendingConfirmation[id].timerId = setTimeout(() => {
+                if (!pendingConfirmation[id]) return;
+                checkConfirmationCycle();
+            }, 4000);
             }
         }
         
-        pendingConfirmation[id].timerId = setTimeout(checkConfirmationCycle, 4000);
+        pendingConfirmation[id].timerId = setTimeout(() => {
+                if (!pendingConfirmation[id]) return;
+                checkConfirmationCycle();
+            }, 4000);
     }
     
     function executeLockSignal(id, direction, entryPrice) {
@@ -719,6 +804,8 @@
         
         s.l3 = true;
         s.confirmed = true;
+        s.confirmedAt = Date.now();
+        s.warmupUntil = Date.now() + 2500;
         s.type = direction;
         s.entry = adjustedEntry;
 
@@ -825,7 +912,10 @@
             ema = (closes[i] * alpha) + (ema * (1 - alpha));
         }
 
+        md.prevEMA = md.ema || ema;
         md.ema = ema;
+        md.price = closes[closes.length - 1];
+        md.lastUpdate = Date.now();
 
         // Volume impulse tracking
         md.volume = candles.slice(-VOLUME_LOOKBACK).map(c => c.volume);
@@ -841,7 +931,7 @@
         const md = marketData[id];
 
         if (!md.atr || md.atr <= 0) {
-            return id === 'xau' ? 0.7 : 12;
+            return id === 'xau' ? 0.6 : 12;
         }
 
         return md.atr * VOLATILITY_MULTIPLIER;
@@ -927,7 +1017,10 @@
         return { 
             lastPrice: 0, trendScore: 0, 
             l1: false, l2: false, l3: false, 
-            confirmed: false, type: 'none', 
+            confirmed: false,
+            confirmedAt: 0,
+            resetInProgress: false,
+            warmupUntil: 0, type: 'none', 
             entry: 0, sl: 0, tp: 0,
             tempHigh: 0,      // Untuk melacak harga tertinggi sementara
             tempLow: 0,       // Untuk melacak harga terendah sementara
@@ -967,19 +1060,56 @@
                 if (price > s.tempHigh) s.tempHigh = price;
                 if (price < s.tempLow) s.tempLow = price;
 
-                const expansionDistance = Math.abs(s.tempHigh - s.tempLow);
+                
+                const referencePrice = s.entry || s.originPrice;
+
+                // Directional expansion validation
+                let expansionDistance = 0;
+
+                if (s.type === 'buy') {
+                    expansionDistance = s.tempHigh - referencePrice;
+                } else if (s.type === 'sell') {
+                    expansionDistance = referencePrice - s.tempLow;
+                }
 
                 const hasExpandedEnough = expansionDistance >= resetThreshold;
 
                 if (hasExpandedEnough) {
 
-                    const referencePrice = s.entry || s.originPrice;
-
+                    // Tolerance diperlebar agar retrace normal tidak dianggap invalid
                     const retraceTolerance =
-                        Math.max(resetThreshold * 0.35, getAdaptiveThreshold(id) * 0.8);
+                        Math.max(resetThreshold * 0.45, getAdaptiveThreshold(id) * 0.9);
 
-                    const isBackToEntry =
-                        Math.abs(price - referencePrice) <= retraceTolerance;
+// Warm-up protection
+const isWarmupActive =
+    Date.now() < (s.warmupUntil || 0);
+
+if (isWarmupActive) {
+    return;
+}
+
+// Volatility adaptive tolerance
+const adaptiveVolatility =
+    getAdaptiveThreshold(id);
+
+const contextualTolerance =
+    Math.max(
+        resetThreshold * 0.60,
+        adaptiveVolatility * 1.35
+    );
+
+// Contextual midpoint reference
+const contextualReference =
+    s.entry > 0
+        ? ((s.entry + referencePrice) / 2)
+        : referencePrice;
+
+const retraceDistance =
+    Math.abs(price - contextualReference);
+
+const isBackToEntry =
+    retraceDistance <= contextualTolerance;
+
 
                     if (isBackToEntry) {
 
@@ -1035,16 +1165,19 @@
             if (price < s.tempLow) s.tempLow = price;
             
             // Cek apakah harga sudah bergerak minimal resetThreshold dari posisi awal
-            let hasMovedEnough = false;
-            if (s.type === 'buy') {
-                // Untuk BUY: harga harus naik minimal resetThreshold dari level terendah
-                hasMovedEnough = (s.tempHigh - s.tempLow) >= resetThreshold;
-            } else if (s.type === 'sell') {
-                // Untuk SELL: harga harus turun minimal resetThreshold dari level tertinggi
-                hasMovedEnough = (s.tempHigh - s.tempLow) >= resetThreshold;
-            }
             
-            // Jika market sudah bergerak cukup jauh
+            let hasMovedEnough = false;
+
+            // Directional movement validation
+            if (s.type === 'buy') {
+                hasMovedEnough =
+                    (s.tempHigh - s.originPrice) >= resetThreshold;
+
+            } else if (s.type === 'sell') {
+                hasMovedEnough =
+                    (s.originPrice - s.tempLow) >= resetThreshold;
+            }
+// Jika market sudah bergerak cukup jauh
             if (hasMovedEnough) {
 
                 // Gunakan origin price tetap
@@ -1052,7 +1185,7 @@
 
                 // Harga kembali dekat area origin signal
                 const adaptiveTolerance =
-                    Math.max(resetThreshold * 0.35, getAdaptiveThreshold(id) * 0.8);
+                    Math.max(resetThreshold * 0.45, getAdaptiveThreshold(id) * 0.9);
 
                 const isBackToEntry =
                     Math.abs(price - referencePrice)
@@ -1138,25 +1271,68 @@
         }, SIGNAL_DEBOUNCE_MS);
     }
 
-    function resetSignal(id) {
-        cancelPendingConfirmation(id);
-        
+    
+function resetSignal(id) {
+
         const s = state[id];
-        s.l1 = false; s.l2 = false; s.l3 = false;
-        s.confirmed = false; s.type = 'none';
-        s.entry = 0; s.sl = 0; s.tp = 0;
+
+        // Force immediate UI clear before debounce cycle
+        if (pendingConfirmation[id]) {
+            cancelPendingConfirmation(id);
+        }
+
+        // Unified anti double reset protection
+        if (s.resetInProgress) return;
+
+        s.resetInProgress = true;
+
+        cancelPendingConfirmation(id);
+
+        if (signalDebounceTimer[id]) {
+            clearTimeout(signalDebounceTimer[id]);
+            signalDebounceTimer[id] = null;
+        }
+
+        // Full clean reset state
+        s.l1 = false;
+        s.l2 = false;
+        s.l3 = false;
+
+        s.confirmed = false;
+        s.confirmedAt = 0;
+        s.warmupUntil = 0;
+
+        s.type = 'none';
+
+        s.entry = 0;
+        s.sl = 0;
+        s.tp = 0;
+
         s.trendScore = 0;
+
         s.tempHigh = 0;
         s.tempLow = 0;
-        s.originPrice = 0;
 
-        // Bersihkan pending state tambahan
-        pendingSignalData[id] = null;
+        s.originPrice = 0;
+        s.lastPrice = 0;
+
+        pendingSignalData[id] = true;
+
+        // Immediate hard UI refresh
+        updateSignalUIOnly(id);
 
         throttledSaveState(id);
-        pendingSignalData[id] = true;
         throttledUpdateUI(id);
-    }
+
+        requestAnimationFrame(() => {
+            s.resetInProgress = false;
+        });
+
+        // Safety unlock protection
+        setTimeout(() => {
+            s.resetInProgress = false;
+        }, 300);
+}
 
     // ==================== XAU PRICE ENGINE ====================
     let xauWs = null;
@@ -1476,11 +1652,33 @@
         const xauHistoryPanel = document.getElementById('history-panel-xau');
         const btcHistoryPanel = document.getElementById('history-panel-btc');
 
-        if (xauBar) xauBar.addEventListener('click', () => handleSignalBarTap('xau'));
-        if (btcBar) btcBar.addEventListener('click', () => handleSignalBarTap('btc'));
+        // Android/mobile optimized tap listener
+        const bindTap = (el, handler) => {
+            if (!el) return;
 
-        if (xauHistoryPanel) xauHistoryPanel.addEventListener('click', () => handleHistoryPanelTap('xau'));
-        if (btcHistoryPanel) btcHistoryPanel.addEventListener('click', () => handleHistoryPanelTap('btc'));
+            let lastTap = 0;
+
+            const tapHandler = (e) => {
+                e.preventDefault();
+
+                const now = Date.now();
+
+                // Anti ghost/double click protection
+                if (now - lastTap < 80) return;
+
+                lastTap = now;
+                handler();
+            };
+
+            el.addEventListener('touchstart', tapHandler, { passive: false });
+            el.addEventListener('click', tapHandler);
+        };
+
+        bindTap(xauBar, () => handleSignalBarTap('xau'));
+        bindTap(btcBar, () => handleSignalBarTap('btc'));
+
+        bindTap(xauHistoryPanel, () => handleHistoryPanelTap('xau'));
+        bindTap(btcHistoryPanel, () => handleHistoryPanelTap('btc'));
         
         updateSignalUIOnly('xau');
         updateSignalUIOnly('btc');
