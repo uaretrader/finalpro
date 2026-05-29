@@ -521,7 +521,7 @@
     function createDefaultStats() {
         return {
             tpHits: 0,
-            losses: 0,
+            retraceResets: 0,
             total: 0,
             winrate: 0.0
         };
@@ -536,7 +536,7 @@
 
             return {
                 tpHits: parsed.tpHits || 0,
-                losses: parsed.losses || 0,
+                retraceResets: parsed.retraceResets || 0,
                 total: parsed.total || 0,
                 winrate: parsed.winrate || 0
             };
@@ -551,7 +551,8 @@
 
     function updateWinrate(id) {
         const stats = performanceStats[id];
-        stats.total = stats.tpHits + stats.losses;
+        stats.total = stats.tpHits + stats.retraceResets;
+
         stats.winrate = stats.total > 0
             ? ((stats.tpHits / stats.total) * 100).toFixed(1)
             : 0.0;
@@ -562,8 +563,8 @@
 
         if (resultType === 'tp') {
             stats.tpHits++;
-        } else if (resultType === 'loss') {
-            stats.losses++;
+        } else if (resultType === 'retrace') {
+            stats.retraceResets++;
         }
 
         updateWinrate(id);
@@ -579,7 +580,7 @@
         const winrateEl = document.getElementById(`stats-winrate-${id}`);
 
         if (tpEl) tpEl.innerText = stats.tpHits;
-        if (lossEl) lossEl.innerText = stats.losses;
+        if (lossEl) lossEl.innerText = stats.retraceResets;
         if (winrateEl) winrateEl.innerText = `${stats.winrate}%`;
     }
 
@@ -1117,6 +1118,7 @@ const isBackToEntry =
                             `[${id.toUpperCase()}] Confirmed signal auto-reset after retrace`
                         );
 
+                        recordSignalResult(id, 'retrace');
                         resetSignal(id);
                         return;
                     }
@@ -1197,6 +1199,7 @@ const isBackToEntry =
                         `[${id.toUpperCase()}] Reset signal: retrace back to origin after expansion`
                     );
 
+                    recordSignalResult(id, 'retrace');
                     resetSignal(id);
                     return;
                 }
