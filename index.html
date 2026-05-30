@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
-<title>TERMINAL v7.3 - REAL-TIME ENGINE</title>
+<title>TERMINAL v7.4 - REAL-TIME ENGINE</title>
 <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;600;800&display=swap');
 
@@ -317,7 +317,7 @@
 <header>
     <div class="brand">
         <h1>uradvisor</h1>
-        <div class="brand-sub">DUAL ENGINE • URA v7.3</div>
+        <div class="brand-sub">DUAL ENGINE • URA v7.4</div>
     </div>
     <div class="header-right">
         <div class="sys-status">
@@ -470,6 +470,9 @@
         }, SAVE_INTERVAL);
     }
 
+    // FIXED RETRACE PROGRESSION (R-PROG)
+    // 0% = harga berada di titik ekstrim (highest untuk BUY, lowest untuk SELL) -> belum retrace
+    // 100% = harga sudah retrace penuh kembali ke entry point
     function updateRetraceProgression(id, currentPrice) {
         const s = state[id];
         if (!s.confirmed || s.type === 'none' || s.entry <= 0) {
@@ -483,31 +486,34 @@
         
         const entry = s.entry;
         let maxDistance = 0;
-        let currentDistance = 0;
+        let retraceDistance = 0;
         
         if (s.type === 'buy') {
-            const highest = Math.max(s.tempHigh, s.entry);
-            maxDistance = Math.abs(highest - entry);
-            currentDistance = Math.abs(currentPrice - entry);
-            if (maxDistance <= 0) { s.retracePct = 0; }
-            else {
-                let rawPct = (currentDistance / maxDistance) * 100;
-                if (currentPrice > entry && currentPrice < highest) rawPct = 100 - ((highest - currentPrice) / maxDistance * 100);
-                else if (currentPrice >= highest) rawPct = 100;
-                else if (currentPrice <= entry) rawPct = 0;
-                s.retracePct = Math.min(100, Math.max(0, Math.round(rawPct)));
+            // highest = titik tertinggi yang pernah dicapai sejak signal
+            const highest = Math.max(s.tempHigh, entry);
+            maxDistance = highest - entry;
+            if (maxDistance <= 0) {
+                s.retracePct = 0;
+            } else {
+                // retraceDistance = seberapa jauh harga sudah turun dari titik tertinggi
+                retraceDistance = highest - currentPrice;
+                let rawPct = (retraceDistance / maxDistance) * 100;
+                // Clamp dan round
+                rawPct = Math.min(100, Math.max(0, rawPct));
+                s.retracePct = Math.round(rawPct);
             }
         } else if (s.type === 'sell') {
-            const lowest = Math.min(s.tempLow, s.entry);
-            maxDistance = Math.abs(entry - lowest);
-            currentDistance = Math.abs(entry - currentPrice);
-            if (maxDistance <= 0) { s.retracePct = 0; }
-            else {
-                let rawPct = (currentDistance / maxDistance) * 100;
-                if (currentPrice < entry && currentPrice > lowest) rawPct = 100 - ((currentPrice - lowest) / maxDistance * 100);
-                else if (currentPrice <= lowest) rawPct = 100;
-                else if (currentPrice >= entry) rawPct = 0;
-                s.retracePct = Math.min(100, Math.max(0, Math.round(rawPct)));
+            // lowest = titik terendah yang pernah dicapai sejak signal
+            const lowest = Math.min(s.tempLow, entry);
+            maxDistance = entry - lowest;
+            if (maxDistance <= 0) {
+                s.retracePct = 0;
+            } else {
+                // retraceDistance = seberapa jauh harga sudah naik dari titik terendah
+                retraceDistance = currentPrice - lowest;
+                let rawPct = (retraceDistance / maxDistance) * 100;
+                rawPct = Math.min(100, Math.max(0, rawPct));
+                s.retracePct = Math.round(rawPct);
             }
         }
         
@@ -614,7 +620,7 @@
         if (winrateEl) winrateEl.innerText = `${s.winrate}%`;
     }
 
-    // HTF engine
+    // HTF engine (tidak diubah)
     let htfDataStore = {
         xau: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 },
         btc: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 }
@@ -760,7 +766,8 @@
         if(s.confirmed){
             if(s.type!=='none'){
                 if(s.tempHigh===0&&s.tempLow===0){s.tempHigh=s.entry||price; s.tempLow=s.entry||price;}
-                if(price>s.tempHigh) s.tempHigh=price; if(price<s.tempLow) s.tempLow=price;
+                if(price>s.tempHigh) s.tempHigh=price; 
+                if(price<s.tempLow) s.tempLow=price;
                 updateRetraceProgression(id, price);
                 const refPrice=s.entry>0?s.entry:s.originPrice;
                 const expansionDistance=s.type==='buy'? s.tempHigh-refPrice : refPrice-s.tempLow;
@@ -807,7 +814,7 @@
         setTimeout(()=>{ s.resetInProgress=false; },300); 
     }
 
-    // WebSocket XAU & BTC
+    // WebSocket XAU & BTC (tidak diubah, tetap utuh)
     let xauWs=null, xauReconnectTimer=null, xauReconnectAttempts=0;
     let xauFetchRetryTimer=null, xauCurrentPrice=0, xauLastHeartbeat=Date.now();
     function updateFeedBadge(id,status){ const el=document.getElementById(`feed-badge-${id}`); if(!el) return; el.className='feed-badge'; if(status==='ok'){ el.textContent='● WS'; el.classList.add('ok'); } else if(status==='fallback'){ el.textContent='⚡ REST'; el.classList.add('fallback'); } else { el.textContent='○ OFF'; el.classList.add('err'); } }
