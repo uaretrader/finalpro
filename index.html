@@ -269,7 +269,7 @@
     const XAU_OFFSET = -2.7;
     const CONFIRMATION_DELAY_CYCLES = 3;
     const RESET_THRESHOLD_XAU = 5;
-    const RESET_THRESHOLD_BTC = 50;
+    const RESET_THRESHOLD_BTC = 80;
     
     // ==================== ADVANCED MARKET DATA ====================
     let marketData = {
@@ -609,7 +609,7 @@
         md.volume = candles.slice(-VOLUME_LOOKBACK).map(c => c.volume);
         const recent = candles.slice(-10); md.structureHigh = Math.max(...recent.map(c => c.high)); md.structureLow = Math.min(...recent.map(c => c.low));
     }
-    function getAdaptiveThreshold(id) { const md = marketData[id]; return (!md.atr || md.atr <= 0) ? (id === 'xau' ? 0.7 : 12) : md.atr * VOLATILITY_MULTIPLIER; }
+    function getAdaptiveThreshold(id) { const md = marketData[id]; return (!md.atr || md.atr <= 0) ? (id === 'xau' ? 0.7 : 15) : md.atr * VOLATILITY_MULTIPLIER; }
     function detectLiquiditySweep(id, price) { const md = marketData[id]; if (!md.structureHigh || !md.structureLow) return null; if (price > md.structureHigh) return 'buy'; if (price < md.structureLow) return 'sell'; return null; }
     function detectBOSCHOCH(id, direction) { const md = marketData[id]; const candles = md.candles; if (candles.length < 6) return false; const last = candles[candles.length-1]; const prev = candles[candles.length-2]; if (direction === 'buy') return last.close > prev.high; return last.close < prev.low; }
     function isVolumeImpulse(id) { const md = marketData[id]; if (!md.volume || md.volume.length < 5) return false; const current = md.volume[md.volume.length-1]; const avg = md.volume.reduce((a,b)=>a+b,0) / md.volume.length; return current > (avg * 1.3); }
