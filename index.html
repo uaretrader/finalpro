@@ -46,8 +46,6 @@
             margin-bottom: 15px;
             border-bottom: 1px solid var(--border);
             padding-bottom: 12px;
-            cursor: pointer;
-            user-select: none;
         }
 
         .brand h1 { font-size: 1rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
@@ -92,7 +90,7 @@
             padding: 6px 14px;
             border-radius: 4px;
             cursor: pointer;
-            transition: all 0.1s ease;
+            transition: all 0.2s ease;
             background: rgba(255,255,255,0.03);
             letter-spacing: 0.5px;
             display: flex;
@@ -100,18 +98,9 @@
             gap: 4px;
             margin-left: 10px;
         }
-        /* HIGHLIGHT SAAT DI KLIK */
-        .switch-pair-btn:active {
-            background: rgba(240, 185, 11, 0.3);
-            border-color: var(--accent);
-            color: var(--accent);
-            transform: scale(0.97);
-        }
-        /* Hover untuk desktop */
         .switch-pair-btn:hover {
             border-color: var(--accent);
             color: var(--accent);
-            background: rgba(240,185,11,0.1);
         }
 
         .pair-card { display: none; }
@@ -163,7 +152,6 @@
             cursor: pointer;
             user-select: none;
             transition: all 0.2s ease;
-            position: relative;
         }
         .signal-bar.confirm-wait {
             border-color: var(--confirm-pending);
@@ -198,6 +186,10 @@
         .level-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
         .level-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
 
+        .htf-status {
+            display: none;
+        }
+
         footer { text-align: center; font-size: 0.55rem; color: var(--text-dim); margin-top: 10px; opacity: 0.6; }
 
         .stats-grid {
@@ -228,139 +220,11 @@
             font-weight: 700;
         }
 
-        /* ========= CUSTOM MODAL ========= */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(4px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            visibility: hidden;
-            opacity: 0;
-            transition: all 0.2s ease;
-        }
-        .modal-overlay.active {
-            visibility: visible;
-            opacity: 1;
-        }
-        .modal-container {
-            background: var(--bg);
-            border: 1px solid var(--accent);
-            border-radius: 12px;
-            width: 85%;
-            max-width: 340px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-        }
-        .modal-header {
-            padding: 16px 20px 8px 20px;
-            border-bottom: 1px solid var(--border);
-        }
-        .modal-header h3 {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: var(--accent);
-            letter-spacing: 1px;
-        }
-        .modal-body {
-            padding: 20px;
-        }
-        .modal-body input {
-            width: 100%;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px 14px;
-            color: var(--text);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            outline: none;
-            margin-bottom: 12px;
-        }
-        .modal-body input:focus {
-            border-color: var(--accent);
-        }
-        .modal-body .hint {
-            font-size: 0.6rem;
-            color: var(--text-dim);
-            margin-top: 8px;
-        }
-        .modal-footer {
-            display: flex;
-            border-top: 1px solid var(--border);
-        }
-        .modal-footer button {
-            flex: 1;
-            background: transparent;
-            border: none;
-            padding: 12px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            cursor: pointer;
-            color: var(--text-dim);
-        }
-        .modal-footer button:first-child {
-            border-right: 1px solid var(--border);
-        }
-        .modal-footer .btn-ok {
-            color: var(--accent);
-        }
-        .modal-footer button:active {
-            background: rgba(255,255,255,0.05);
-        }
-
-        /* Running text overlay - SAMA PERSIS dengan signal bar asli */
-        .signal-bar .running-marquee {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            background: var(--bg);
-            border-radius: 4px;
-            padding: 0 12px;
-            overflow: hidden;
-            white-space: nowrap;
-            z-index: 5;
-        }
-        .signal-bar .running-marquee span {
-            display: inline-block;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--accent);
-            animation: marquee 10s linear infinite;
-            padding-left: 100%;
-        }
-        @keyframes marquee {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-100%); }
-        }
-        
-        .error-shake {
-            animation: shake 0.3s ease-in-out;
-            border-color: var(--danger) !important;
-        }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
     </style>
 </head>
 <body>
 <div class="container">
-<header id="mainHeader">
+<header>
 <div class="brand">
 <h1>uradvisor</h1>
 <p style="font-size: 0.55rem; color: var(--text-dim)">URA v6.0</p>
@@ -377,175 +241,13 @@
 <div id="terminals"></div>
 <footer>
         [ ENGINE CORE ]: SWEEP + CHoCH + FVG + HTF CONFIRMATION<br/>
-        [ METHOD ]: DELAYED VALIDATION BEFORE LOCK<br/>
-        <span style="color:var(--accent);">⚡ DOUBLE TAP HEADER → SET MESSAGE (PASSWORD) ⚡</span>
+        [ METHOD ]: DELAYED VALIDATION BEFORE LOCK
     </footer>
 </div>
-
-<!-- PASSWORD MODAL -->
-<div id="passwordModal" class="modal-overlay">
-    <div class="modal-container">
-        <div class="modal-header">
-            <h3>🔐 VERIFIKASI</h3>
-        </div>
-        <div class="modal-body">
-            <input type="password" id="passwordInput" placeholder="Masukkan kode..." autocomplete="off">
-            <div class="hint">↳ Kode diperlukan untuk mengirim pesan</div>
-        </div>
-        <div class="modal-footer">
-            <button id="passwordCancelBtn">BATAL</button>
-            <button id="passwordOkBtn" class="btn-ok">VERIFIKASI</button>
-        </div>
-    </div>
-</div>
-
-<!-- MESSAGE MODAL -->
-<div id="messageModal" class="modal-overlay">
-    <div class="modal-container">
-        <div class="modal-header">
-            <h3>✏️ SET RUNNING MESSAGE</h3>
-        </div>
-        <div class="modal-body">
-            <input type="text" id="modalMessageInput" placeholder="Ketik pesan..." autocomplete="off">
-            <div class="hint">↳ Kosongkan untuk menghapus pesan</div>
-        </div>
-        <div class="modal-footer">
-            <button id="modalCancelBtn">BATAL</button>
-            <button id="modalOkBtn" class="btn-ok">SIMPAN</button>
-        </div>
-    </div>
-</div>
-
 <script>
 (function() {
     'use strict';
 
-    // ==================== PASSWORD CONFIG ====================
-    const ADMIN_PASSWORD = "00000";
-    
-    // ==================== RUNNING TEXT ====================
-    function updateRunningTextOnBar(id, message) {
-        const signalBar = document.getElementById(`signal-bar-${id}`);
-        if (!signalBar) return;
-        
-        const existingMarquee = signalBar.querySelector('.running-marquee');
-        if (existingMarquee) existingMarquee.remove();
-        
-        if (message && message.trim() !== '') {
-            const originalChildren = Array.from(signalBar.children);
-            originalChildren.forEach(child => {
-                if (!child.classList || !child.classList.contains('running-marquee')) {
-                    child.style.display = 'none';
-                }
-            });
-            
-            const marqueeDiv = document.createElement('div');
-            marqueeDiv.className = 'running-marquee';
-            const marqueeSpan = document.createElement('span');
-            marqueeSpan.innerText = message + '   ▶   ' + message + '   ▶   ' + message + '   ◀   ';
-            marqueeDiv.appendChild(marqueeSpan);
-            signalBar.appendChild(marqueeDiv);
-        } else {
-            const originalChildren = Array.from(signalBar.children);
-            originalChildren.forEach(child => {
-                if (!child.classList || !child.classList.contains('running-marquee')) {
-                    child.style.display = '';
-                }
-            });
-        }
-    }
-    
-    function refreshRunningText() {
-        const msg = localStorage.getItem('runningMsg') || '';
-        updateRunningTextOnBar('xau', msg);
-        updateRunningTextOnBar('btc', msg);
-    }
-    
-    function showPasswordModal() {
-        const modal = document.getElementById('passwordModal');
-        const input = document.getElementById('passwordInput');
-        if (!modal) return;
-        input.value = '';
-        modal.classList.add('active');
-        setTimeout(() => input.focus(), 100);
-    }
-    
-    function hidePasswordModal() {
-        const modal = document.getElementById('passwordModal');
-        if (modal) modal.classList.remove('active');
-    }
-    
-    function showMessageModal() {
-        const modal = document.getElementById('messageModal');
-        const input = document.getElementById('modalMessageInput');
-        if (!modal) return;
-        input.value = localStorage.getItem('runningMsg') || '';
-        modal.classList.add('active');
-        setTimeout(() => input.focus(), 100);
-    }
-    
-    function hideMessageModal() {
-        const modal = document.getElementById('messageModal');
-        if (modal) modal.classList.remove('active');
-    }
-    
-    function verifyPassword() {
-        const input = document.getElementById('passwordInput');
-        const password = input.value;
-        
-        if (password === ADMIN_PASSWORD) {
-            hidePasswordModal();
-            showMessageModal();
-            if (navigator.vibrate) navigator.vibrate(50);
-        } else {
-            input.classList.add('error-shake');
-            setTimeout(() => input.classList.remove('error-shake'), 400);
-            input.value = '';
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            const hint = document.querySelector('#passwordModal .hint');
-            if (hint) {
-                const originalText = hint.innerText;
-                hint.innerText = '❌ KODE SALAH! Coba lagi';
-                hint.style.color = 'var(--danger)';
-                setTimeout(() => {
-                    hint.innerText = originalText;
-                    hint.style.color = '';
-                }, 1500);
-            }
-        }
-    }
-    
-    function saveMessage() {
-        const input = document.getElementById('modalMessageInput');
-        const newMsg = input.value.trim();
-        if (newMsg === '') {
-            localStorage.removeItem('runningMsg');
-        } else {
-            localStorage.setItem('runningMsg', newMsg);
-        }
-        refreshRunningText();
-        hideMessageModal();
-        if (navigator.vibrate) navigator.vibrate(50);
-    }
-    
-    // ==================== DOUBLE TAP HEADER ====================
-    let headerTapCount = 0;
-    let headerTapTimer = null;
-    
-    function onHeaderTap() {
-        if (headerTapTimer) clearTimeout(headerTapTimer);
-        headerTapCount++;
-        headerTapTimer = setTimeout(() => {
-            headerTapCount = 0;
-        }, 400);
-        
-        if (headerTapCount === 2) {
-            headerTapCount = 0;
-            if (headerTapTimer) clearTimeout(headerTapTimer);
-            showPasswordModal();
-        }
-    }
-    
     // ==================== OPTIMASI ANTI-LAG ====================
     let pendingSaveData = { xau: null, btc: null };
     let pendingSaveTimer = { xau: null, btc: null };
@@ -561,6 +263,7 @@
     const EMA_PERIOD = 21;
     const VOLUME_LOOKBACK = 12;
     const VOLATILITY_MULTIPLIER = 1.35;
+    const HTF_EMA_PERIOD = 21;
 
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
     const XAU_OFFSET = -2.7;
@@ -570,8 +273,8 @@
     
     // ==================== ADVANCED MARKET DATA ====================
     let marketData = {
-        xau: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null },
-        btc: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null }
+        xau: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0 },
+        btc: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0 }
     };
 
     // ==================== STATE MANAGEMENT ====================
@@ -594,7 +297,9 @@
             clearTimeout(tapTimers[id]);
             tapTimers[id] = null;
         }
+        
         tapCounters[id]++;
+        
         tapTimers[id] = setTimeout(() => {
             tapCounters[id] = 0;
             tapTimers[id] = null;
@@ -622,7 +327,6 @@
             historyTapCounters[id] = 0;
             historyTapTimers[id] = null;
         }, TAP_TIMEOUT);
-        
         if (historyTapCounters[id] === 3) {
             performanceStats[id] = createDefaultStats();
             savePerformanceStats(id);
@@ -779,6 +483,7 @@
         const winrateEl = document.getElementById(`stats-winrate-${id}`);
         if (tpEl) tpEl.innerText = stats.tpHits;
         if (lossEl) {
+            // DIPAKSA FORMAT "0.0" AGAR KONSISTEN
             let resetPercent;
             if (stats.total > 0) {
                 resetPercent = ((stats.retraceResets / stats.total) * 100).toFixed(1);
@@ -792,7 +497,7 @@
         }
     }
 
-    // ==================== HTF ENGINE ====================
+    // ==================== HTF ENGINE (ENGINE 2) ====================
     let htfDataStore = {
         xau: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 },
         btc: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 }
@@ -804,11 +509,7 @@
     function buildOHLCCandle(id, price) {
         htfTickCounter[id]++;
         if (!htfCurrentCandle[id] || htfTickCounter[id] >= HTF_TICK_PER_CANDLE) {
-            if (htfCurrentCandle[id]) { 
-                htfCurrentCandle[id].closed = true; 
-                htfDataStore[id].ohlcCandles.push(htfCurrentCandle[id]); 
-                if (htfDataStore[id].ohlcCandles.length > 50) htfDataStore[id].ohlcCandles.shift(); 
-            }
+            if (htfCurrentCandle[id]) { htfCurrentCandle[id].closed = true; htfDataStore[id].ohlcCandles.push(htfCurrentCandle[id]); if (htfDataStore[id].ohlcCandles.length > 50) htfDataStore[id].ohlcCandles.shift(); }
             htfTickCounter[id] = 0;
             htfCurrentCandle[id] = { open: price, high: price, low: price, close: price, closed: false };
         } else {
@@ -817,70 +518,36 @@
             htfCurrentCandle[id].close = price;
         }
     }
-    
     function calculateSimpleHTF(id) {
         const data = htfDataStore[id];
         const candles = data.ohlcCandles.filter(c => c.closed);
         if (candles.length < 10) return;
         const recentCandles = candles.slice(-10);
         let bullishCount = 0, bearishCount = 0;
-        for (let i = 0; i < recentCandles.length; i++) { 
-            const c = recentCandles[i]; 
-            if (c.close > c.open) bullishCount++; 
-            else if (c.close < c.open) bearishCount++; 
-        }
-        if (bullishCount > bearishCount + 2) { 
-            data.structure = 'BULLISH'; 
-            data.confidence = 60 + (bullishCount * 5); 
-        }
-        else if (bearishCount > bullishCount + 2) { 
-            data.structure = 'BEARISH'; 
-            data.confidence = 60 + (bearishCount * 5); 
-        }
-        else { 
-            data.structure = 'NEUTRAL'; 
-            data.confidence = 40; 
-        }
+        for (let i = 0; i < recentCandles.length; i++) { const c = recentCandles[i]; if (c.close > c.open) bullishCount++; else if (c.close < c.open) bearishCount++; }
+        if (bullishCount > bearishCount + 2) { data.structure = 'BULLISH'; data.confidence = 60 + (bullishCount * 5); }
+        else if (bearishCount > bullishCount + 2) { data.structure = 'BEARISH'; data.confidence = 60 + (bearishCount * 5); }
+        else { data.structure = 'NEUTRAL'; data.confidence = 40; }
         const last3 = recentCandles.slice(-3);
         let upMomentum = 0, downMomentum = 0;
-        for (let i = 1; i < last3.length; i++) { 
-            if (last3[i].close > last3[i-1].close) upMomentum++; 
-            else if (last3[i].close < last3[i-1].close) downMomentum++; 
-        }
-        if (upMomentum >= 2) { 
-            data.momentum = 'BULLISH'; 
-            data.momentumStrength = upMomentum === 2 ? 'MODERATE' : 'STRONG'; 
-        }
-        else if (downMomentum >= 2) { 
-            data.momentum = 'BEARISH'; 
-            data.momentumStrength = downMomentum === 2 ? 'MODERATE' : 'STRONG'; 
-        }
-        else { 
-            data.momentum = 'STABLE'; 
-            data.momentumStrength = 'NONE'; 
-        }
+        for (let i = 1; i < last3.length; i++) { if (last3[i].close > last3[i-1].close) upMomentum++; else if (last3[i].close < last3[i-1].close) downMomentum++; }
+        if (upMomentum >= 2) { data.momentum = 'BULLISH'; data.momentumStrength = upMomentum === 2 ? 'MODERATE' : 'STRONG'; }
+        else if (downMomentum >= 2) { data.momentum = 'BEARISH'; data.momentumStrength = downMomentum === 2 ? 'MODERATE' : 'STRONG'; }
+        else { data.momentum = 'STABLE'; data.momentumStrength = 'NONE'; }
         data.confidence = Math.min(100, Math.max(0, data.confidence));
     }
-    
-    function updateHTFEngine(id, price) { 
-        buildOHLCCandle(id, price); 
-        calculateSimpleHTF(id); 
-    }
+    function updateHTFEngine(id, price) { buildOHLCCandle(id, price); calculateSimpleHTF(id); }
     
     function isHTFConfirmingDirection(id, direction) {
-        const htf = htfDataStore[id]; 
-        const market = marketData[id];
+        const htf = htfDataStore[id]; const market = marketData[id];
         if (!htf || !market) return false;
-        const ema = market.ema || 0; 
-        const price = market.price || state[id]?.lastPrice || 0;
+        const ema = market.ema || 0; const price = market.price || state[id]?.lastPrice || 0;
         if (ema <= 0 || price <= 0) return false;
         const atrTolerance = Math.max((market.atr || 0) * 0.18, id === 'xau' ? 0.35 : 18);
-        const isAboveEMA = price >= (ema - atrTolerance); 
-        const isBelowEMA = price <= (ema + atrTolerance);
+        const isAboveEMA = price >= (ema - atrTolerance); const isBelowEMA = price <= (ema + atrTolerance);
         const emaSlope = market.prevEMA !== undefined ? (ema - market.prevEMA) : 0;
         const slopeThreshold = Math.max(0.00001, (market.atr || 0) * 0.0045);
-        const bullishBias = emaSlope >= -slopeThreshold; 
-        const bearishBias = emaSlope <= slopeThreshold;
+        const bullishBias = emaSlope >= -slopeThreshold; const bearishBias = emaSlope <= slopeThreshold;
         if (direction === 'buy') return ((htf.structure === 'BULLISH' || htf.momentum === 'BULLISH') && isAboveEMA && bullishBias);
         if (direction === 'sell') return ((htf.structure === 'BEARISH' || htf.momentum === 'BEARISH') && isBelowEMA && bearishBias);
         return false;
@@ -890,81 +557,39 @@
     function startConfirmationDelay(id, direction, entryPrice) {
         if (pendingConfirmation[id]) cancelPendingConfirmation(id);
         pendingConfirmation[id] = { direction, entryPrice, cycleCounter: 0, timerId: null };
-        const signalBar = document.getElementById(`signal-bar-${id}`); 
-        if (signalBar) signalBar.classList.add('confirm-wait');
-        const l3Dot = document.getElementById(`l3-${id}`); 
-        if (l3Dot) l3Dot.classList.add('confirm-pending');
+        const signalBar = document.getElementById(`signal-bar-${id}`); if (signalBar) signalBar.classList.add('confirm-wait');
+        const l3Dot = document.getElementById(`l3-${id}`); if (l3Dot) l3Dot.classList.add('confirm-pending');
         updateSignalUIOnly(id);
-        
         function checkConfirmationCycle() {
             if (!pendingConfirmation[id]) return;
-            pendingConfirmation[id].cycleCounter++; 
-            updateSignalUIOnly(id);
+            pendingConfirmation[id].cycleCounter++; updateSignalUIOnly(id);
             if (pendingConfirmation[id].cycleCounter >= CONFIRMATION_DELAY_CYCLES) {
                 const htfConfirmed = isHTFConfirmingDirection(id, direction);
-                if (htfConfirmed) {
-                    executeLockSignal(id, direction, entryPrice);
-                } else { 
-                    resetSignal(id); 
-                    const signalText = document.getElementById(`signal-text-${id}`); 
-                    if (signalText) { 
-                        signalText.innerText = 'REJECT'; 
-                        signalText.style.color = 'var(--danger)'; 
-                        setTimeout(() => updateSignalUIOnly(id), 1000); 
-                    } 
-                }
+                if (htfConfirmed) executeLockSignal(id, direction, entryPrice);
+                else { resetSignal(id); const signalText = document.getElementById(`signal-text-${id}`); if (signalText) { signalText.innerText = 'REJECT'; signalText.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1000); } }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
-            } else {
-                pendingConfirmation[id].timerId = setTimeout(() => { 
-                    if (pendingConfirmation[id]) checkConfirmationCycle(); 
-                }, 4000);
-            }
+            } else pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkConfirmationCycle(); }, 4000);
         }
-        pendingConfirmation[id].timerId = setTimeout(() => { 
-            if (pendingConfirmation[id]) checkConfirmationCycle(); 
-        }, 4000);
+        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkConfirmationCycle(); }, 4000);
     }
     
     function executeLockSignal(id, direction, entryPrice) {
-        const s = state[id]; 
-        const adjustedEntry = entryPrice;
-        s.l3 = true; 
-        s.confirmed = true; 
-        s.confirmedAt = Date.now(); 
-        s.warmupUntil = Date.now() + 2500;
-        s.type = direction; 
-        s.entry = adjustedEntry; 
-        s.originPrice = adjustedEntry; 
-        s.tempHigh = adjustedEntry; 
-        s.tempLow = adjustedEntry;
+        const s = state[id]; const adjustedEntry = entryPrice;
+        s.l3 = true; s.confirmed = true; s.confirmedAt = Date.now(); s.warmupUntil = Date.now() + 2500;
+        s.type = direction; s.entry = adjustedEntry; s.originPrice = adjustedEntry; s.tempHigh = adjustedEntry; s.tempLow = adjustedEntry;
         const risk = id === 'xau' ? 5 : entryPrice * 0.0035;
-        if (direction === 'buy') { 
-            s.sl = adjustedEntry - risk; 
-            s.tp = adjustedEntry + (risk * 1.7); 
-        } else { 
-            s.sl = adjustedEntry + risk; 
-            s.tp = adjustedEntry - (risk * 1.7); 
-        }
-        throttledSaveState(id); 
-        pendingSignalData[id] = true; 
-        throttledUpdateUI(id);
-        const signalBar = document.getElementById(`signal-bar-${id}`); 
-        if (signalBar) signalBar.classList.remove('confirm-wait');
+        if (direction === 'buy') { s.sl = adjustedEntry - risk; s.tp = adjustedEntry + (risk * 1.7); }
+        else { s.sl = adjustedEntry + risk; s.tp = adjustedEntry - (risk * 1.7); }
+        throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
+        const signalBar = document.getElementById(`signal-bar-${id}`); if (signalBar) signalBar.classList.remove('confirm-wait');
         if (navigator.vibrate) navigator.vibrate(50);
     }
 
     // ==================== ADVANCED ENGINE FUNCTIONS ====================
     function buildRealCandle(id, price) {
-        const md = marketData[id]; 
-        const now = Date.now();
-        if (!md.currentCandle) { 
-            md.currentCandle = { open: price, high: price, low: price, close: price, volume: 1, timestamp: now }; 
-            return; 
-        }
-        md.currentCandle.high = Math.max(md.currentCandle.high, price); 
-        md.currentCandle.low = Math.min(md.currentCandle.low, price); 
-        md.currentCandle.close = price; 
-        md.currentCandle.volume++;
+        const md = marketData[id]; const now = Date.now();
+        if (!md.currentCandle) { md.currentCandle = { open: price, high: price, low: price, close: price, volume: 1, timestamp: now }; return; }
+        md.currentCandle.high = Math.max(md.currentCandle.high, price); md.currentCandle.low = Math.min(md.currentCandle.low, price); md.currentCandle.close = price; md.currentCandle.volume++;
         if (now - md.currentCandle.timestamp >= 5000) {
             md.candles.push({...md.currentCandle});
             if (md.candles.length > 120) md.candles.shift();
@@ -972,123 +597,55 @@
             calculateAdvancedMetrics(id);
         }
     }
-    
     function calculateAdvancedMetrics(id) {
-        const md = marketData[id]; 
-        const candles = md.candles;
+        const md = marketData[id]; const candles = md.candles;
         if (candles.length < ATR_PERIOD + 5) return;
         let trValues = [];
-        for (let i = 1; i < candles.length; i++) { 
-            const tr = Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - candles[i-1].close), Math.abs(candles[i].low - candles[i-1].close)); 
-            trValues.push(tr); 
-        }
+        for (let i = 1; i < candles.length; i++) { const tr = Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - candles[i-1].close), Math.abs(candles[i].low - candles[i-1].close)); trValues.push(tr); }
         md.atr = trValues.slice(-ATR_PERIOD).reduce((a,b)=>a+b,0) / ATR_PERIOD;
-        const closes = candles.map(c => c.close); 
-        let ema = closes[0]; 
-        const alpha = 2 / (EMA_PERIOD + 1);
+        const closes = candles.map(c => c.close); let ema = closes[0]; const alpha = 2 / (EMA_PERIOD + 1);
         for (let i = 1; i < closes.length; i++) ema = (closes[i] * alpha) + (ema * (1 - alpha));
-        md.prevEMA = md.ema || ema; 
-        md.ema = ema; 
-        md.price = closes[closes.length - 1]; 
-        md.lastUpdate = Date.now();
+        md.prevEMA = md.ema || ema; md.ema = ema; md.price = closes[closes.length - 1]; md.lastUpdate = Date.now();
         md.volume = candles.slice(-VOLUME_LOOKBACK).map(c => c.volume);
-        const recent = candles.slice(-10); 
-        md.structureHigh = Math.max(...recent.map(c => c.high)); 
-        md.structureLow = Math.min(...recent.map(c => c.low));
+        const recent = candles.slice(-10); md.structureHigh = Math.max(...recent.map(c => c.high)); md.structureLow = Math.min(...recent.map(c => c.low));
     }
-    
-    function getAdaptiveThreshold(id) { 
-        const md = marketData[id]; 
-        return (!md.atr || md.atr <= 0) ? (id === 'xau' ? 0.7 : 12) : md.atr * 1.35; 
-    }
-    
-    let paEma = { xau: 0, btc: 0 }; 
-    let paEmaAlpha = 0.2;
-    
-    function updatePA(id, price) { 
-        const s = state[id]; 
-        if (paEma[id] === 0) paEma[id] = price; 
-        else paEma[id] = (price * paEmaAlpha) + (paEma[id] * (1 - paEmaAlpha)); 
-        if (s.lastPrice !== 0) { 
-            const emaDiff = paEma[id] - s.lastPrice; 
-            s.trendScore += emaDiff * 0.5; 
-        } 
-        const maxTrend = id === 'xau' ? 5 : 500; 
-        if (s.trendScore > maxTrend) s.trendScore = maxTrend; 
-        if (s.trendScore < -maxTrend) s.trendScore = -maxTrend; 
-    }
-    
-    function createFreshState() { 
-        return { lastPrice: 0, trendScore: 0, l1: false, l2: false, l3: false, confirmed: false, confirmedAt: 0, resetInProgress: false, warmupUntil: 0, type: 'none', entry: 0, sl: 0, tp: 0, tempHigh: 0, tempLow: 0, originPrice: 0 }; 
-    }
-    
-    function loadState(id) { 
-        const saved = localStorage.getItem(`ura_state_${id}`); 
-        if (saved) { 
-            try { 
-                const parsed = JSON.parse(saved); 
-                if (parsed.tempHigh === undefined) parsed.tempHigh = 0; 
-                if (parsed.tempLow === undefined) parsed.tempLow = 0; 
-                if (parsed.originPrice === undefined) parsed.originPrice = 0; 
-                return parsed; 
-            } catch(e) { return createFreshState(); } 
-        } 
-        return createFreshState(); 
-    }
+    function getAdaptiveThreshold(id) { const md = marketData[id]; return (!md.atr || md.atr <= 0) ? (id === 'xau' ? 0.7 : 12) : md.atr * VOLATILITY_MULTIPLIER; }
+    function detectLiquiditySweep(id, price) { const md = marketData[id]; if (!md.structureHigh || !md.structureLow) return null; if (price > md.structureHigh) return 'buy'; if (price < md.structureLow) return 'sell'; return null; }
+    function detectBOSCHOCH(id, direction) { const md = marketData[id]; const candles = md.candles; if (candles.length < 6) return false; const last = candles[candles.length-1]; const prev = candles[candles.length-2]; if (direction === 'buy') return last.close > prev.high; return last.close < prev.low; }
+    function isVolumeImpulse(id) { const md = marketData[id]; if (!md.volume || md.volume.length < 5) return false; const current = md.volume[md.volume.length-1]; const avg = md.volume.reduce((a,b)=>a+b,0) / md.volume.length; return current > (avg * 1.3); }
+    function isCandleClosedConfirmed(id) { const md = marketData[id]; if (!md.candles || md.candles.length < 2) return false; const last = md.candles[md.candles.length-1]; return Math.abs(last.close - last.open) > (md.atr * 0.2); }
+    let paEma = { xau: 0, btc: 0 }; let paEmaAlpha = 0.2;
+    function updatePA(id, price) { const s = state[id]; if (paEma[id] === 0) paEma[id] = price; else paEma[id] = (price * paEmaAlpha) + (paEma[id] * (1 - paEmaAlpha)); if (s.lastPrice !== 0) { const emaDiff = paEma[id] - s.lastPrice; s.trendScore += emaDiff * 0.5; } const maxTrend = id === 'xau' ? 5 : 500; if (s.trendScore > maxTrend) s.trendScore = maxTrend; if (s.trendScore < -maxTrend) s.trendScore = -maxTrend; }
+    function createFreshState() { return { lastPrice: 0, trendScore: 0, l1: false, l2: false, l3: false, confirmed: false, confirmedAt: 0, resetInProgress: false, warmupUntil: 0, type: 'none', entry: 0, sl: 0, tp: 0, tempHigh: 0, tempLow: 0, originPrice: 0 }; }
+    function loadState(id) { const saved = localStorage.getItem(`ura_state_${id}`); if (saved) { try { const parsed = JSON.parse(saved); if (parsed.tempHigh === undefined) parsed.tempHigh = 0; if (parsed.tempLow === undefined) parsed.tempLow = 0; if (parsed.originPrice === undefined) parsed.originPrice = 0; return parsed; } catch(e) { return createFreshState(); } } return createFreshState(); }
     
     function processSignal(id, price) {
-        const s = state[id]; 
-        const resetThreshold = (id === 'xau') ? RESET_THRESHOLD_XAU : RESET_THRESHOLD_BTC;
-        
+        const s = state[id]; const resetThreshold = (id === 'xau') ? RESET_THRESHOLD_XAU : RESET_THRESHOLD_BTC;
         if (s.confirmed) {
             if (s.type !== 'none') {
-                if (s.tempHigh === 0 && s.tempLow === 0) { 
-                    s.tempHigh = s.entry || price; 
-                    s.tempLow = s.entry || price; 
-                }
-                if (price > s.tempHigh) s.tempHigh = price; 
-                if (price < s.tempLow) s.tempLow = price;
-                const referencePrice = s.entry || s.originPrice; 
-                let expansionDistance = 0;
-                if (s.type === 'buy') expansionDistance = s.tempHigh - referencePrice; 
-                else if (s.type === 'sell') expansionDistance = referencePrice - s.tempLow;
+                if (s.tempHigh === 0 && s.tempLow === 0) { s.tempHigh = s.entry || price; s.tempLow = s.entry || price; }
+                if (price > s.tempHigh) s.tempHigh = price; if (price < s.tempLow) s.tempLow = price;
+                const referencePrice = s.entry || s.originPrice; let expansionDistance = 0;
+                if (s.type === 'buy') expansionDistance = s.tempHigh - referencePrice; else if (s.type === 'sell') expansionDistance = referencePrice - s.tempLow;
                 const hasExpandedEnough = expansionDistance >= resetThreshold;
                 if (hasExpandedEnough) {
                     const contextualTolerance = Math.max(resetThreshold * 0.60, getAdaptiveThreshold(id) * 1.35);
                     const contextualReference = s.entry > 0 ? ((s.entry + referencePrice) / 2) : referencePrice;
                     const retraceDistance = Math.abs(price - contextualReference);
                     const isBackToEntry = retraceDistance <= contextualTolerance;
-                    if (isBackToEntry && Date.now() >= (s.warmupUntil || 0)) { 
-                        resetSignal(id); 
-                        return; 
-                    }
+                    if (isBackToEntry && Date.now() >= (s.warmupUntil || 0)) { resetSignal(id); return; }
                 }
             }
             const hitTP = ((s.type === 'buy' && price >= s.tp) || (s.type === 'sell' && price <= s.tp));
             const hitSL = ((s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl));
-            if (hitTP) { 
-                recordSignalResult(id, 'tp'); 
-                resetSignal(id); 
-            } else if (hitSL) { 
-                resetSignal(id); 
-            }
+            if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); } else if (hitSL) { resetSignal(id); }
             return;
         }
-        
-        if (pendingConfirmation[id]) { 
-            s.lastPrice = price; 
-            return; 
-        }
-        
+        if (pendingConfirmation[id]) { s.lastPrice = price; return; }
         updatePA(id, price);
-        
         if (s.l1 && s.type !== 'none') {
-            if (s.tempHigh === 0 && s.tempLow === 0) { 
-                s.tempHigh = s.lastPrice || price; 
-                s.tempLow = s.lastPrice || price; 
-            }
-            if (price > s.tempHigh) s.tempHigh = price; 
-            if (price < s.tempLow) s.tempLow = price;
+            if (s.tempHigh === 0 && s.tempLow === 0) { s.tempHigh = s.lastPrice || price; s.tempLow = s.lastPrice || price; }
+            if (price > s.tempHigh) s.tempHigh = price; if (price < s.tempLow) s.tempLow = price;
             let hasMovedEnough = false;
             if (s.type === 'buy') hasMovedEnough = (s.tempHigh - s.originPrice) >= resetThreshold;
             else if (s.type === 'sell') hasMovedEnough = (s.originPrice - s.tempLow) >= resetThreshold;
@@ -1096,411 +653,63 @@
                 const referencePrice = s.originPrice;
                 const adaptiveTolerance = Math.max(resetThreshold * 0.45, getAdaptiveThreshold(id) * 0.9);
                 const isBackToEntry = Math.abs(price - referencePrice) <= adaptiveTolerance;
-                if (isBackToEntry) { 
-                    recordSignalResult(id, 'retrace'); 
-                    resetSignal(id); 
-                    return; 
-                }
+                if (isBackToEntry) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
             }
-        } else { 
-            if (s.tempHigh !== 0 || s.tempLow !== 0) { 
-                s.tempHigh = 0; 
-                s.tempLow = 0; 
-            } 
-        }
-        
+        } else { if (s.tempHigh !== 0 || s.tempLow !== 0) { s.tempHigh = 0; s.tempLow = 0; } }
         let threshold = getAdaptiveThreshold(id);
         buildRealCandle(id, price);
-        
         if (!s.confirmed && s.lastPrice !== 0 && Math.abs(price - s.lastPrice) > threshold) {
             const direction = s.type !== 'none' ? s.type : (price > s.lastPrice ? 'buy' : 'sell');
-            if (!s.l1) { 
-                s.l1 = true; 
-                s.type = direction; 
-                s.originPrice = price; 
-                s.tempHigh = price; 
-                s.tempLow = price; 
-                throttledSaveState(id); 
-                pendingSignalData[id] = true; 
-                throttledUpdateUI(id); 
-            }
-            else if (!s.l2) { 
-                s.l2 = true; 
-                throttledSaveState(id); 
-                pendingSignalData[id] = true; 
-                throttledUpdateUI(id); 
-            }
-            else if (!s.l3 && !s.confirmed) { 
-                s.l3 = true; 
-                throttledSaveState(id); 
-                pendingSignalData[id] = true; 
-                throttledUpdateUI(id); 
-                startConfirmationDelay(id, direction, price); 
-            }
+            if (!s.l1) { s.l1 = true; s.type = direction; s.originPrice = price; s.tempHigh = price; s.tempLow = price; throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id); }
+            else if (!s.l2) { s.l2 = true; throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id); }
+            else if (!s.l3 && !s.confirmed) { s.l3 = true; throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id); startConfirmationDelay(id, direction, price); }
         }
-        s.lastPrice = price; 
-        throttledSaveState(id);
+        s.lastPrice = price; throttledSaveState(id);
     }
-    
-    function updateSignal(id, price) { 
-        if (signalDebounceTimer[id]) clearTimeout(signalDebounceTimer[id]); 
-        signalDebounceTimer[id] = setTimeout(() => { 
-            processSignal(id, price); 
-            signalDebounceTimer[id] = null; 
-        }, SIGNAL_DEBOUNCE_MS); 
-    }
-    
+    function updateSignal(id, price) { if (signalDebounceTimer[id]) clearTimeout(signalDebounceTimer[id]); signalDebounceTimer[id] = setTimeout(() => { processSignal(id, price); signalDebounceTimer[id] = null; }, SIGNAL_DEBOUNCE_MS); }
     function resetSignal(id) {
         const s = state[id];
         if (pendingConfirmation[id]) cancelPendingConfirmation(id);
         if (s.resetInProgress) return;
         s.resetInProgress = true;
-        if (signalDebounceTimer[id]) { 
-            clearTimeout(signalDebounceTimer[id]); 
-            signalDebounceTimer[id] = null; 
-        }
-        s.l1 = false; 
-        s.l2 = false; 
-        s.l3 = false; 
-        s.confirmed = false; 
-        s.confirmedAt = 0; 
-        s.warmupUntil = 0; 
-        s.type = 'none'; 
-        s.entry = 0; 
-        s.sl = 0; 
-        s.tp = 0; 
-        s.trendScore = 0; 
-        s.tempHigh = 0; 
-        s.tempLow = 0; 
-        s.originPrice = 0; 
-        s.lastPrice = 0;
-        pendingSignalData[id] = true; 
-        updateSignalUIOnly(id); 
-        throttledSaveState(id); 
-        throttledUpdateUI(id);
-        requestAnimationFrame(() => { 
-            s.resetInProgress = false; 
-        });
-        setTimeout(() => { 
-            s.resetInProgress = false; 
-        }, 300);
+        if (signalDebounceTimer[id]) { clearTimeout(signalDebounceTimer[id]); signalDebounceTimer[id] = null; }
+        s.l1 = false; s.l2 = false; s.l3 = false; s.confirmed = false; s.confirmedAt = 0; s.warmupUntil = 0; s.type = 'none'; s.entry = 0; s.sl = 0; s.tp = 0; s.trendScore = 0; s.tempHigh = 0; s.tempLow = 0; s.originPrice = 0; s.lastPrice = 0;
+        pendingSignalData[id] = true; updateSignalUIOnly(id); throttledSaveState(id); throttledUpdateUI(id);
+        requestAnimationFrame(() => { s.resetInProgress = false; });
+        setTimeout(() => { s.resetInProgress = false; }, 300);
     }
 
     // ==================== WEBSOCKET ====================
     let xauWs = null, xauReconnectTimer = null, xauReconnectAttempts = 0, xauFetchRetryTimer = null, xauCurrentPrice = 0, xauLastHeartbeat = Date.now();
-    
-    function updateXAUDisplay(price) { 
-        if (!price || isNaN(price) || price <= 0) return; 
-        xauCurrentPrice = price; 
-        xauLastHeartbeat = Date.now(); 
-        pendingPriceData.xau = price; 
-        throttledUpdateUI('xau'); 
-        updateHTFEngine('xau', price); 
-        updateSignal('xau', price); 
-        const statusEl = document.getElementById('ws-status-xau'); 
-        if (statusEl) { 
-            if (xauFetchRetryTimer && (!xauWs || xauWs.readyState !== WebSocket.OPEN)) { 
-                statusEl.textContent = '● FALLBACK'; 
-                statusEl.className = 'ws-status connected'; 
-            } else { 
-                statusEl.textContent = '● CONNECTED'; 
-                statusEl.className = 'ws-status connected'; 
-            } 
-        } 
-        wsStatus.xau = true; 
-        updateGlobalPulse(); 
-    }
-    
-    async function xauFetchRestPrice() { 
-        try { 
-            const controller = new AbortController(); 
-            const timeoutId = setTimeout(() => controller.abort(), 8000); 
-            const resp = await fetch('https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT', { signal: controller.signal }); 
-            clearTimeout(timeoutId); 
-            const data = await resp.json(); 
-            if (data?.price) { 
-                const price = parseFloat(data.price) + XAU_OFFSET; 
-                if (price > 0 && price !== xauCurrentPrice) { 
-                    updateXAUDisplay(price); 
-                    return true; 
-                } 
-            } 
-        } catch(e) { 
-            console.warn('XAU REST error'); 
-        } 
-        return false; 
-    }
-    
-    function initXAUWebSocket() { 
-        if (xauWs) { 
-            try { xauWs.close(); } catch(e) {} 
-            xauWs = null; 
-        } 
-        if (xauReconnectTimer) clearTimeout(xauReconnectTimer); 
-        try { 
-            xauWs = new WebSocket('wss://fstream.binance.com/ws/xauusdt@trade'); 
-            const wsTimeout = setTimeout(() => { 
-                if (xauWs && xauWs.readyState !== WebSocket.OPEN) { 
-                    if (xauWs) try { xauWs.close(); } catch(e) {} 
-                    xauWs = null; 
-                    if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); 
-                } 
-            }, 5000); 
-            xauWs.onopen = () => { 
-                clearTimeout(wsTimeout); 
-                xauReconnectAttempts = 0; 
-                if (xauFetchRetryTimer) { 
-                    clearInterval(xauFetchRetryTimer); 
-                    xauFetchRetryTimer = null; 
-                } 
-                updateGlobalPulse(); 
-            }; 
-            xauWs.onmessage = (e) => { 
-                try { 
-                    const data = JSON.parse(e.data); 
-                    if (data.p) { 
-                        const price = parseFloat(data.p) + XAU_OFFSET; 
-                        if (!isNaN(price) && price > 0 && price !== xauCurrentPrice) updateXAUDisplay(price); 
-                    } 
-                } catch(err) {} 
-            }; 
-            xauWs.onerror = () => { 
-                if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); 
-            }; 
-            xauWs.onclose = () => { 
-                const delay = Math.min(1000 * Math.pow(1.5, xauReconnectAttempts), 15000); 
-                xauReconnectAttempts++; 
-                xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay); 
-                if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); 
-            }; 
-        } catch(err) { 
-            if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); 
-        } 
-    }
-    
+    function updateXAUDisplay(price) { if (!price || isNaN(price) || price <= 0) return; xauCurrentPrice = price; xauLastHeartbeat = Date.now(); pendingPriceData.xau = price; throttledUpdateUI('xau'); updateHTFEngine('xau', price); updateSignal('xau', price); const statusEl = document.getElementById('ws-status-xau'); if (statusEl) { if (xauFetchRetryTimer && (!xauWs || xauWs.readyState !== WebSocket.OPEN)) { statusEl.textContent = '● FALLBACK'; statusEl.className = 'ws-status connected'; } else { statusEl.textContent = '● CONNECTED'; statusEl.className = 'ws-status connected'; } } wsStatus.xau = true; updateGlobalPulse(); }
+    async function xauFetchRestPrice() { try { const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 8000); const resp = await fetch('https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT', { signal: controller.signal }); clearTimeout(timeoutId); const data = await resp.json(); if (data?.price) { const price = parseFloat(data.price) + XAU_OFFSET; if (price > 0 && price !== xauCurrentPrice) { updateXAUDisplay(price); return true; } } } catch(e) { console.warn('XAU REST error'); } return false; }
+    function initXAUWebSocket() { if (xauWs) { try { xauWs.close(); } catch(e) {} xauWs = null; } if (xauReconnectTimer) clearTimeout(xauReconnectTimer); try { xauWs = new WebSocket('wss://fstream.binance.com/ws/xauusdt@trade'); const wsTimeout = setTimeout(() => { if (xauWs && xauWs.readyState !== WebSocket.OPEN) { if (xauWs) try { xauWs.close(); } catch(e) {} xauWs = null; if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); } }, 5000); xauWs.onopen = () => { clearTimeout(wsTimeout); xauReconnectAttempts = 0; if (xauFetchRetryTimer) { clearInterval(xauFetchRetryTimer); xauFetchRetryTimer = null; } updateGlobalPulse(); }; xauWs.onmessage = (e) => { try { const data = JSON.parse(e.data); if (data.p) { const price = parseFloat(data.p) + XAU_OFFSET; if (!isNaN(price) && price > 0 && price !== xauCurrentPrice) updateXAUDisplay(price); } } catch(err) {} }; xauWs.onerror = () => { if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); }; xauWs.onclose = () => { const delay = Math.min(1000 * Math.pow(1.5, xauReconnectAttempts), 15000); xauReconnectAttempts++; xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); }; } catch(err) { if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); } }
     let btcWs = null, btcReconnectTimer = null, btcReconnectAttempts = 0;
-    
-    function initBTCWebSocket() { 
-        if (btcWs) { 
-            try { btcWs.close(); } catch(e) {} 
-            btcWs = null; 
-        } 
-        if (btcReconnectTimer) clearTimeout(btcReconnectTimer); 
-        try { 
-            btcWs = new WebSocket(BTC_WS_URL); 
-            btcWs.onopen = () => { 
-                btcReconnectAttempts = 0; 
-                wsStatus.btc = true; 
-                const statusEl = document.getElementById('ws-status-btc'); 
-                if (statusEl) { 
-                    statusEl.textContent = '● CONNECTED'; 
-                    statusEl.className = 'ws-status connected'; 
-                } 
-                updateGlobalPulse(); 
-                updateSignalUIOnly('btc'); 
-            }; 
-            btcWs.onmessage = (e) => { 
-                try { 
-                    const data = JSON.parse(e.data); 
-                    const price = parseFloat(data.p); 
-                    if (price && price > 0 && !isNaN(price)) { 
-                        pendingPriceData.btc = price; 
-                        throttledUpdateUI('btc'); 
-                        updateHTFEngine('btc', price); 
-                        updateSignal('btc', price); 
-                    } 
-                } catch(err) {} 
-            }; 
-            btcWs.onclose = () => { 
-                wsStatus.btc = false; 
-                const statusEl = document.getElementById('ws-status-btc'); 
-                if (statusEl) { 
-                    statusEl.textContent = '○ RECONNECTING...'; 
-                    statusEl.className = 'ws-status disconnected'; 
-                } 
-                updateGlobalPulse(); 
-                updateSignalUIOnly('btc'); 
-                const delay = Math.min(1000 * Math.pow(2, btcReconnectAttempts), 30000); 
-                btcReconnectAttempts++; 
-                btcReconnectTimer = setTimeout(() => initBTCWebSocket(), delay); 
-            }; 
-            btcWs.onerror = () => { 
-                wsStatus.btc = false; 
-                updateGlobalPulse(); 
-            }; 
-        } catch(err) { 
-            wsStatus.btc = false; 
-            setTimeout(() => initBTCWebSocket(), 5000); 
-        } 
-    }
-    
-    function updateGlobalPulse() { 
-        const pulseEl = document.getElementById('globalPulse'); 
-        if (pulseEl) { 
-            const isLive = (xauCurrentPrice > 0) || wsStatus.btc; 
-            pulseEl.className = isLive ? 'pulse connected' : 'pulse disconnected'; 
-        } 
-    }
-    
-    function seedHTFData(id, basePrice) { 
-        const volatility = id === 'xau' ? 0.3 : 30; 
-        for (let i = 0; i < 15; i++) { 
-            const open = basePrice + (Math.random() - 0.5) * volatility; 
-            const close = basePrice + (Math.random() - 0.5) * volatility; 
-            const high = Math.max(open, close) + Math.random() * volatility * 0.5; 
-            const low = Math.min(open, close) - Math.random() * volatility * 0.5; 
-            htfDataStore[id].ohlcCandles.push({ open, high, low, close, closed: true }); 
-        } 
-        calculateSimpleHTF(id); 
-    }
+    function initBTCWebSocket() { if (btcWs) { try { btcWs.close(); } catch(e) {} btcWs = null; } if (btcReconnectTimer) clearTimeout(btcReconnectTimer); try { btcWs = new WebSocket(BTC_WS_URL); btcWs.onopen = () => { btcReconnectAttempts = 0; wsStatus.btc = true; const statusEl = document.getElementById('ws-status-btc'); if (statusEl) { statusEl.textContent = '● CONNECTED'; statusEl.className = 'ws-status connected'; } updateGlobalPulse(); updateSignalUIOnly('btc'); }; btcWs.onmessage = (e) => { try { const data = JSON.parse(e.data); const price = parseFloat(data.p); if (price && price > 0 && !isNaN(price)) { pendingPriceData.btc = price; throttledUpdateUI('btc'); updateHTFEngine('btc', price); updateSignal('btc', price); } } catch(err) {} }; btcWs.onclose = () => { wsStatus.btc = false; const statusEl = document.getElementById('ws-status-btc'); if (statusEl) { statusEl.textContent = '○ RECONNECTING...'; statusEl.className = 'ws-status disconnected'; } updateGlobalPulse(); updateSignalUIOnly('btc'); const delay = Math.min(1000 * Math.pow(2, btcReconnectAttempts), 30000); btcReconnectAttempts++; btcReconnectTimer = setTimeout(() => initBTCWebSocket(), delay); }; btcWs.onerror = () => { wsStatus.btc = false; updateGlobalPulse(); }; } catch(err) { wsStatus.btc = false; setTimeout(() => initBTCWebSocket(), 5000); } }
+    function updateGlobalPulse() { const pulseEl = document.getElementById('globalPulse'); if (pulseEl) { const isLive = (xauCurrentPrice > 0) || wsStatus.btc; pulseEl.className = isLive ? 'pulse connected' : 'pulse disconnected'; } }
+    function seedHTFData(id, basePrice) { const volatility = id === 'xau' ? 0.3 : 30; for (let i = 0; i < 15; i++) { const open = basePrice + (Math.random() - 0.5) * volatility; const close = basePrice + (Math.random() - 0.5) * volatility; const high = Math.max(open, close) + Math.random() * volatility * 0.5; const low = Math.min(open, close) - Math.random() * volatility * 0.5; htfDataStore[id].ohlcCandles.push({ open, high, low, close, closed: true }); } calculateSimpleHTF(id); }
 
-    // ==================== SWITCH PAIR FUNCTION ====================
-    function switchPair() {
-        activePairId = activePairId === 'xau' ? 'btc' : 'xau';
-        localStorage.setItem('ura_active_pair', activePairId);
-        
-        const switchLabel = document.getElementById('switchLabel');
-        if (switchLabel) switchLabel.innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
-        
-        const cards = document.querySelectorAll('.pair-card');
-        cards.forEach(card => card.classList.remove('active'));
-        
-        const activeCard = document.getElementById(`card-${activePairId}`);
-        if (activeCard) activeCard.classList.add('active');
-        
-        refreshRunningText();
-        
-        if (navigator.vibrate) navigator.vibrate(20);
-    }
-    
     // ==================== INITIALIZATION ====================
     function init() {
-        state.xau = loadState('xau'); 
-        state.btc = loadState('btc');
-        seedHTFData('xau', 2620); 
-        seedHTFData('btc', 60000);
-        
+        state.xau = loadState('xau'); state.btc = loadState('btc');
+        seedHTFData('xau', 2620); seedHTFData('btc', 60000);
         const container = document.getElementById('terminals');
         container.innerHTML = '';
         container.innerHTML += `<div class="pair-card ${activePairId === 'xau' ? 'active' : ''}" id="card-xau"><div class="card"><div class="card-top"><div class="pair-info"><span class="pair">XAUUSD</span><span id="ws-status-xau" class="ws-status connected">● CONNECTING...</span></div><span class="price" id="price-xau">0.00</span></div><div class="signal-bar" id="signal-bar-xau"><span>SIGNAL</span><div class="signal-dot-group"><div class="dot" id="l1-xau"></div><div class="dot" id="l2-xau"></div><div class="dot" id="l3-xau"></div></div><span id="signal-text-xau">IDLE</span></div><div class="card-level-grid"><div class="level-item" onclick="window.copyValue('xau','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-xau">--</span></div><div class="level-item" onclick="window.copyValue('xau','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-xau" style="color:var(--success)">--</span></div><div class="level-item" onclick="window.copyValue('xau','sl')"><span class="level-label">DEEP</span><span class="level-value" id="sl-xau" style="color:var(--danger)">--</span></div></div><div class="stats-grid" id="history-panel-xau"><div class="stats-item"><span class="stats-label">TP HIT</span><span class="stats-value" id="stats-tp-xau" style="color:var(--success)">0</span></div><div class="stats-item"><span class="stats-label">RETRACE</span><span class="stats-value" id="stats-loss-xau" style="color:var(--danger)">0</span></div><div class="stats-item"><span class="stats-label">WINRATE</span><span class="stats-value" id="stats-winrate-xau" style="color:var(--accent)">0%</span></div></div></div></div><div class="pair-card ${activePairId === 'btc' ? 'active' : ''}" id="card-btc"><div class="card"><div class="card-top"><div class="pair-info"><span class="pair">BTCUSD</span><span id="ws-status-btc" class="ws-status disconnected">○ RECONNECTING...</span></div><span class="price" id="price-btc">0.00</span></div><div class="signal-bar" id="signal-bar-btc"><span>SIGNAL</span><div class="signal-dot-group"><div class="dot" id="l1-btc"></div><div class="dot" id="l2-btc"></div><div class="dot" id="l3-btc"></div></div><span id="signal-text-btc">IDLE</span></div><div class="card-level-grid"><div class="level-item" onclick="window.copyValue('btc','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-btc">--</span></div><div class="level-item" onclick="window.copyValue('btc','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-btc" style="color:var(--success)">--</span></div><div class="level-item" onclick="window.copyValue('btc','sl')"><span class="level-label">DEEP</span><span class="level-value" id="sl-btc" style="color:var(--danger)">--</span></div></div><div class="stats-grid" id="history-panel-btc"><div class="stats-item"><span class="stats-label">TP HIT</span><span class="stats-value" id="stats-tp-btc" style="color:var(--success)">0</span></div><div class="stats-item"><span class="stats-label">RETRACE</span><span class="stats-value" id="stats-loss-btc" style="color:var(--danger)">0</span></div><div class="stats-item"><span class="stats-label">WINRATE</span><span class="stats-value" id="stats-winrate-btc" style="color:var(--accent)">0%</span></div></div></div></div>`;
-        
-        const xauBar = document.getElementById('signal-bar-xau'); 
-        const btcBar = document.getElementById('signal-bar-btc');
-        const xauHistoryPanel = document.getElementById('history-panel-xau'); 
-        const btcHistoryPanel = document.getElementById('history-panel-btc');
-        
-        const bindTap = (el, handler) => { 
-            if (!el) return; 
-            let lastTap = 0; 
-            const tapHandler = (e) => { 
-                e.preventDefault(); 
-                const now = Date.now(); 
-                if (now - lastTap < 80) return; 
-                lastTap = now; 
-                handler(); 
-            }; 
-            el.addEventListener('touchstart', tapHandler, { passive: false }); 
-            el.addEventListener('click', tapHandler); 
-        };
-        
-        bindTap(xauBar, () => handleSignalBarTap('xau')); 
-        bindTap(btcBar, () => handleSignalBarTap('btc'));
-        bindTap(xauHistoryPanel, () => handleHistoryPanelTap('xau')); 
-        bindTap(btcHistoryPanel, () => handleHistoryPanelTap('btc'));
-        
-        // Double tap header
-        const header = document.getElementById('mainHeader');
-        if (header) {
-            bindTap(header, onHeaderTap);
-        }
-        
-        // Password modal events
-        const passwordOkBtn = document.getElementById('passwordOkBtn');
-        const passwordCancelBtn = document.getElementById('passwordCancelBtn');
-        const passwordOverlay = document.getElementById('passwordModal');
-        const passwordInput = document.getElementById('passwordInput');
-        
-        if (passwordOkBtn) passwordOkBtn.addEventListener('click', verifyPassword);
-        if (passwordCancelBtn) passwordCancelBtn.addEventListener('click', () => hidePasswordModal());
-        if (passwordOverlay) {
-            passwordOverlay.addEventListener('click', (e) => { if (e.target === passwordOverlay) hidePasswordModal(); });
-        }
-        if (passwordInput) {
-            passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyPassword(); });
-        }
-        
-        // Message modal events
-        const modalOkBtn = document.getElementById('modalOkBtn');
-        const modalCancelBtn = document.getElementById('modalCancelBtn');
-        const modalOverlay = document.getElementById('messageModal');
-        const modalInput = document.getElementById('modalMessageInput');
-        
-        if (modalOkBtn) modalOkBtn.addEventListener('click', saveMessage);
-        if (modalCancelBtn) modalCancelBtn.addEventListener('click', hideMessageModal);
-        if (modalOverlay) {
-            modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) hideMessageModal(); });
-        }
-        if (modalInput) {
-            modalInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') saveMessage(); });
-        }
-        
-        updateSignalUIOnly('xau'); 
-        updateSignalUIOnly('btc'); 
-        updatePerformanceUI('xau'); 
-        updatePerformanceUI('btc');
-        initXAUWebSocket(); 
-        xauFetchRestPrice(); 
-        initBTCWebSocket();
-        
-        // ========== TOMBOL PAIR DENGAN HIGHLIGHT ==========
-        const switchBtn = document.getElementById('switchPairBtn');
-        if (switchBtn) {
-            // Bersihkan event listener dengan clone
-            const cleanBtn = switchBtn.cloneNode(true);
-            switchBtn.parentNode.replaceChild(cleanBtn, switchBtn);
-            // Pasang event listener
-            cleanBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                // Tambah class highlight sementara
-                this.classList.add('btn-highlight');
-                setTimeout(() => {
-                    this.classList.remove('btn-highlight');
-                }, 150);
-                switchPair();
-            });
-            // Untuk touch device
-            cleanBtn.addEventListener('touchstart', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                this.classList.add('btn-highlight');
-                setTimeout(() => {
-                    this.classList.remove('btn-highlight');
-                }, 150);
-                switchPair();
-            }, { passive: false });
-        }
-        
+        const xauBar = document.getElementById('signal-bar-xau'); const btcBar = document.getElementById('signal-bar-btc');
+        const xauHistoryPanel = document.getElementById('history-panel-xau'); const btcHistoryPanel = document.getElementById('history-panel-btc');
+        const bindTap = (el, handler) => { if (!el) return; let lastTap = 0; const tapHandler = (e) => { e.preventDefault(); const now = Date.now(); if (now - lastTap < 80) return; lastTap = now; handler(); }; el.addEventListener('touchstart', tapHandler, { passive: false }); el.addEventListener('click', tapHandler); };
+        bindTap(xauBar, () => handleSignalBarTap('xau')); bindTap(btcBar, () => handleSignalBarTap('btc'));
+        bindTap(xauHistoryPanel, () => handleHistoryPanelTap('xau')); bindTap(btcHistoryPanel, () => handleHistoryPanelTap('btc'));
+        updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updatePerformanceUI('xau'); updatePerformanceUI('btc');
+        initXAUWebSocket(); xauFetchRestPrice(); initBTCWebSocket();
+        const switchLabel = document.getElementById('switchLabel'); const switchBtn = document.getElementById('switchPairBtn');
+        if (switchLabel && switchBtn) { switchLabel.innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD'; switchBtn.onclick = () => { activePairId = activePairId === 'xau' ? 'btc' : 'xau'; localStorage.setItem('ura_active_pair', activePairId); switchLabel.innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD'; document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active')); document.getElementById(`card-${activePairId}`).classList.add('active'); }; }
         updateGlobalPulse();
-        setInterval(() => { 
-            if (Date.now() - xauLastHeartbeat > 15000 && xauCurrentPrice > 0) xauFetchRestPrice(); 
-            updateGlobalPulse(); 
-        }, 10000);
-        
-        // Initialize running text
-        refreshRunningText();
+        setInterval(() => { if (Date.now() - xauLastHeartbeat > 15000 && xauCurrentPrice > 0) xauFetchRestPrice(); updateGlobalPulse(); }, 10000);
     }
-    
-    window.copyValue = (id, type) => { 
-        const val = document.getElementById(`${type}-${id}`)?.innerText; 
-        if (val && val !== '--') { 
-            navigator.clipboard.writeText(val); 
-            if (navigator.vibrate) navigator.vibrate(50); 
-        } 
-    };
-    
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); 
-    else init();
+    window.copyValue = (id, type) => { const val = document.getElementById(`${type}-${id}`)?.innerText; if (val && val !== '--') { navigator.clipboard.writeText(val); if (navigator.vibrate) navigator.vibrate(50); } };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
 </body>
