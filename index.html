@@ -817,7 +817,7 @@
     // WebSocket XAU & BTC (tidak diubah, tetap utuh)
     let xauWs=null, xauReconnectTimer=null, xauReconnectAttempts=0;
     let xauFetchRetryTimer=null, xauCurrentPrice=0, xauLastHeartbeat=Date.now();
-    function updateFeedBadge(id,status){ const el=document.getElementById(`feed-badge-${id}`); if(!el) return; el.className='feed-badge'; if(status==='ok'){ el.textContent='● WS'; el.classList.add('ok'); } else if(status==='fallback'){ el.textContent='⚡ REST'; el.classList.add('fallback'); } else { el.textContent='○ OFF'; el.classList.add('err'); } }
+    function updateFeedBadge(id,status){ const el=document.getElementById(`feed-badge-${id}`); if(!el) return; el.className='feed-badge'; if(status==='ok'){ el.textContent='● WS'; el.classList.add('ok'); } else if(status==='fallback'){ el.textContent='⚡ REST'; el.classList.add('fallback'); } else { el.textContent='○'; el.classList.add('err'); } }
     function updateXAUDisplay(price){ if(!price||isNaN(price)||price<=0) return; xauCurrentPrice=price; xauLastHeartbeat=Date.now(); pendingPriceData.xau=price; pendingSignalData.xau=true; throttledUpdateUI('xau'); updateHTFEngine('xau',price); updateSignal('xau',price); wsStatus.xau=true; updateGlobalPulse(); const statusEl=document.getElementById('ws-status-xau'); if(statusEl){ statusEl.textContent='● LIVE'; statusEl.className='ws-status connected'; } updateFeedBadge('xau','ok'); }
     const XAU_REST_SOURCES=['https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT','https://api.binance.com/api/v3/ticker/price?symbol=XAUUSDT'];
     let xauRestSourceIdx=0;
