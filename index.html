@@ -715,7 +715,7 @@
         s.type = direction; s.entry = entryPrice; s.originPrice = entryPrice;
         s.tempHigh = entryPrice; s.tempLow = entryPrice;
         s.retracePct = 0;
-        const risk = id === 'xau' ? 5 : entryPrice * 0.0035;
+        const risk = id === 'xau' ? 5 : entryPrice * 0.0025;
         if (direction === 'buy') { s.sl = entryPrice - risk; s.tp = entryPrice + (risk * 1.7); }
         else { s.sl = entryPrice + risk; s.tp = entryPrice - (risk * 1.7); }
         throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
