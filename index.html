@@ -596,9 +596,7 @@
         }, SAVE_INTERVAL);
     }
 
-    // TRACKER: menampilkan jarak real-time dari entry (dalam poin)
-    // Rumus: currentPrice - entry (hasil bisa positif atau negatif)
-    // Positif = harga di atas entry, negatif = harga di bawah entry
+    // TRACKER: profit/rugi dalam poin (hijau = profit, merah = rugi)
     function updateTracker(id, currentPrice) {
         const s = state[id];
         if (!s.confirmed || s.type === 'none' || s.entry <= 0) {
@@ -608,18 +606,18 @@
         }
         
         const entry = s.entry;
-        const distance = currentPrice - entry;
+        let distance;
+        if (s.type === 'buy') {
+            distance = currentPrice - entry;
+        } else {
+            distance = entry - currentPrice;
+        }
+        
         const rounded = Math.round(distance * 100) / 100;
         const trackerEl = document.getElementById(`stats-rprog-${id}`);
         if (trackerEl) trackerEl.innerText = rounded;
-        
-        // optional: warna sesuai posisi menguntungkan/merugikan (tidak mengganggu logika)
         if (trackerEl) {
-            if (s.type === 'buy') {
-                trackerEl.style.color = distance >= 0 ? 'var(--emerald)' : 'var(--crimson)';
-            } else {
-                trackerEl.style.color = distance <= 0 ? 'var(--emerald)' : 'var(--crimson)';
-            }
+            trackerEl.style.color = distance >= 0 ? 'var(--emerald)' : 'var(--crimson)';
         }
     }
 
