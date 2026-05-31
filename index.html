@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
-<title>URADVISOR v7.4 — PRECISION ENGINE</title>
+<title>URADVISOR v7.5 — PRECISION ENGINE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -442,7 +442,7 @@
 <header>
     <div class="brand">
         <h1>ur<span>advisor</span></h1>
-        <div class="brand-sub">DUAL ENGINE · URA v7.4</div>
+        <div class="brand-sub">DUAL ENGINE · URA v7.5</div>
     </div>
     <div class="header-right">
         <div class="sys-status">
@@ -596,55 +596,31 @@
         }, SAVE_INTERVAL);
     }
 
-    // FIXED RETRACE PROGRESSION (R-PROG)
-    // 0% = harga berada di titik ekstrim (highest untuk BUY, lowest untuk SELL) -> belum retrace
-    // 100% = harga sudah retrace penuh kembali ke entry point
-    function updateRetraceProgression(id, currentPrice) {
+    // TRACKER: menampilkan jarak real-time dari entry (dalam poin)
+    // Rumus: currentPrice - entry (hasil bisa positif atau negatif)
+    // Positif = harga di atas entry, negatif = harga di bawah entry
+    function updateTracker(id, currentPrice) {
         const s = state[id];
         if (!s.confirmed || s.type === 'none' || s.entry <= 0) {
-            if (s.retracePct !== 0) {
-                s.retracePct = 0;
-                const rprogEl = document.getElementById(`stats-rprog-${id}`);
-                if (rprogEl) rprogEl.innerText = '0%';
-            }
+            const trackerEl = document.getElementById(`stats-rprog-${id}`);
+            if (trackerEl) trackerEl.innerText = '0';
             return;
         }
         
         const entry = s.entry;
-        let maxDistance = 0;
-        let retraceDistance = 0;
+        const distance = currentPrice - entry;
+        const rounded = Math.round(distance * 100) / 100;
+        const trackerEl = document.getElementById(`stats-rprog-${id}`);
+        if (trackerEl) trackerEl.innerText = rounded;
         
-        if (s.type === 'buy') {
-            // highest = titik tertinggi yang pernah dicapai sejak signal
-            const highest = Math.max(s.tempHigh, entry);
-            maxDistance = highest - entry;
-            if (maxDistance <= 0) {
-                s.retracePct = 0;
+        // optional: warna sesuai posisi menguntungkan/merugikan (tidak mengganggu logika)
+        if (trackerEl) {
+            if (s.type === 'buy') {
+                trackerEl.style.color = distance >= 0 ? 'var(--emerald)' : 'var(--crimson)';
             } else {
-                // retraceDistance = seberapa jauh harga sudah turun dari titik tertinggi
-                retraceDistance = highest - currentPrice;
-                let rawPct = (retraceDistance / maxDistance) * 100;
-                // Clamp dan round
-                rawPct = Math.min(100, Math.max(0, rawPct));
-                s.retracePct = Math.round(rawPct);
-            }
-        } else if (s.type === 'sell') {
-            // lowest = titik terendah yang pernah dicapai sejak signal
-            const lowest = Math.min(s.tempLow, entry);
-            maxDistance = entry - lowest;
-            if (maxDistance <= 0) {
-                s.retracePct = 0;
-            } else {
-                // retraceDistance = seberapa jauh harga sudah naik dari titik terendah
-                retraceDistance = currentPrice - lowest;
-                let rawPct = (retraceDistance / maxDistance) * 100;
-                rawPct = Math.min(100, Math.max(0, rawPct));
-                s.retracePct = Math.round(rawPct);
+                trackerEl.style.color = distance <= 0 ? 'var(--emerald)' : 'var(--crimson)';
             }
         }
-        
-        const rprogEl = document.getElementById(`stats-rprog-${id}`);
-        if (rprogEl) rprogEl.innerText = `${s.retracePct}%`;
     }
 
     function throttledUpdateUI(id) {
@@ -654,7 +630,7 @@
                 const price = pendingPriceData[id];
                 if (price !== null) {
                     updatePriceDisplayOnly(id, price);
-                    updateRetraceProgression(id, price);
+                    updateTracker(id, price);
                     pendingPriceData[id] = null;
                 }
                 if (pendingSignalData[id] !== null) {
@@ -678,7 +654,7 @@
             priceEl._colorTimer = setTimeout(() => { priceEl.style.color = ''; }, 300);
         }
         const s = state[id];
-        if (s) updateRetraceProgression(id, price);
+        if (s) updateTracker(id, price);
     }
 
     function updateSignalUIOnly(id) {
@@ -894,7 +870,7 @@
                 if(s.tempHigh===0&&s.tempLow===0){s.tempHigh=s.entry||price; s.tempLow=s.entry||price;}
                 if(price>s.tempHigh) s.tempHigh=price; 
                 if(price<s.tempLow) s.tempLow=price;
-                updateRetraceProgression(id, price);
+                updateTracker(id, price);   // tracker real-time tetap berjalan
                 const refPrice=s.entry>0?s.entry:s.originPrice;
                 const expansionDistance=s.type==='buy'? s.tempHigh-refPrice : refPrice-s.tempLow;
                 if(expansionDistance>=resetThreshold){
@@ -932,8 +908,8 @@
         Object.assign(s,{ l1:false,l2:false,l3:false,confirmed:false,confirmedAt:0,warmupUntil:0,type:'none',entry:0,sl:0,tp:0,trendScore:0,tempHigh:0,tempLow:0,originPrice:0,lastPrice:0,retracePct:0 }); 
         pendingSignalData[id]=true; 
         updateSignalUIOnly(id); 
-        const rprogEl = document.getElementById(`stats-rprog-${id}`);
-        if (rprogEl) rprogEl.innerText = '0%';
+        const trackerEl = document.getElementById(`stats-rprog-${id}`);
+        if (trackerEl) trackerEl.innerText = '0';
         throttledSaveState(id); 
         throttledUpdateUI(id); 
         requestAnimationFrame(()=>{ s.resetInProgress=false; }); 
@@ -958,7 +934,7 @@
     function updateGlobalPulse(){ const pulseEl=document.getElementById('globalPulse'); if(pulseEl){ const isLive=(xauCurrentPrice>0)||wsStatus.btc; pulseEl.className=isLive?'pulse connected':'pulse disconnected'; } }
     function switchPair(){ activePairId=activePairId==='xau'?'btc':'xau'; try{ localStorage.setItem('ura_active_pair',activePairId); }catch(e){} const switchLabel=document.getElementById('switchLabel'); if(switchLabel) switchLabel.innerText=activePairId==='xau'?'XAUUSD':'BTCUSD'; document.querySelectorAll('.pair-card').forEach(card=>card.classList.remove('active')); const activeCard=document.getElementById(`card-${activePairId}`); if(activeCard) activeCard.classList.add('active'); if(navigator.vibrate) navigator.vibrate(20); }
     window.copyValue = (id, type) => { const val = document.getElementById(`${type}-${id}`)?.innerText; if(val && val !== '--'){ navigator.clipboard?.writeText(val).then(()=>showToast(`${type.toUpperCase()} copied: ${val}`)).catch(()=>showToast(`${val}`)); if(navigator.vibrate) navigator.vibrate(50); } };
-    function buildCardHTML(id, label){ const isActive=activePairId===id?'active':''; const wsInitClass=id==='xau'?'connected':'disconnected'; const wsInitText=id==='xau'?'● CONNECTING...':'○ RECONNECTING...'; return `<div class="pair-card ${isActive}" id="card-${id}"><div class="card"><div class="card-top"><div class="pair-info"><span class="pair">${label}</span><div class="status-row"><span id="ws-status-${id}" class="ws-status ${wsInitClass}">${wsInitText}</span><span class="feed-badge" id="feed-badge-${id}">○ INIT</span></div></div><span class="price" id="price-${id}">0.00</span></div><div class="signal-bar" id="signal-bar-${id}"><span>SIGNAL</span><div class="signal-dot-group"><div class="dot" id="l1-${id}"></div><div class="dot" id="l2-${id}"></div><div class="dot" id="l3-${id}"></div></div><span id="signal-text-${id}">IDLE</span></div><div class="card-level-grid"><div class="level-item" onclick="window.copyValue('${id}','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-${id}">--</span></div><div class="level-item" onclick="window.copyValue('${id}','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-${id}" style="color:var(--success)">--</span></div><div class="level-item" onclick="window.copyValue('${id}','sl')"><span class="level-label">Deep</span><span class="level-value" id="sl-${id}" style="color:var(--danger)">--</span></div></div><div class="stats-grid" id="history-panel-${id}"><div class="stats-item"><span class="stats-label">TP HIT</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div><div class="stats-item"><span class="stats-label">RETRACE</span><span class="stats-value" id="stats-loss-${id}" style="color:var(--danger)">0</span></div><div class="stats-item"><span class="stats-label">R-PROG</span><span class="stats-value" id="stats-rprog-${id}" style="color:var(--feed-lightning)">0%</span></div><div class="stats-item"><span class="stats-label">WINRATE</span><span class="stats-value" id="stats-winrate-${id}" style="color:var(--accent)">0%</span></div></div></div></div>`; }
+    function buildCardHTML(id, label){ const isActive=activePairId===id?'active':''; const wsInitClass=id==='xau'?'connected':'disconnected'; const wsInitText=id==='xau'?'● CONNECTING...':'○ RECONNECTING...'; return `<div class="pair-card ${isActive}" id="card-${id}"><div class="card"><div class="card-top"><div class="pair-info"><span class="pair">${label}</span><div class="status-row"><span id="ws-status-${id}" class="ws-status ${wsInitClass}">${wsInitText}</span><span class="feed-badge" id="feed-badge-${id}">○ INIT</span></div></div><span class="price" id="price-${id}">0.00</span></div><div class="signal-bar" id="signal-bar-${id}"><span>SIGNAL</span><div class="signal-dot-group"><div class="dot" id="l1-${id}"></div><div class="dot" id="l2-${id}"></div><div class="dot" id="l3-${id}"></div></div><span id="signal-text-${id}">IDLE</span></div><div class="card-level-grid"><div class="level-item" onclick="window.copyValue('${id}','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-${id}">--</span></div><div class="level-item" onclick="window.copyValue('${id}','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-${id}" style="color:var(--success)">--</span></div><div class="level-item" onclick="window.copyValue('${id}','sl')"><span class="level-label">Deep</span><span class="level-value" id="sl-${id}" style="color:var(--danger)">--</span></div></div><div class="stats-grid" id="history-panel-${id}"><div class="stats-item"><span class="stats-label">TP HIT</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div><div class="stats-item"><span class="stats-label">RETRACE</span><span class="stats-value" id="stats-loss-${id}" style="color:var(--danger)">0</span></div><div class="stats-item"><span class="stats-label">TRACKER</span><span class="stats-value" id="stats-rprog-${id}" style="color:var(--feed-lightning)">0</span></div><div class="stats-item"><span class="stats-label">WINRATE</span><span class="stats-value" id="stats-winrate-${id}" style="color:var(--accent)">0%</span></div></div></div></div>`; }
     
     function init(){ checkAndMigrateSchema(); state.xau=loadState('xau'); state.btc=loadState('btc'); performanceStats.xau=loadPerformanceStats('xau'); performanceStats.btc=loadPerformanceStats('btc'); seedHTFData('xau',2620); seedHTFData('btc',60000); document.getElementById('terminals').innerHTML=buildCardHTML('xau','XAUUSD')+buildCardHTML('btc','BTCUSD'); const bindTap=(el,handler)=>{ if(!el) return; let lastTap=0; const tapHandler=(e)=>{ e.preventDefault(); const now=Date.now(); if(now-lastTap<80) return; lastTap=now; handler(); }; el.addEventListener('touchstart',tapHandler,{passive:false}); el.addEventListener('click',tapHandler); }; bindTap(document.getElementById('signal-bar-xau'),()=>handleSignalBarTap('xau')); bindTap(document.getElementById('signal-bar-btc'),()=>handleSignalBarTap('btc')); bindTap(document.getElementById('history-panel-xau'),()=>handleHistoryPanelTap('xau')); bindTap(document.getElementById('history-panel-btc'),()=>handleHistoryPanelTap('btc')); const switchBtn=document.getElementById('switchPairBtn'); if(switchBtn){ const cleanBtn=switchBtn.cloneNode(true); switchBtn.parentNode.replaceChild(cleanBtn,switchBtn); const doSwitch=function(e){ e.preventDefault(); e.stopPropagation(); this.classList.add('btn-highlight'); setTimeout(()=>this.classList.remove('btn-highlight'),150); switchPair(); }; cleanBtn.addEventListener('click',doSwitch); cleanBtn.addEventListener('touchstart',doSwitch,{passive:false}); } updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updatePerformanceUI('xau'); updatePerformanceUI('btc'); initXAUWebSocket(); xauFetchRestPrice(); initBTCWebSocket(); btcFetchRestPrice(); updateGlobalPulse(); setInterval(()=>{ const now=Date.now(); if(now-xauLastHeartbeat>8000) xauFetchRestPrice(); updateGlobalPulse(); },3000); setInterval(()=>{ if(!xauWs || xauWs.readyState!==WebSocket.OPEN) xauFetchRestPrice(); if(!btcWs || btcWs.readyState!==WebSocket.OPEN) btcFetchRestPrice(); },2000); document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ xauFetchRestPrice(); btcFetchRestPrice(); updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updateGlobalPulse(); } }); }
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
