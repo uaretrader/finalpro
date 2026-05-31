@@ -390,7 +390,7 @@
     const XAU_OFFSET = -2.15;
     const CONFIRMATION_DELAY_CYCLES = 3;
     const RESET_THRESHOLD_XAU = 5;
-    const RESET_THRESHOLD_BTC = 100;
+    const RESET_THRESHOLD_BTC = 80;
 
     let marketData = {
         xau: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null, price: 0 },
@@ -721,7 +721,7 @@
         s.type = direction; s.entry = entryPrice; s.originPrice = entryPrice;
         s.tempHigh = entryPrice; s.tempLow = entryPrice;
         s.retracePct = 0;
-        const risk = id === 'xau' ? 5 : entryPrice * 0.0025;
+        const risk = id === 'xau' ? 5 : entryPrice * 0.0021;
         if (direction === 'buy') { s.sl = entryPrice - risk; s.tp = entryPrice + (risk * 1.7); }
         else { s.sl = entryPrice + risk; s.tp = entryPrice - (risk * 1.7); }
         throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
@@ -772,7 +772,7 @@
                 const refPrice=s.entry>0?s.entry:s.originPrice;
                 const expansionDistance=s.type==='buy'? s.tempHigh-refPrice : refPrice-s.tempLow;
                 if(expansionDistance>=resetThreshold){
-                    const entryBuffer=id==='xau'?2:20;
+                    const entryBuffer=id==='xau'?2:15;
                     const retraceReset=s.type==='buy'? price<=(refPrice-entryBuffer): price>=(refPrice+entryBuffer);
                     if(retraceReset && Date.now()>=(s.warmupUntil||0)){ recordSignalResult(id,'retrace'); resetSignal(id); return;}
                 }
