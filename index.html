@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
-<title>URADVISOR v7.5 — PRECISION ENGINE</title>
+<title>URADVISOR v7.6 — PRECISION ENGINE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -17,21 +17,20 @@
         --gold: #ffb830;
         --gold-dim: rgba(201,168,76,0.18);
         --gold-glow: 0 0 20px rgba(201,168,76,0.25), 0 0 40px rgba(201,168,76,0.08);
-        --emerald: #e8edf2;
+        --emerald: #00e5a0;
         --emerald-dim: rgba(0,229,160,0.12);
         --emerald-glow: 0 0 16px rgba(0,229,160,0.3);
         --crimson: #ff3d5a;
         --crimson-dim: rgba(255,61,90,0.12);
         --crimson-glow: 0 0 16px rgba(255,61,90,0.3);
-        --amber: #e8edf2;
-        --sky: #e8edf2;
+        --amber: #ffb830;
+        --sky: #4db8ff;
         --text-primary: #e8edf2;
         --text-muted: #4a5568;
         --text-dim: #2d3748;
         --shadow-deep: 0 24px 64px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.5);
         --radius: 6px;
         --radius-sm: 3px;
-        /* legacy var aliases agar JS warna inline tetap jalan */
         --success: var(--emerald);
         --danger: var(--crimson);
         --accent: var(--gold);
@@ -61,7 +60,6 @@
         z-index: 1;
     }
 
-    /* ── HEADER ── */
     header {
         display: flex;
         justify-content: space-between;
@@ -153,7 +151,6 @@
         box-shadow: var(--gold-glow);
     }
 
-    /* ── PAIR CARD ── */
     .pair-card { display: none; }
     .pair-card.active { display: block; }
 
@@ -175,7 +172,6 @@
         opacity: 0.4;
     }
 
-    /* ── CARD TOP ── */
     .card-top {
         display: flex;
         justify-content: space-between;
@@ -228,7 +224,21 @@
         padding-top: 2px;
     }
 
-    /* ── SIGNAL BAR ── */
+    /* TRACKER di card-top (sejajar dengan price) */
+    .tracker-badge {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-align: right;
+        letter-spacing: 0.5px;
+        margin-top: 4px;
+        background: rgba(0,0,0,0.3);
+        padding: 2px 8px;
+        border-radius: 2px;
+        display: inline-block;
+        align-self: flex-end;
+    }
+
     .signal-bar {
         display: flex;
         align-items: center;
@@ -282,7 +292,6 @@
     }
     @keyframes pulseDot { 0%, 100% { opacity: 0.3; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
 
-    /* ── LEVEL GRID ── */
     .card-level-grid {
         display: flex;
         justify-content: space-between;
@@ -319,7 +328,6 @@
         letter-spacing: -0.3px;
     }
 
-    /* ── STATS GRID ── */
     .stats-grid {
         display: flex;
         flex-direction: row;
@@ -354,7 +362,6 @@
 
     .htf-badge { display: none; }
 
-    /* ── FEED BADGE ── */
     .feed-badge {
         font-family: 'IBM Plex Mono', monospace;
         font-size: 0.4rem;
@@ -405,7 +412,6 @@
     }
     #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-    /* ── CINEMATIC SCANLINE ── */
     body::before {
         content: '';
         position: fixed; inset: 0;
@@ -418,7 +424,6 @@
         z-index: 0;
     }
 
-    /* ── ENGINE TAG ── */
     .engine-tag {
         display: inline-flex;
         align-items: center;
@@ -442,7 +447,7 @@
 <header>
     <div class="brand">
         <h1>ur<span>advisor</span></h1>
-        <div class="brand-sub">DUAL ENGINE · URA v7.5</div>
+        <div class="brand-sub">DUAL ENGINE · URA v7.6</div>
     </div>
     <div class="header-right">
         <div class="sys-status">
@@ -499,7 +504,6 @@
         toastTimer = setTimeout(() => { el.classList.remove('show'); }, 1800);
     }
 
-    // Throttle & RAF
     let pendingSaveData = { xau: null, btc: null };
     let pendingSaveTimer = { xau: null, btc: null };
     const SAVE_INTERVAL = 1000;
@@ -600,7 +604,7 @@
     function updateTracker(id, currentPrice) {
         const s = state[id];
         if (!s.confirmed || s.type === 'none' || s.entry <= 0) {
-            const trackerEl = document.getElementById(`stats-rprog-${id}`);
+            const trackerEl = document.getElementById(`tracker-${id}`);
             if (trackerEl) trackerEl.innerText = '0';
             return;
         }
@@ -614,7 +618,7 @@
         }
         
         const rounded = Math.round(distance * 100) / 100;
-        const trackerEl = document.getElementById(`stats-rprog-${id}`);
+        const trackerEl = document.getElementById(`tracker-${id}`);
         if (trackerEl) trackerEl.innerText = rounded;
         if (trackerEl) {
             trackerEl.style.color = distance >= 0 ? 'var(--emerald)' : 'var(--crimson)';
@@ -686,25 +690,26 @@
     }
 
     let performanceStats = {};
-    function createDefaultStats() { return { tpHits: 0, retraceResets: 0, total: 0, winrate: 0.0 }; }
+    function createDefaultStats() { return { tpHits: 0, retraceResets: 0, slHits: 0, total: 0, winrate: 0.0 }; }
     function loadPerformanceStats(id) {
         try {
             const saved = localStorage.getItem(`ura_stats_${id}`);
             if (!saved) return createDefaultStats();
             const p = JSON.parse(saved);
-            return { tpHits: p.tpHits || 0, retraceResets: p.retraceResets || 0, total: p.total || 0, winrate: p.winrate || 0 };
+            return { tpHits: p.tpHits || 0, retraceResets: p.retraceResets || 0, slHits: p.slHits || 0, total: p.total || 0, winrate: p.winrate || 0 };
         } catch (e) { return createDefaultStats(); }
     }
     function savePerformanceStats(id) { try { localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id])); } catch(e) {} }
     function updateWinrate(id) {
         const s = performanceStats[id];
-        s.total = s.tpHits + s.retraceResets;
+        s.total = s.tpHits + s.retraceResets + s.slHits;
         s.winrate = s.total > 0 ? ((s.tpHits / s.total) * 100).toFixed(1) : 0.0;
     }
     function recordSignalResult(id, resultType) {
         const s = performanceStats[id];
         if (resultType === 'tp') s.tpHits++;
         else if (resultType === 'retrace') s.retraceResets++;
+        else if (resultType === 'sl') s.slHits++;
         updateWinrate(id);
         savePerformanceStats(id);
         updatePerformanceUI(id);
@@ -713,14 +718,15 @@
         const s = performanceStats[id];
         if (!s) return;
         const tpEl = document.getElementById(`stats-tp-${id}`);
-        const lossEl = document.getElementById(`stats-loss-${id}`);
+        const retraceEl = document.getElementById(`stats-retrace-${id}`);
+        const slEl = document.getElementById(`stats-sl-${id}`);
         const winrateEl = document.getElementById(`stats-winrate-${id}`);
         if (tpEl) tpEl.innerText = s.tpHits;
-        if (lossEl) lossEl.innerText = s.retraceResets;
+        if (retraceEl) retraceEl.innerText = s.retraceResets;
+        if (slEl) slEl.innerText = s.slHits;
         if (winrateEl) winrateEl.innerText = `${s.winrate}%`;
     }
 
-    // HTF engine (tidak diubah)
     let htfDataStore = {
         xau: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 },
         btc: { ohlcCandles: [], structure: 'NEUTRAL', momentum: 'STABLE', momentumStrength: 'NONE', confidence: 0 }
@@ -868,7 +874,7 @@
                 if(s.tempHigh===0&&s.tempLow===0){s.tempHigh=s.entry||price; s.tempLow=s.entry||price;}
                 if(price>s.tempHigh) s.tempHigh=price; 
                 if(price<s.tempLow) s.tempLow=price;
-                updateTracker(id, price);   // tracker real-time tetap berjalan
+                updateTracker(id, price);
                 const refPrice=s.entry>0?s.entry:s.originPrice;
                 const expansionDistance=s.type==='buy'? s.tempHigh-refPrice : refPrice-s.tempLow;
                 if(expansionDistance>=resetThreshold){
@@ -879,7 +885,9 @@
             }
             const hitTP=(s.type==='buy' && price>=s.tp)||(s.type==='sell' && price<=s.tp);
             const hitSL=(s.type==='buy' && price<=s.sl)||(s.type==='sell' && price>=s.sl);
-            if(hitTP){ recordSignalResult(id,'tp'); resetSignal(id); } else if(hitSL){ resetSignal(id); } return;
+            if(hitTP){ recordSignalResult(id,'tp'); resetSignal(id); }
+            else if(hitSL){ recordSignalResult(id,'sl'); resetSignal(id); }
+            return;
         }
         if(pendingConfirmation[id]){ s.lastPrice=price; return; }
         updatePA(id,price);
@@ -906,7 +914,7 @@
         Object.assign(s,{ l1:false,l2:false,l3:false,confirmed:false,confirmedAt:0,warmupUntil:0,type:'none',entry:0,sl:0,tp:0,trendScore:0,tempHigh:0,tempLow:0,originPrice:0,lastPrice:0,retracePct:0 }); 
         pendingSignalData[id]=true; 
         updateSignalUIOnly(id); 
-        const trackerEl = document.getElementById(`stats-rprog-${id}`);
+        const trackerEl = document.getElementById(`tracker-${id}`);
         if (trackerEl) trackerEl.innerText = '0';
         throttledSaveState(id); 
         throttledUpdateUI(id); 
@@ -914,7 +922,6 @@
         setTimeout(()=>{ s.resetInProgress=false; },300); 
     }
 
-    // WebSocket XAU & BTC (tidak diubah, tetap utuh)
     let xauWs=null, xauReconnectTimer=null, xauReconnectAttempts=0;
     let xauFetchRetryTimer=null, xauCurrentPrice=0, xauLastHeartbeat=Date.now();
     function updateFeedBadge(id,status){ const el=document.getElementById(`feed-badge-${id}`); if(!el) return; el.className='feed-badge'; if(status==='ok'){ el.textContent='● WS'; el.classList.add('ok'); } else if(status==='fallback'){ el.textContent='⚡ REST'; el.classList.add('fallback'); } else { el.textContent='●'; el.classList.add('err'); } }
@@ -932,7 +939,7 @@
     function updateGlobalPulse(){ const pulseEl=document.getElementById('globalPulse'); if(pulseEl){ const isLive=(xauCurrentPrice>0)||wsStatus.btc; pulseEl.className=isLive?'pulse connected':'pulse disconnected'; } }
     function switchPair(){ activePairId=activePairId==='xau'?'btc':'xau'; try{ localStorage.setItem('ura_active_pair',activePairId); }catch(e){} const switchLabel=document.getElementById('switchLabel'); if(switchLabel) switchLabel.innerText=activePairId==='xau'?'XAUUSD':'BTCUSD'; document.querySelectorAll('.pair-card').forEach(card=>card.classList.remove('active')); const activeCard=document.getElementById(`card-${activePairId}`); if(activeCard) activeCard.classList.add('active'); if(navigator.vibrate) navigator.vibrate(20); }
     window.copyValue = (id, type) => { const val = document.getElementById(`${type}-${id}`)?.innerText; if(val && val !== '--'){ navigator.clipboard?.writeText(val).then(()=>showToast(`${type.toUpperCase()} copied: ${val}`)).catch(()=>showToast(`${val}`)); if(navigator.vibrate) navigator.vibrate(50); } };
-    function buildCardHTML(id, label){ const isActive=activePairId===id?'active':''; const wsInitClass=id==='xau'?'connected':'disconnected'; const wsInitText=id==='xau'?'● CONNECTING...':'○ RECONNECTING...'; return `<div class="pair-card ${isActive}" id="card-${id}"><div class="card"><div class="card-top"><div class="pair-info"><span class="pair">${label}</span><div class="status-row"><span id="ws-status-${id}" class="ws-status ${wsInitClass}">${wsInitText}</span><span class="feed-badge" id="feed-badge-${id}">○ INIT</span></div></div><span class="price" id="price-${id}">0.00</span></div><div class="signal-bar" id="signal-bar-${id}"><span>SIGNAL</span><div class="signal-dot-group"><div class="dot" id="l1-${id}"></div><div class="dot" id="l2-${id}"></div><div class="dot" id="l3-${id}"></div></div><span id="signal-text-${id}">IDLE</span></div><div class="card-level-grid"><div class="level-item" onclick="window.copyValue('${id}','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-${id}">--</span></div><div class="level-item" onclick="window.copyValue('${id}','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-${id}" style="color:var(--success)">--</span></div><div class="level-item" onclick="window.copyValue('${id}','sl')"><span class="level-label">Deep</span><span class="level-value" id="sl-${id}" style="color:var(--danger)">--</span></div></div><div class="stats-grid" id="history-panel-${id}"><div class="stats-item"><span class="stats-label">TP HIT</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div><div class="stats-item"><span class="stats-label">RETRACE</span><span class="stats-value" id="stats-loss-${id}" style="color:var(--danger)">0</span></div><div class="stats-item"><span class="stats-label">TRACKER</span><span class="stats-value" id="stats-rprog-${id}" style="color:var(--feed-lightning)">0</span></div><div class="stats-item"><span class="stats-label">WINRATE</span><span class="stats-value" id="stats-winrate-${id}" style="color:var(--accent)">0%</span></div></div></div></div>`; }
+    function buildCardHTML(id, label){ const isActive=activePairId===id?'active':''; const wsInitClass=id==='xau'?'connected':'disconnected'; const wsInitText=id==='xau'?'● CONNECTING...':'○ RECONNECTING...'; return `<div class="pair-card ${isActive}" id="card-${id}"><div class="card"><div class="card-top"><div class="pair-info"><span class="pair">${label}</span><div class="status-row"><span id="ws-status-${id}" class="ws-status ${wsInitClass}">${wsInitText}</span><span class="feed-badge" id="feed-badge-${id}">○ INIT</span></div></div><div style="display: flex; flex-direction: column; align-items: flex-end;"><span class="price" id="price-${id}">0.00</span><span class="tracker-badge" id="tracker-${id}">0</span></div></div><div class="signal-bar" id="signal-bar-${id}"><span>SIGNAL</span><div class="signal-dot-group"><div class="dot" id="l1-${id}"></div><div class="dot" id="l2-${id}"></div><div class="dot" id="l3-${id}"></div></div><span id="signal-text-${id}">IDLE</span></div><div class="card-level-grid"><div class="level-item" onclick="window.copyValue('${id}','entry')"><span class="level-label">Entry</span><span class="level-value" id="entry-${id}">--</span></div><div class="level-item" onclick="window.copyValue('${id}','tp')"><span class="level-label">Target</span><span class="level-value" id="tp-${id}" style="color:var(--success)">--</span></div><div class="level-item" onclick="window.copyValue('${id}','sl')"><span class="level-label">Deep</span><span class="level-value" id="sl-${id}" style="color:var(--danger)">--</span></div></div><div class="stats-grid" id="history-panel-${id}"><div class="stats-item"><span class="stats-label">TP HIT</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div><div class="stats-item"><span class="stats-label">RETRACE</span><span class="stats-value" id="stats-retrace-${id}" style="color:var(--danger)">0</span></div><div class="stats-item"><span class="stats-label">SL HIT</span><span class="stats-value" id="stats-sl-${id}" style="color:var(--danger)">0</span></div><div class="stats-item"><span class="stats-label">WINRATE</span><span class="stats-value" id="stats-winrate-${id}" style="color:var(--accent)">0%</span></div></div></div></div>`; }
     
     function init(){ checkAndMigrateSchema(); state.xau=loadState('xau'); state.btc=loadState('btc'); performanceStats.xau=loadPerformanceStats('xau'); performanceStats.btc=loadPerformanceStats('btc'); seedHTFData('xau',2620); seedHTFData('btc',60000); document.getElementById('terminals').innerHTML=buildCardHTML('xau','XAUUSD')+buildCardHTML('btc','BTCUSD'); const bindTap=(el,handler)=>{ if(!el) return; let lastTap=0; const tapHandler=(e)=>{ e.preventDefault(); const now=Date.now(); if(now-lastTap<80) return; lastTap=now; handler(); }; el.addEventListener('touchstart',tapHandler,{passive:false}); el.addEventListener('click',tapHandler); }; bindTap(document.getElementById('signal-bar-xau'),()=>handleSignalBarTap('xau')); bindTap(document.getElementById('signal-bar-btc'),()=>handleSignalBarTap('btc')); bindTap(document.getElementById('history-panel-xau'),()=>handleHistoryPanelTap('xau')); bindTap(document.getElementById('history-panel-btc'),()=>handleHistoryPanelTap('btc')); const switchBtn=document.getElementById('switchPairBtn'); if(switchBtn){ const cleanBtn=switchBtn.cloneNode(true); switchBtn.parentNode.replaceChild(cleanBtn,switchBtn); const doSwitch=function(e){ e.preventDefault(); e.stopPropagation(); this.classList.add('btn-highlight'); setTimeout(()=>this.classList.remove('btn-highlight'),150); switchPair(); }; cleanBtn.addEventListener('click',doSwitch); cleanBtn.addEventListener('touchstart',doSwitch,{passive:false}); } updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updatePerformanceUI('xau'); updatePerformanceUI('btc'); initXAUWebSocket(); xauFetchRestPrice(); initBTCWebSocket(); btcFetchRestPrice(); updateGlobalPulse(); setInterval(()=>{ const now=Date.now(); if(now-xauLastHeartbeat>8000) xauFetchRestPrice(); updateGlobalPulse(); },3000); setInterval(()=>{ if(!xauWs || xauWs.readyState!==WebSocket.OPEN) xauFetchRestPrice(); if(!btcWs || btcWs.readyState!==WebSocket.OPEN) btcFetchRestPrice(); },2000); document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ xauFetchRestPrice(); btcFetchRestPrice(); updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updateGlobalPulse(); } }); }
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
