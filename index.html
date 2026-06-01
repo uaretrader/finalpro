@@ -516,10 +516,10 @@
     const EMA_PERIOD = 21;
     const VOLUME_LOOKBACK = 12;
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-    const XAU_OFFSET = -2.15;
+    const XAU_OFFSET = -2.16;
     const CONFIRMATION_DELAY_CYCLES = 3;
     const RESET_THRESHOLD_XAU = 5;
-    const RESET_THRESHOLD_BTC = 100;
+    const RESET_THRESHOLD_BTC = 80;
 
     let marketData = {
         xau: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null, price: 0 },
