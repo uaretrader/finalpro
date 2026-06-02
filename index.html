@@ -519,7 +519,7 @@
     const XAU_OFFSET = -2.55;
     const CONFIRMATION_DELAY_CYCLES = 3;
     const RESET_THRESHOLD_XAU = 5;
-    const RESET_THRESHOLD_BTC = 80;
+    const RESET_THRESHOLD_BTC = 100;
 
     let marketData = {
         xau: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null, price: 0 },
@@ -923,7 +923,7 @@
                 const refPrice=s.entry>0?s.entry:s.originPrice;
                 const expansionDistance=s.type==='buy'? s.tempHigh-refPrice : refPrice-s.tempLow;
                 if(expansionDistance>=resetThreshold){
-                    const entryBuffer=id==='xau'?3:25;
+                    const entryBuffer=id==='xau'?5:80;
                     const retraceReset=s.type==='buy'? price<=(refPrice-entryBuffer): price>=(refPrice+entryBuffer);
                     if(retraceReset && Date.now()>=(s.warmupUntil||0)){ recordSignalResult(id,'retrace'); resetSignal(id); return;}
                 }
