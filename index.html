@@ -571,8 +571,8 @@
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
     const XAU_OFFSET = -2.50;
     const CONFIRMATION_DELAY_CYCLES = 3;
-    const RESET_THRESHOLD_XAU = 3;
-    const RESET_THRESHOLD_BTC = 60;
+    const RESET_THRESHOLD_XAU = 2.5;
+    const RESET_THRESHOLD_BTC = 50;
 
     let marketData = {
         xau: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null, price: 0 },
