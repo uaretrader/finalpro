@@ -275,38 +275,6 @@
         50% { border-bottom-color: rgba(201,168,76,0.5); }
     }
 
-    /* RUNNING TEXT MODE - mengganti seluruh isi signal bar */
-    .signal-bar.running-mode {
-        justify-content: center;
-        padding: 10px 18px;
-        overflow: hidden;
-    }
-    .signal-bar.running-mode .signal-dot-group,
-    .signal-bar.running-mode > span:first-child {
-        display: none;
-    }
-    .running-text-container {
-        width: 100%;
-        overflow: hidden;
-        position: relative;
-    }
-    .running-text-scroll {
-        display: inline-block;
-        white-space: nowrap;
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.75rem;
-        font-weight: 600;
-        letter-spacing: 2px;
-        color: var(--gold);
-        text-transform: uppercase;
-        animation: scrollMarquee 25s linear infinite;
-        padding-left: 100%;
-    }
-    @keyframes scrollMarquee {
-        0% { transform: translateX(0); }
-        100% { transform: translateX(-100%); }
-    }
-
     .signal-dot-group { display: flex; gap: 8px; align-items: center; }
     .dot {
         width: 8px; height: 8px;
@@ -324,7 +292,6 @@
     }
     @keyframes pulseDot { 0%, 100% { opacity: 0.3; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
 
-    /* BARIS 1: Entry | Target | Deep | Draw Rate */
     .card-level-grid {
         display: flex;
         justify-content: space-between;
@@ -361,7 +328,6 @@
         letter-spacing: -0.3px;
     }
 
-    /* BARIS 2: TP HIT | RETRACE | SL HIT | WINRATE */
     .stats-grid {
         display: flex;
         flex-direction: row;
@@ -394,7 +360,6 @@
         letter-spacing: 0.5px;
     }
 
-    /* Warna khusus untuk RETRACE dan DRAW RATE */
     .retrace-value {
         color: var(--gold);
     }
@@ -518,14 +483,18 @@
     'use strict';
 
     // ============================================================
-    // ========== KONTROL RUNNING TEXT (UBAH DI SINI) ============
+    // ========== OPTIMASI YANG DILAKUKAN ============
+    // 1. Running text DINONAKTIFKAN (tidak ada pesan ancaman)
+    // 2. Risk:Reward XAU diubah dari 1:2 menjadi 1:3
+    // 3. Threshold ATR dipisahkan untuk XAU (1.5x) dan BTC (1.2x)
+    // 4. HTF Confirmation dilonggarkan untuk XAU
+    // 5. Entry buffer untuk retrace diperbesar untuk BTC (120 dari 80)
     // ============================================================
-    // Set ke false untuk menonaktifkan running text
-    // Set ke true untuk mengaktifkan running text
-    const ENABLE_RUNNING_TEXT = false;   // <---- GANTI KE false UNTUK MATIKAN
-    // ============================================================
+    
+    // RUNNING TEXT DINONAKTIFKAN SEPENUHNYA
+    const ENABLE_RUNNING_TEXT = false;
 
-    const LS_SCHEMA_VERSION = 3;
+    const LS_SCHEMA_VERSION = 4; // Upgrade version karena ada perubahan parameter
     
     function checkAndMigrateSchema() {
         const storedVer = parseInt(localStorage.getItem('ura_schema_ver') || '1', 10);
@@ -739,109 +708,28 @@
         const slEl = document.getElementById(`sl-${id}`); if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
     }
 
-    // ==================== RUNNING TEXT DI SIGNAL BAR ====================
-    const runningMessages = [
-        "AKUN ANDA AKAN DIBLOKIR - HUBUNGI ADMIN"
-    ];
-    
-    let runningTextActive = { xau: false, btc: false };
-    let runningTextTimers = { xau: null, btc: null };
-    let runningTextIntervals = { xau: null, btc: null };
-    let originalContentBackup = { xau: null, btc: null };
-    
-    function getRandomRunningMessage() {
-        const randomIndex = Math.floor(Math.random() * runningMessages.length);
-        return runningMessages[randomIndex];
-    }
-    
-    function showRunningText(id) {
-        if (!ENABLE_RUNNING_TEXT) return;
-        if (runningTextActive[id]) return;
-        
-        const signalBar = document.getElementById(`signal-bar-${id}`);
-        if (!signalBar) return;
-        
-        if (!originalContentBackup[id]) {
-            originalContentBackup[id] = signalBar.innerHTML;
-        }
-        
-        signalBar.classList.remove('confirm-wait');
-        signalBar.classList.add('running-mode');
-        const msg = getRandomRunningMessage();
-        signalBar.innerHTML = `
-            <div class="running-text-container">
-                <div class="running-text-scroll">${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; ${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; ${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; ${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; </div>
-            </div>
-        `;
-        
-        runningTextActive[id] = true;
-        
-        if (runningTextTimers[id]) clearTimeout(runningTextTimers[id]);
-        runningTextTimers[id] = setTimeout(() => {
-            restoreSignalBar(id);
-        }, 30000);
-    }
-    
-    function restoreSignalBar(id) {
-        const signalBar = document.getElementById(`signal-bar-${id}`);
-        if (!signalBar) return;
-        
-        signalBar.classList.remove('running-mode');
-        if (originalContentBackup[id]) {
-            signalBar.innerHTML = originalContentBackup[id];
-        }
-        
-        runningTextActive[id] = false;
-        if (runningTextTimers[id]) {
-            clearTimeout(runningTextTimers[id]);
-            runningTextTimers[id] = null;
-        }
-        
-        updateSignalUIOnly(id);
-        
-        if (pendingConfirmation[id]) {
-            signalBar.classList.add('confirm-wait');
-        }
-    }
-    
-    function scheduleRunningText(id) {
-        if (!ENABLE_RUNNING_TEXT) return;
-        if (runningTextIntervals[id]) clearInterval(runningTextIntervals[id]);
-        runningTextIntervals[id] = setInterval(() => {
-            showRunningText(id);
-        }, 30 * 60 * 1000);
-    }
-    
+    // Running text DINONAKTIFKAN - fungsi kosong
     function initRunningTextForAllPairs() {
-        if (!ENABLE_RUNNING_TEXT) return;
-        scheduleRunningText('xau');
-        scheduleRunningText('btc');
-        setTimeout(() => showRunningText('xau'), 5000);
-        setTimeout(() => showRunningText('btc'), 8000);
+        // DINONAKTIFKAN - tidak ada pesan berjalan
     }
-    // ===================================================================
 
     let performanceStats = {};
-    function createDefaultStats() { return { tpHits: 0, retraceResets: 0, slHits: 0, total: 0, winrate: 0.0 }; }
+    function createDefaultStats() { return { tpHits: 0, retraceResets: 0, slHits: 0, total: 0, winrate: 0.0, drawrate: 0.0 }; }
     function loadPerformanceStats(id) {
         try {
             const saved = localStorage.getItem(`ura_stats_${id}`);
             if (!saved) return createDefaultStats();
             const p = JSON.parse(saved);
-            return { tpHits: p.tpHits || 0, retraceResets: p.retraceResets || 0, slHits: p.slHits || 0, total: p.total || 0, winrate: p.winrate || 0 };
+            return { tpHits: p.tpHits || 0, retraceResets: p.retraceResets || 0, slHits: p.slHits || 0, total: p.total || 0, winrate: p.winrate || 0, drawrate: p.drawrate || 0 };
         } catch (e) { return createDefaultStats(); }
     }
     function savePerformanceStats(id) { try { localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id])); } catch(e) {} }
     
-    // PERHITUNGAN WINRATE BARU: TP / (TP + SL) -> RETRACE TIDAK MASUK
-    // DRAW RATE = RETRACE / (TP + RETRACE + SL)
     function updateWinrateAndDrawrate(id) {
         const s = performanceStats[id];
         s.total = s.tpHits + s.retraceResets + s.slHits;
-        // Winrate hanya dari TP dan SL (RETRACE diabaikan)
         const winDenominator = s.tpHits + s.slHits;
         s.winrate = winDenominator > 0 ? parseFloat(((s.tpHits / winDenominator) * 100).toFixed(1)) : 0.0;
-        // Draw rate dari semua sinyal
         s.drawrate = s.total > 0 ? parseFloat(((s.retraceResets / s.total) * 100).toFixed(1)) : 0.0;
     }
     
@@ -859,7 +747,6 @@
         const s = performanceStats[id];
         if (!s) return;
         
-        // Update baris 2: TP HIT, RETRACE, SL HIT, WINRATE
         const tpEl = document.getElementById(`stats-tp-${id}`);
         const retraceEl = document.getElementById(`stats-retrace-${id}`);
         const slEl = document.getElementById(`stats-sl-${id}`);
@@ -876,7 +763,6 @@
             winrateEl.style.color = 'var(--gold)';
         }
         
-        // Update baris 1: DRAW RATE
         const drawEl = document.getElementById(`draw-rate-${id}`);
         if (drawEl) {
             drawEl.innerText = `${s.drawrate}%`;
@@ -884,7 +770,6 @@
         }
     }
     
-    // Override default stats setelah load
     function initPerformanceStats(id) {
         const s = performanceStats[id];
         updateWinrateAndDrawrate(id);
@@ -961,6 +846,8 @@
         }
     }
     function updateHTFEngine(id, price) { buildOHLCCandle(id, price); calculateSimpleHTF(id); }
+    
+    // OPTIMASI #4: HTF Confirmation dilonggarkan untuk XAU
     function isHTFConfirmingDirection(id, direction) {
         const htf = htfDataStore[id];
         const market = marketData[id];
@@ -978,15 +865,19 @@
         const strongSlopeThreshold = slopeThreshold * 2;
         const strongBullish = emaSlope >= strongSlopeThreshold;
         const strongBearish = emaSlope <= -strongSlopeThreshold;
+        
         if (direction === 'buy') {
-            const trendingOK  = htf.structure === 'BULLISH' && htf.momentum === 'BULLISH' && isAboveEMA && bullishBias;
-            const neutralOK   = htf.structure === 'NEUTRAL' && htf.momentum === 'BULLISH' && isAboveEMA && strongBullish;
-            return trendingOK || neutralOK;
+            const trendingOK = htf.structure === 'BULLISH' && htf.momentum === 'BULLISH' && isAboveEMA && bullishBias;
+            const neutralOK = htf.structure === 'NEUTRAL' && htf.momentum === 'BULLISH' && isAboveEMA && strongBullish;
+            // OPTIMASI: XAU lebih longgar
+            const looseXAU = id === 'xau' && (htf.momentum === 'BULLISH' || bullishBias);
+            return trendingOK || neutralOK || looseXAU;
         }
         if (direction === 'sell') {
-            const trendingOK  = htf.structure === 'BEARISH' && htf.momentum === 'BEARISH' && isBelowEMA && bearishBias;
-            const neutralOK   = htf.structure === 'NEUTRAL' && htf.momentum === 'BEARISH' && isBelowEMA && strongBearish;
-            return trendingOK || neutralOK;
+            const trendingOK = htf.structure === 'BEARISH' && htf.momentum === 'BEARISH' && isBelowEMA && bearishBias;
+            const neutralOK = htf.structure === 'NEUTRAL' && htf.momentum === 'BEARISH' && isBelowEMA && strongBearish;
+            const looseXAU = id === 'xau' && (htf.momentum === 'BEARISH' || bearishBias);
+            return trendingOK || neutralOK || looseXAU;
         }
         return true;
     }
@@ -1013,6 +904,8 @@
         pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 4000);
     }
     
+    // OPTIMASI #2: Risk:Reward untuk XAU diubah dari 1:2 menjadi 1:3
+    // OPTIMASI #5: Entry buffer retrace diperbesar untuk BTC
     function executeLockSignal(id, direction) {
         const s = state[id];
         const livePrice = (id === 'xau' ? xauCurrentPrice : (marketData[id].price || 0));
@@ -1022,9 +915,30 @@
         s.type = direction; s.entry = finalEntry; s.originPrice = finalEntry;
         s.tempHigh = finalEntry; s.tempLow = finalEntry;
         s.retracePct = 0;
+        
+        // OPTIMASI RISK:REWARD
+        let riskMultiplier = 3; // default untuk XAU (1:3)
+        let entryBuffer = 5; // default untuk XAU
+        
+        if (id === 'btc') {
+            riskMultiplier = 2; // BTC tetap 1:2 dulu
+            entryBuffer = 120; // OPTIMASI #5: diperbesar dari 80 ke 120
+        } else {
+            entryBuffer = 5;
+        }
+        
         const risk = id === 'xau' ? 6 : finalEntry * 0.0020;
-        if (direction === 'buy') { s.sl = finalEntry - risk; s.tp = finalEntry + (risk * 2); }
-        else { s.sl = finalEntry + risk; s.tp = finalEntry - (risk * 2); }
+        if (direction === 'buy') { 
+            s.sl = finalEntry - risk; 
+            s.tp = finalEntry + (risk * riskMultiplier); 
+        } else { 
+            s.sl = finalEntry + risk; 
+            s.tp = finalEntry - (risk * riskMultiplier); 
+        }
+        
+        // Simpan entryBuffer untuk digunakan di retrace detection
+        s.entryBuffer = entryBuffer;
+        
         throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
         const signalBar = document.getElementById(`signal-bar-${id}`);
         if (signalBar) signalBar.classList.remove('confirm-wait');
@@ -1056,20 +970,20 @@
         md.prevEMA = md.ema || ema; md.ema = ema; md.price = closes[closes.length-1];
         md.volume = candles.slice(-VOLUME_LOOKBACK).map(c=>c.volume);
     }
+    
+    // OPTIMASI #3: Threshold ATR dipisahkan untuk XAU dan BTC
     function getAdaptiveThreshold(id) {
-    const md = marketData[id];
-
-    if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1 : 25;
+        const md = marketData[id];
+        if (!md.atr || md.atr <= 0) {
+            return id === 'xau' ? 1 : 25;
+        }
+        // XAU: multiplier 1.5x (kurang sensitif), BTC: multiplier 1.2x
+        return id === 'xau' ? md.atr * 1.5 : md.atr * 1.2;
     }
-
-    return id === 'xau'
-        ? md.atr * 1.25
-        : md.atr * 1.25;
-}
+    
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
-    function createFreshState() { return { v:LS_SCHEMA_VERSION, lastPrice:0, trendScore:0, l1:false,l2:false,l3:false,confirmed:false,confirmedAt:0,resetInProgress:false,warmupUntil:0,type:'none',entry:0,sl:0,tp:0,tempHigh:0,tempLow:0,originPrice:0,retracePct:0 }; }
+    function createFreshState() { return { v:LS_SCHEMA_VERSION, lastPrice:0, trendScore:0, l1:false,l2:false,l3:false,confirmed:false,confirmedAt:0,resetInProgress:false,warmupUntil:0,type:'none',entry:0,sl:0,tp:0,tempHigh:0,tempLow:0,originPrice:0,retracePct:0,entryBuffer:5 }; }
     function loadState(id) { try{ const saved=localStorage.getItem(`ura_state_${id}`); if(!saved) return createFreshState(); const parsed=JSON.parse(saved); if(typeof parsed!=='object') return createFreshState(); return Object.assign(createFreshState(), parsed); }catch(e){ localStorage.removeItem(`ura_state_${id}`); return createFreshState(); } }
     
     function processSignal(id, price) {
@@ -1084,7 +998,8 @@
                 const refPrice=s.entry>0?s.entry:s.originPrice;
                 const expansionDistance=s.type==='buy'? s.tempHigh-refPrice : refPrice-s.tempLow;
                 if(expansionDistance>=resetThreshold){
-                    const entryBuffer=id==='xau'?5:80;
+                    // Gunakan entryBuffer yang sudah disimpan (untuk BTC = 120)
+                    const entryBuffer = s.entryBuffer || (id === 'xau' ? 5 : 80);
                     const retraceReset=s.type==='buy'? price<=(refPrice-entryBuffer): price>=(refPrice+entryBuffer);
                     if(retraceReset && Date.now()>=(s.warmupUntil||0)){ recordSignalResult(id,'retrace'); resetSignal(id); return;}
                 }
@@ -1118,8 +1033,10 @@
         s.resetInProgress=true; 
         if(signalDebounceTimer[id]){ clearTimeout(signalDebounceTimer[id]); signalDebounceTimer[id]=null; }
         const preservedLastPrice = s.lastPrice || (id === 'xau' ? xauCurrentPrice : (marketData[id].price || 0));
+        const preservedEntryBuffer = s.entryBuffer;
         Object.assign(s,{ l1:false,l2:false,l3:false,confirmed:false,confirmedAt:0,warmupUntil:0,type:'none',entry:0,sl:0,tp:0,trendScore:0,tempHigh:0,tempLow:0,originPrice:0,retracePct:0 }); 
         s.lastPrice = preservedLastPrice;
+        s.entryBuffer = preservedEntryBuffer || (id === 'xau' ? 5 : 120);
         pendingSignalData[id]=true; 
         updateSignalUIOnly(id); 
         const trackerEl = document.getElementById(`tracker-${id}`);
@@ -1150,7 +1067,6 @@
     function switchPair(){ activePairId=activePairId==='xau'?'btc':'xau'; try{ localStorage.setItem('ura_active_pair',activePairId); }catch(e){} const switchLabel=document.getElementById('switchLabel'); if(switchLabel) switchLabel.innerText=activePairId==='xau'?'XAUUSD':'BTCUSD'; document.querySelectorAll('.pair-card').forEach(card=>card.classList.remove('active')); const activeCard=document.getElementById(`card-${activePairId}`); if(activeCard) activeCard.classList.add('active'); if(navigator.vibrate) navigator.vibrate(20); }
     window.copyValue = (id, type) => { const val = document.getElementById(`${type}-${id}`)?.innerText; if(val && val !== '--'){ navigator.clipboard?.writeText(val).then(()=>showToast(`${type.toUpperCase()} copied: ${val}`)).catch(()=>showToast(`${val}`)); if(navigator.vibrate) navigator.vibrate(50); } };
     
-    // BUILD CARD HTML dengan DRAW RATE di baris 1
     function buildCardHTML(id, label){ 
         const isActive=activePairId===id?'active':''; 
         const wsInitClass=id==='xau'?'connected':'disconnected'; 
@@ -1179,7 +1095,6 @@
                     </div>
                     <span id="signal-text-${id}">IDLE</span>
                 </div>
-                <!-- BARIS 1: Entry | Target | Deep | DRAW RATE -->
                 <div class="card-level-grid">
                     <div class="level-item" onclick="window.copyValue('${id}','entry')">
                         <span class="level-label">Entry</span>
@@ -1198,7 +1113,6 @@
                         <span class="level-value draw-value" id="draw-rate-${id}">0%</span>
                     </div>
                 </div>
-                <!-- BARIS 2: TP HIT | RETRACE | SL HIT | WINRATE -->
                 <div class="stats-grid" id="history-panel-${id}">
                     <div class="stats-item">
                         <span class="stats-label">TP HIT</span>
@@ -1225,10 +1139,14 @@
         checkAndMigrateSchema(); 
         state.xau=loadState('xau'); 
         state.btc=loadState('btc'); 
+        
+        // Set default entryBuffer untuk existing state
+        if (state.xau && !state.xau.entryBuffer) state.xau.entryBuffer = 5;
+        if (state.btc && !state.btc.entryBuffer) state.btc.entryBuffer = 120;
+        
         performanceStats.xau=loadPerformanceStats('xau'); 
         performanceStats.btc=loadPerformanceStats('btc'); 
         
-        // Hitung ulang winrate & drawrate setelah load
         updateWinrateAndDrawrate('xau');
         updateWinrateAndDrawrate('btc');
         
