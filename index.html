@@ -1065,7 +1065,7 @@
 
     return id === 'xau'
         ? md.atr * 1.20
-        : md.atr * 1.60;
+        : md.atr * 1.50;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
