@@ -569,10 +569,10 @@
     const EMA_PERIOD = 21;
     const VOLUME_LOOKBACK = 12;
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-    const XAU_OFFSET = -2.55;
+    const XAU_OFFSET = -2.60;
     const CONFIRMATION_DELAY_CYCLES = 3;
-    const RESET_THRESHOLD_XAU = 2.5;
-    const RESET_THRESHOLD_BTC = 50;
+    const RESET_THRESHOLD_XAU = 4;
+    const RESET_THRESHOLD_BTC = 100;
 
     let marketData = {
         xau: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null, price: 0 },
@@ -921,7 +921,7 @@
         const recentCandles = candles.slice(-window);
         let bullishCount = 0, bearishCount = 0;
         for (const c of recentCandles) { if (c.close > c.open) bullishCount++; else if (c.close < c.open) bearishCount++; }
-        const threshold = Math.floor(window * 0.25);
+        const threshold = Math.floor(window * 0.35);
         if (bullishCount > bearishCount + threshold) data.structure = 'BULLISH';
         else if (bearishCount > bullishCount + threshold) data.structure = 'BEARISH';
         else data.structure = 'NEUTRAL';
@@ -1023,8 +1023,8 @@
         s.tempHigh = finalEntry; s.tempLow = finalEntry;
         s.retracePct = 0;
         const risk = id === 'xau' ? 6 : finalEntry * 0.0020;
-        if (direction === 'buy') { s.sl = finalEntry - risk; s.tp = finalEntry + (risk * 2); }
-        else { s.sl = finalEntry + risk; s.tp = finalEntry - (risk * 2); }
+        if (direction === 'buy') { s.sl = finalEntry - risk; s.tp = finalEntry + (risk * 2.5); }
+        else { s.sl = finalEntry + risk; s.tp = finalEntry - (risk * 2.5); }
         throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
         const signalBar = document.getElementById(`signal-bar-${id}`);
         if (signalBar) signalBar.classList.remove('confirm-wait');
@@ -1056,8 +1056,8 @@
         md.prevEMA = md.ema || ema; md.ema = ema; md.price = closes[closes.length-1];
         md.volume = candles.slice(-VOLUME_LOOKBACK).map(c=>c.volume);
     }
-    function getAdaptiveThreshold(id) { const md = marketData[id]; return (!md.atr || md.atr <=0) ? (id==='xau'?1.2:25) : md.atr*1.25; }
-    let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.15;
+    function getAdaptiveThreshold(id) { const md = marketData[id]; return (!md.atr || md.atr <=0) ? (id==='xau'?0.9:21) : md.atr*1.35; }
+    let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.2;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
     function createFreshState() { return { v:LS_SCHEMA_VERSION, lastPrice:0, trendScore:0, l1:false,l2:false,l3:false,confirmed:false,confirmedAt:0,resetInProgress:false,warmupUntil:0,type:'none',entry:0,sl:0,tp:0,tempHigh:0,tempLow:0,originPrice:0,retracePct:0 }; }
     function loadState(id) { try{ const saved=localStorage.getItem(`ura_state_${id}`); if(!saved) return createFreshState(); const parsed=JSON.parse(saved); if(typeof parsed!=='object') return createFreshState(); return Object.assign(createFreshState(), parsed); }catch(e){ localStorage.removeItem(`ura_state_${id}`); return createFreshState(); } }
