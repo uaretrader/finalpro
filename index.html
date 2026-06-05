@@ -569,7 +569,7 @@
     const EMA_PERIOD = 21;
     const VOLUME_LOOKBACK = 12;
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-    const XAU_OFFSET = -2.50;
+    const XAU_OFFSET = -2.55;
     const CONFIRMATION_DELAY_CYCLES = 3;
     const RESET_THRESHOLD_XAU = 1.5;
     const RESET_THRESHOLD_BTC = 60;
@@ -1064,7 +1064,7 @@
     }
 
     return id === 'xau'
-        ? md.atr * 1.50
+        ? md.atr * 1.40
         : md.atr * 1.60;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
