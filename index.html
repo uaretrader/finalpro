@@ -977,8 +977,8 @@
         if (!md.atr || md.atr <= 0) {
             return id === 'xau' ? 1 : 25;
         }
-        // XAU: multiplier 1.5x (kurang sensitif), BTC: multiplier 1.2x
-        return id === 'xau' ? md.atr * 1.5 : md.atr * 1.2;
+        // XAU: multiplier 1.5x (kurang sensitif), BTC: multiplier 1.35x
+        return id === 'xau' ? md.atr * 1.5 : md.atr * 1.35;
     }
     
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
