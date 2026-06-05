@@ -1023,8 +1023,8 @@
         s.tempHigh = finalEntry; s.tempLow = finalEntry;
         s.retracePct = 0;
         const risk = id === 'xau' ? 6 : finalEntry * 0.0030;
-        if (direction === 'buy') { s.sl = finalEntry - risk; s.tp = finalEntry + (risk * 1.67); }
-        else { s.sl = finalEntry + risk; s.tp = finalEntry - (risk * 1.67); }
+        if (direction === 'buy') { s.sl = finalEntry - risk; s.tp = finalEntry + (risk * 1.4); }
+        else { s.sl = finalEntry + risk; s.tp = finalEntry - (risk * 1.4); }
         throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
         const signalBar = document.getElementById(`signal-bar-${id}`);
         if (signalBar) signalBar.classList.remove('confirm-wait');
