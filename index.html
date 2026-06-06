@@ -921,7 +921,7 @@
         const recentCandles = candles.slice(-window);
         let bullishCount = 0, bearishCount = 0;
         for (const c of recentCandles) { if (c.close > c.open) bullishCount++; else if (c.close < c.open) bearishCount++; }
-        const threshold = Math.floor(window * 0.30);
+        const threshold = Math.floor(window * 0.40);
         if (bullishCount > bearishCount + threshold) data.structure = 'BULLISH';
         else if (bearishCount > bullishCount + threshold) data.structure = 'BEARISH';
         else data.structure = 'NEUTRAL';
@@ -1008,9 +1008,9 @@
                 if (htfConfirmed) executeLockSignal(id, direction);
                 else { resetSignal(id); const st = document.getElementById(`signal-text-${id}`); if (st) { st.innerText = 'REJECT'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1200); } }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
-            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 5000); }
+            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 3000); }
         }
-        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 5000);
+        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 3000);
     }
     
     function executeLockSignal(id, direction) {
