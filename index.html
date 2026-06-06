@@ -571,7 +571,7 @@
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
     const XAU_OFFSET = -2.8;
     const CONFIRMATION_DELAY_CYCLES = 3;
-    const RESET_THRESHOLD_XAU = 1.5;
+    const RESET_THRESHOLD_XAU = 2;
     const RESET_THRESHOLD_BTC = 50;
 
     let marketData = {
@@ -1022,9 +1022,9 @@
         s.type = direction; s.entry = finalEntry; s.originPrice = finalEntry;
         s.tempHigh = finalEntry; s.tempLow = finalEntry;
         s.retracePct = 0;
-        const risk = id === 'xau' ? 6 : finalEntry * 0.0030;
-        if (direction === 'buy') { s.sl = finalEntry - risk; s.tp = finalEntry + (risk * 1.4); }
-        else { s.sl = finalEntry + risk; s.tp = finalEntry - (risk * 1.4); }
+        const risk = id === 'xau' ? 6.5 : finalEntry * 0.0030;
+        if (direction === 'buy') { s.sl = finalEntry - risk; s.tp = finalEntry + (risk * 1.5); }
+        else { s.sl = finalEntry + risk; s.tp = finalEntry - (risk * 1.5); }
         throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
         const signalBar = document.getElementById(`signal-bar-${id}`);
         if (signalBar) signalBar.classList.remove('confirm-wait');
@@ -1060,12 +1060,12 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1.2 : 35;
+        return id === 'xau' ? 1 : 25;
     }
 
     return id === 'xau'
-        ? md.atr * 1.3
-        : md.atr * 1.5;
+        ? md.atr * 1.25
+        : md.atr * 1.3;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
@@ -1084,7 +1084,7 @@
                 const refPrice=s.entry>0?s.entry:s.originPrice;
                 const expansionDistance=s.type==='buy'? s.tempHigh-refPrice : refPrice-s.tempLow;
                 if(expansionDistance>=resetThreshold){
-                    const entryBuffer=id==='xau'?5:120;
+                    const entryBuffer=id==='xau'?5.5:120;
                     const retraceReset=s.type==='buy'? price<=(refPrice-entryBuffer): price>=(refPrice+entryBuffer);
                     if(retraceReset && Date.now()>=(s.warmupUntil||0)){ recordSignalResult(id,'retrace'); resetSignal(id); return;}
                 }
