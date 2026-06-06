@@ -928,8 +928,8 @@
         const last5 = recentCandles.slice(-5);
         let upM = 0, downM = 0;
         for (let i = 1; i < last5.length; i++) { if (last5[i].close > last5[i-1].close) upM++; else if (last5[i].close < last5[i-1].close) downM++; }
-        if (upM >= 4) data.momentum = 'BULLISH';
-        else if (downM >= 4) data.momentum = 'BEARISH';
+        if (upM >= 3) data.momentum = 'BULLISH';
+        else if (downM >= 3) data.momentum = 'BEARISH';
         else data.momentum = 'STABLE';
     }
     let htfSeeded = { xau: false, btc: false };
