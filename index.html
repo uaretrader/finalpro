@@ -896,7 +896,7 @@
     };
     let htfTickCounter = { xau: 0, btc: 0 };
     let htfCurrentCandle = { xau: null, btc: null };
-    const HTF_TICK_PER_CANDLE = 20;
+    const HTF_TICK_PER_CANDLE = 15;
     function buildOHLCCandle(id, price) {
         htfTickCounter[id]++;
         if (!htfCurrentCandle[id] || htfTickCounter[id] >= HTF_TICK_PER_CANDLE) {
