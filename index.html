@@ -971,7 +971,7 @@
         const atrTol = Math.max((market.atr || 0) * 0.05, id === 'xau' ? 0.10 : 5);
         const isAboveEMA = price >= (ema - atrTol);
         const isBelowEMA = price <= (ema + atrTol);
-        const emaSlope = market.prevEMA !== 0 ? (ema - market.prevEMA) : 0;
+        const emaSlope = market.prevEMA !== undefined ? (ema - market.prevEMA) : 0;
         const slopeThreshold = Math.max(0.00001, (market.atr || 0) * 0.003);
         const bullishBias = emaSlope >= slopeThreshold;
         const bearishBias = emaSlope <= -slopeThreshold;
