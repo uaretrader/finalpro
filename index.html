@@ -896,7 +896,7 @@
     };
     let htfTickCounter = { xau: 0, btc: 0 };
     let htfCurrentCandle = { xau: null, btc: null };
-    const HTF_TICK_PER_CANDLE = 10;
+    const HTF_TICK_PER_CANDLE = 20;
     function buildOHLCCandle(id, price) {
         htfTickCounter[id]++;
         if (!htfCurrentCandle[id] || htfTickCounter[id] >= HTF_TICK_PER_CANDLE) {
@@ -921,15 +921,15 @@
         const recentCandles = candles.slice(-window);
         let bullishCount = 0, bearishCount = 0;
         for (const c of recentCandles) { if (c.close > c.open) bullishCount++; else if (c.close < c.open) bearishCount++; }
-        const threshold = Math.floor(window * 0.35);
+        const threshold = Math.floor(window * 0.45);
         if (bullishCount > bearishCount + threshold) data.structure = 'BULLISH';
         else if (bearishCount > bullishCount + threshold) data.structure = 'BEARISH';
         else data.structure = 'NEUTRAL';
         const last5 = recentCandles.slice(-5);
         let upM = 0, downM = 0;
         for (let i = 1; i < last5.length; i++) { if (last5[i].close > last5[i-1].close) upM++; else if (last5[i].close < last5[i-1].close) downM++; }
-        if (upM >= 3) data.momentum = 'BULLISH';
-        else if (downM >= 3) data.momentum = 'BEARISH';
+        if (upM >= 4) data.momentum = 'BULLISH';
+        else if (downM >= 4) data.momentum = 'BEARISH';
         else data.momentum = 'STABLE';
     }
     let htfSeeded = { xau: false, btc: false };
@@ -967,11 +967,11 @@
         if (!htf || !market) return false;
         const ema = market.ema || 0;
         const price = market.price || state[id]?.lastPrice || 0;
-        if (ema <= 0 || price <= 0) return true;
-        const atrTol = Math.max((market.atr || 0) * 0.08, id === 'xau' ? 0.15 : 8);
+        if (ema <= 0 || price <= 0) return false;
+        const atrTol = Math.max((market.atr || 0) * 0.05, id === 'xau' ? 0.10 : 5);
         const isAboveEMA = price >= (ema - atrTol);
         const isBelowEMA = price <= (ema + atrTol);
-        const emaSlope = market.prevEMA !== undefined ? (ema - market.prevEMA) : 0;
+        const emaSlope = market.prevEMA !== 0 ? (ema - market.prevEMA) : 0;
         const slopeThreshold = Math.max(0.00001, (market.atr || 0) * 0.003);
         const bullishBias = emaSlope >= slopeThreshold;
         const bearishBias = emaSlope <= -slopeThreshold;
@@ -1008,9 +1008,9 @@
                 if (htfConfirmed) executeLockSignal(id, direction);
                 else { resetSignal(id); const st = document.getElementById(`signal-text-${id}`); if (st) { st.innerText = 'REJECT'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1200); } }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
-            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 4000); }
+            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500); }
         }
-        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 4000);
+        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500);
     }
     
     function executeLockSignal(id, direction) {
@@ -1060,12 +1060,12 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1.2 : 25;
+        return id === 'xau' ? 1.25 : 50;
     }
 
     return id === 'xau'
-        ? md.atr * 1.25
-        : md.atr * 1.25;
+        ? md.atr * 1.5
+        : md.atr * 1.8;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
