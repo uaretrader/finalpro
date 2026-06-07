@@ -921,7 +921,7 @@
         const recentCandles = candles.slice(-window);
         let bullishCount = 0, bearishCount = 0;
         for (const c of recentCandles) { if (c.close > c.open) bullishCount++; else if (c.close < c.open) bearishCount++; }
-        const threshold = Math.floor(window * 0.40);
+        const threshold = Math.floor(window * 0.20);
         if (bullishCount > bearishCount + threshold) data.structure = 'BULLISH';
         else if (bearishCount > bullishCount + threshold) data.structure = 'BEARISH';
         else data.structure = 'NEUTRAL';
@@ -1060,11 +1060,11 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1 : 25;
+        return id === 'xau' ? 1.5 : 50;
     }
 
     return id === 'xau'
-        ? md.atr * 1.25
+        ? md.atr * 1.5
         : md.atr * 1.5;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
