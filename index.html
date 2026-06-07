@@ -1181,7 +1181,7 @@
                 const refPrice=s.entry>0?s.entry:s.originPrice;
                 const expansionDistance=s.type==='buy'? s.tempHigh-refPrice : refPrice-s.tempLow;
                 if(expansionDistance>=resetThreshold){
-                    const entryBuffer=id==='xau'?5.5:120;
+                    const entryBuffer=id==='xau'?5.5:150;
                     const retraceReset=s.type==='buy'? price<=(refPrice-entryBuffer): price>=(refPrice+entryBuffer);
                     if(retraceReset && Date.now()>=(s.warmupUntil||0)){ recordSignalResult(id,'retrace'); resetSignal(id); return;}
                 }
