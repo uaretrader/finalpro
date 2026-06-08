@@ -571,7 +571,7 @@
     const VOLUME_LOOKBACK = 12;
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
     const XAU_OFFSET = -3;
-    const CONFIRMATION_DELAY_CYCLES = 4;
+    const CONFIRMATION_DELAY_CYCLES = 3;
     const RESET_THRESHOLD_XAU = 2;
     const RESET_THRESHOLD_BTC = 50;
 
@@ -1028,9 +1028,9 @@
                     }
                 }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
-            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500); }
+            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2000); }
         }
-        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500);
+        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2000);
     }
     
     function executeLockSignal(id, direction) {
@@ -1158,12 +1158,12 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1.3 : 30;
+        return id === 'xau' ? 1.5 : 50;
     }
 
     return id === 'xau'
-        ? md.atr * 1.2
-        : md.atr * 1.5;
+        ? md.atr * 1.25
+        : md.atr * 1.8;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
