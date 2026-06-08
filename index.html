@@ -164,7 +164,6 @@
         box-shadow: var(--shadow-deep);
         overflow: hidden;
         position: relative;
-        min-height: 235px;
     }
     .card::before {
         content: '';
@@ -982,16 +981,12 @@
         if (direction === 'buy') {
             const trendingOK  = htf.structure === 'BULLISH' && htf.momentum === 'BULLISH' && isAboveEMA && bullishBias;
             const neutralOK   = htf.structure === 'NEUTRAL' && htf.momentum === 'BULLISH' && isAboveEMA && strongBullish;
-            // RSI Zone Boost: BUY konfirmasi jika RSI 15-25 (oversold extreme → reversal signal)
-            const rsiZoneOK   = isRSIZoneSignal(id, 'buy');
-            return trendingOK || neutralOK || rsiZoneOK;
+            return trendingOK || neutralOK;
         }
         if (direction === 'sell') {
             const trendingOK  = htf.structure === 'BEARISH' && htf.momentum === 'BEARISH' && isBelowEMA && bearishBias;
             const neutralOK   = htf.structure === 'NEUTRAL' && htf.momentum === 'BEARISH' && isBelowEMA && strongBearish;
-            // RSI Zone Boost: SELL konfirmasi jika RSI 75-85 (overbought extreme → reversal signal)
-            const rsiZoneOK   = isRSIZoneSignal(id, 'sell');
-            return trendingOK || neutralOK || rsiZoneOK;
+            return trendingOK || neutralOK;
         }
         return true;
     }
@@ -1010,23 +1005,8 @@
             updateSignalUIOnly(id);
             if (pendingConfirmation[id].cycleCounter >= CONFIRMATION_DELAY_CYCLES) {
                 const htfConfirmed = isHTFConfirmingDirection(id, direction);
-                // RSI Guard: cek kondisi RSI real-time sebelum konfirmasi sinyal
-                const rsiGuard = checkRSIGuard(id, direction);
-                if (htfConfirmed && rsiGuard.allowed) {
-                    executeLockSignal(id, direction);
-                } else {
-                    resetSignal(id);
-                    const st = document.getElementById(`signal-text-${id}`);
-                    if (st) {
-                        const rejectReason = !rsiGuard.allowed ? `RSI GUARD` : 'REJECT';
-                        st.innerText = rejectReason;
-                        st.style.color = 'var(--danger)';
-                        setTimeout(() => updateSignalUIOnly(id), 1200);
-                    }
-                    if (!rsiGuard.allowed) {
-                        showToast(`${id.toUpperCase()} ${rsiGuard.reason} — ${direction.toUpperCase()} REJECTED`);
-                    }
-                }
+                if (htfConfirmed) executeLockSignal(id, direction);
+                else { resetSignal(id); const st = document.getElementById(`signal-text-${id}`); if (st) { st.innerText = 'REJECT'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1200); } }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
             } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500); }
         }
@@ -1075,94 +1055,17 @@
         for (let i=1;i<closes.length;i++) ema = (closes[i]*alpha)+(ema*(1-alpha));
         md.prevEMA = md.ema || ema; md.ema = ema; md.price = closes[closes.length-1];
         md.volume = candles.slice(-VOLUME_LOOKBACK).map(c=>c.volume);
-        // Update RSI real-time setiap candle baru terbentuk
-        calculateRSI(id);
     }
-    // ==================== RSI ENGINE (REAL-TIME) ====================
-    // RSI dihitung dari candle real-time di marketData[id].candles
-    // Period 14, menggunakan Wilder's smoothing (EMA-style)
-    const RSI_PERIOD = 14;
-    let rsiState = {
-        xau: { avgGain: 0, avgLoss: 0, prevClose: 0, initialized: false, value: 50 },
-        btc: { avgGain: 0, avgLoss: 0, prevClose: 0, initialized: false, value: 50 }
-    };
-
-    function calculateRSI(id) {
-        const candles = marketData[id].candles;
-        if (candles.length < RSI_PERIOD + 2) return rsiState[id].value;
-
-        const rs = rsiState[id];
-
-        if (!rs.initialized) {
-            // Seed: hitung rata-rata gain/loss dari RSI_PERIOD candle pertama
-            const seedCandles = candles.slice(-(RSI_PERIOD + 1));
-            let gains = 0, losses = 0;
-            for (let i = 1; i < seedCandles.length; i++) {
-                const delta = seedCandles[i].close - seedCandles[i - 1].close;
-                if (delta >= 0) gains += delta;
-                else losses += Math.abs(delta);
-            }
-            rs.avgGain = gains / RSI_PERIOD;
-            rs.avgLoss = losses / RSI_PERIOD;
-            rs.prevClose = seedCandles[seedCandles.length - 1].close;
-            rs.initialized = true;
-        } else {
-            // Wilder smoothing pada setiap candle baru
-            const latestClose = candles[candles.length - 1].close;
-            const delta = latestClose - rs.prevClose;
-            const gain = delta > 0 ? delta : 0;
-            const loss = delta < 0 ? Math.abs(delta) : 0;
-            rs.avgGain = (rs.avgGain * (RSI_PERIOD - 1) + gain) / RSI_PERIOD;
-            rs.avgLoss = (rs.avgLoss * (RSI_PERIOD - 1) + loss) / RSI_PERIOD;
-            rs.prevClose = latestClose;
-        }
-
-        if (rs.avgLoss === 0) { rs.value = 100; return 100; }
-        const rsiVal = 100 - (100 / (1 + rs.avgGain / rs.avgLoss));
-        rs.value = Math.max(0, Math.min(100, parseFloat(rsiVal.toFixed(2))));
-        return rs.value;
-    }
-
-    // Ambil RSI terkini (nilai ter-update setiap candle baru via calculateAdvancedMetrics)
-    function getLiveRSI(id) {
-        return rsiState[id].value;
-    }
-
-    // RSI Guard: cek apakah sinyal diizinkan berdasarkan kondisi RSI
-    // Returns: { allowed: bool, reason: string }
-    function checkRSIGuard(id, direction) {
-        const rsi = getLiveRSI(id);
-
-        // Guard: Tolak BUY jika RSI > 72 (overbought)
-        if (direction === 'buy' && rsi > 72) {
-            return { allowed: false, reason: `RSI ${rsi.toFixed(1)} > 72 OVERBOUGHT` };
-        }
-        // Guard: Tolak SELL jika RSI < 28 (oversold)
-        if (direction === 'sell' && rsi < 28) {
-            return { allowed: false, reason: `RSI ${rsi.toFixed(1)} < 28 OVERSOLD` };
-        }
-
-        return { allowed: true, reason: 'OK' };
-    }
-
-    // RSI Zone Signal: BUY zone jika RSI 15-25, SELL zone jika RSI 75-85
-    function isRSIZoneSignal(id, direction) {
-        const rsi = getLiveRSI(id);
-        if (direction === 'buy' && rsi >= 15 && rsi <= 25) return true;
-        if (direction === 'sell' && rsi >= 75 && rsi <= 85) return true;
-        return false;
-    }
-    // ================================================================
-
     function getAdaptiveThreshold(id) {
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1 : 25;
+        return id === 'xau' ? 1.8 : 50;
     }
 
     return id === 'xau'
-        ? md.atr * 1.25 : md.atr * 1.35;
+        ? md.atr * 1.5
+        : md.atr * 1.8;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
