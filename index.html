@@ -965,7 +965,7 @@
     function isHTFConfirmingDirection(id, direction) {
         const htf = htfDataStore[id];
         const market = marketData[id];
-        if (!htf || !market) return false;
+        if (!htf || !market) return true;
         const ema = market.ema || 0;
         const price = market.price || state[id]?.lastPrice || 0;
         if (ema <= 0 || price <= 0) return false;
@@ -973,10 +973,10 @@
         const isAboveEMA = price >= (ema - atrTol);
         const isBelowEMA = price <= (ema + atrTol);
         const emaSlope = market.prevEMA !== undefined ? (ema - market.prevEMA) : 0;
-        const slopeThreshold = Math.max(0.00001, (market.atr || 0) * 0.003);
+        const slopeThreshold = Math.max(0.00003, (market.atr || 0) * 0.005);
         const bullishBias = emaSlope >= slopeThreshold;
         const bearishBias = emaSlope <= -slopeThreshold;
-        const strongSlopeThreshold = slopeThreshold * 2;
+        const strongSlopeThreshold = slopeThreshold * 1;
         const strongBullish = emaSlope >= strongSlopeThreshold;
         const strongBearish = emaSlope <= -strongSlopeThreshold;
         if (direction === 'buy') {
