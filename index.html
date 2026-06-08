@@ -1024,7 +1024,7 @@
                         setTimeout(() => updateSignalUIOnly(id), 1200);
                     }
                     if (!rsiGuard.allowed) {
-                        showToast(`${id.toUpperCase()} ${rsiGuard.reason} — ${direction.toUpperCase()} DITOLAK`);
+                        showToast(`${id.toUpperCase()} ${rsiGuard.reason} — ${direction.toUpperCase()} REJECTED`);
                     }
                 }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
