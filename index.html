@@ -571,7 +571,7 @@
     const VOLUME_LOOKBACK = 12;
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
     const XAU_OFFSET = -3;
-    const CONFIRMATION_DELAY_CYCLES = 5;
+    const CONFIRMATION_DELAY_CYCLES = 4;
     const RESET_THRESHOLD_XAU = 2;
     const RESET_THRESHOLD_BTC = 50;
 
@@ -1028,9 +1028,9 @@
                     }
                 }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
-            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500); }
+            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 3000); }
         }
-        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500);
+        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 3000);
     }
     
     function executeLockSignal(id, direction) {
@@ -1158,7 +1158,7 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1.5 : 55;
+        return id === 'xau' ? 1.5 : 60;
     }
 
     return id === 'xau'
