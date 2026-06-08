@@ -571,7 +571,7 @@
     const VOLUME_LOOKBACK = 12;
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
     const XAU_OFFSET = -3;
-    const CONFIRMATION_DELAY_CYCLES = 1;
+    const CONFIRMATION_DELAY_CYCLES = 2;
     const RESET_THRESHOLD_XAU = 2;
     const RESET_THRESHOLD_BTC = 50;
 
@@ -929,8 +929,8 @@
         const last5 = recentCandles.slice(-5);
         let upM = 0, downM = 0;
         for (let i = 1; i < last5.length; i++) { if (last5[i].close > last5[i-1].close) upM++; else if (last5[i].close < last5[i-1].close) downM++; }
-        if (upM >= 2) data.momentum = 'BULLISH';
-        else if (downM >= 2) data.momentum = 'BEARISH';
+        if (upM >= 3) data.momentum = 'BULLISH';
+        else if (downM >= 3) data.momentum = 'BEARISH';
         else data.momentum = 'STABLE';
     }
     let htfSeeded = { xau: false, btc: false };
@@ -1028,9 +1028,9 @@
                     }
                 }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
-            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 5000); }
+            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500); }
         }
-        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 5000);
+        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500);
     }
     
     function executeLockSignal(id, direction) {
@@ -1158,11 +1158,11 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1.25 : 30;
+        return id === 'xau' ? 1 : 25;
     }
 
     return id === 'xau'
-        ? md.atr * 1 : md.atr * 1.35;
+        ? md.atr * 1.25 : md.atr * 1.35;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
