@@ -1060,7 +1060,7 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1 : 30;
+        return id === 'xau' ? 0.8 : 25;
     }
 
     return id === 'xau'
