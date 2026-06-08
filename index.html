@@ -1158,11 +1158,11 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1.8 : 60;
+        return id === 'xau' ? 1.6 : 60;
     }
 
     return id === 'xau'
-        ? md.atr * 1.5
+        ? md.atr * 1.3
         : md.atr * 1.8;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
