@@ -552,7 +552,7 @@
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
     let signalDebounceTimer = { xau: null, btc: null };
-    const SIGNAL_DEBOUNCE_MS = 50;      // OPTIMASI: 10 → 50 (lebih selektif)
+    const SIGNAL_DEBOUNCE_MS = 15;      // OPTIMASI: 10 → 50 (lebih selektif)
     const CONFIRMATION_DELAY_CYCLES = 2; // OPTIMASI: 1 → 2 (validasi ganda)
 
     const ATR_PERIOD = 14;
@@ -869,7 +869,7 @@
         const recentCandles = candles.slice(-window);
         let bullishCount = 0, bearishCount = 0;
         for (const c of recentCandles) { if (c.close > c.open) bullishCount++; else if (c.close < c.open) bearishCount++; }
-        const threshold = Math.floor(window * 0.30); // OPTIMASI: 20% → 30% (lebih ketat)
+        const threshold = Math.floor(window * 0.25); // OPTIMASI: 20% → 30% (lebih ketat)
         if (bullishCount > bearishCount + threshold) data.structure = 'BULLISH';
         else if (bearishCount > bullishCount + threshold) data.structure = 'BEARISH';
         else data.structure = 'NEUTRAL';
