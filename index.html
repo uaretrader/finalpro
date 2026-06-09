@@ -869,7 +869,7 @@
         const recentCandles = candles.slice(-window);
         let bullishCount = 0, bearishCount = 0;
         for (const c of recentCandles) { if (c.close > c.open) bullishCount++; else if (c.close < c.open) bearishCount++; }
-        const threshold = Math.floor(window * 0.30); // OPTIMASI: 20% → 30% (lebih ketat)
+        const threshold = Math.floor(window * 0.15); // OPTIMASI: 20% → 30% (lebih ketat)
         if (bullishCount > bearishCount + threshold) data.structure = 'BULLISH';
         else if (bearishCount > bullishCount + threshold) data.structure = 'BEARISH';
         else data.structure = 'NEUTRAL';
