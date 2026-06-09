@@ -559,7 +559,7 @@
     const EMA_PERIOD = 21;
     const VOLUME_LOOKBACK = 12;
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-    const XAU_OFFSET = -2.5;
+    const XAU_OFFSET = -2.57;
     const RESET_THRESHOLD_XAU = 3.0;    // OPTIMASI: 2 → 3 (lebih tahan lama)
     const RESET_THRESHOLD_BTC = 75;     // OPTIMASI: 50 → 75
 
@@ -953,13 +953,13 @@
         const lastVolume = md.volume[md.volume.length - 1] || 0;
         const currentCandleVolume = md.currentCandle?.volume || 0;
         const totalVolume = lastVolume + currentCandleVolume;
-        return totalVolume > avgVolume * 1.15;
+        return totalVolume > avgVolume * 1.05;
     }
     
     // OPTIMASI: MINIMUM VOLATILITY FILTER
     function hasMinimumVolatility(id) {
         const md = marketData[id];
-        const minATR = id === 'xau' ? 1.0 : 60;
+        const minATR = id === 'xau' ? 0.5 : 30;
         return md.atr && md.atr >= minATR;
     }
     
@@ -1074,7 +1074,7 @@
         const md = marketData[id];
         const s = performanceStats[id];
         if (!md.atr || md.atr <= 0) return id === 'xau' ? 2.5 : 70;
-        let multiplier = id === 'xau' ? 1.1 : 1.6;
+        let multiplier = id === 'xau' ? 0.8 : 1.2;
         if (s.winrate < 50) multiplier = multiplier * 0.85;
         else if (s.winrate > 60) multiplier = multiplier * 1.1;
         return id === 'xau' ? md.atr * multiplier : md.atr * multiplier;
