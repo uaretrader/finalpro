@@ -1009,9 +1009,9 @@
                 if (htfConfirmed) executeLockSignal(id, direction);
                 else { resetSignal(id); const st = document.getElementById(`signal-text-${id}`); if (st) { st.innerText = 'REJECT'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1200); } }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
-            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 3000); }
+            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 4000); }
         }
-        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 3000);
+        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 4000);
     }
     
     function executeLockSignal(id, direction) {
@@ -1061,11 +1061,11 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1 : 50;
+        return id === 'xau' ? 0.8 : 80;
     }
 
     return id === 'xau'
-        ? md.atr * 1.5 : md.atr * 2;
+        ? md.atr * 1.8 : md.atr * 2.5;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.20;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
