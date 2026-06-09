@@ -559,12 +559,12 @@
     const RESET_THRESHOLD_BTC = 50;
 
     // v8.0 Institutional Engine constants
-    const SWING_LOOKBACK = 5;          // bars each side for swing detection
-    const FVG_MIN_GAP_XAU = 0.5;       // min gap size for FVG detection (XAU)
-    const FVG_MIN_GAP_BTC = 15;        // min gap size for FVG detection (BTC)
+    const SWING_LOOKBACK = 3;          // bars each side for swing detection
+    const FVG_MIN_GAP_XAU = 0.3;       // min gap size for FVG detection (XAU)
+    const FVG_MIN_GAP_BTC = 8;        // min gap size for FVG detection (BTC)
     const SWING_HISTORY_MAX = 40;
     const FVG_MAX = 10;
-    const HTF_TICK_PER_CANDLE_M15 = 30;  // ~M15 synthetic
+    const HTF_TICK_PER_CANDLE_M15 = 15;  // ~M15 synthetic
     const HTF_TICK_PER_CANDLE_H1  = 120; // ~H1 synthetic
     const HTF_TICK_PER_CANDLE_H4  = 480; // ~H4 synthetic
 
@@ -578,7 +578,7 @@
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
     let signalDebounceTimer = { xau: null, btc: null };
-    const SIGNAL_DEBOUNCE_MS = 20;
+    const SIGNAL_DEBOUNCE_MS = 10;
 
     // Raw market data (tick + candle)
     let marketData = {
@@ -1223,10 +1223,10 @@
         else if (emaSlope < -slopeTh) { bearScore += 1; factors.push('EMA↓'); }
         ce.factors = factors;
         const maxScore = bullScore + bearScore;
-        if (bullScore > bearScore && bullScore >= 5) {
+        if (bullScore > bearScore && bullScore >= 3) {
             ce.direction = 'BUY';
             ce.score = maxScore > 0 ? Math.round((bullScore / maxScore) * 100) : 0;
-        } else if (bearScore > bullScore && bearScore >= 5) {
+        } else if (bearScore > bullScore && bearScore >= 3) {
             ce.direction = 'SELL';
             ce.score = maxScore > 0 ? Math.round((bearScore / maxScore) * 100) : 0;
         } else {
