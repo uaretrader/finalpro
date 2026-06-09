@@ -1061,13 +1061,13 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1.2 : 60;
+        return id === 'xau' ? 1 : 50;
     }
 
     return id === 'xau'
         ? md.atr * 1.5 : md.atr * 2;
 }
-    let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
+    let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.20;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
     function createFreshState() { return { v:LS_SCHEMA_VERSION, lastPrice:0, trendScore:0, l1:false,l2:false,l3:false,confirmed:false,confirmedAt:0,resetInProgress:false,warmupUntil:0,type:'none',entry:0,sl:0,tp:0,tempHigh:0,tempLow:0,originPrice:0,retracePct:0 }; }
     function loadState(id) { try{ const saved=localStorage.getItem(`ura_state_${id}`); if(!saved) return createFreshState(); const parsed=JSON.parse(saved); if(typeof parsed!=='object') return createFreshState(); return Object.assign(createFreshState(), parsed); }catch(e){ localStorage.removeItem(`ura_state_${id}`); return createFreshState(); } }
