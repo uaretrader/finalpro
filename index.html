@@ -564,7 +564,7 @@
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
     let signalDebounceTimer = { xau: null, btc: null };
-    const SIGNAL_DEBOUNCE_MS = 20;
+    const SIGNAL_DEBOUNCE_MS = 10;
 
     const ATR_PERIOD = 14;
     const EMA_PERIOD = 21;
@@ -1061,12 +1061,11 @@
     const md = marketData[id];
 
     if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1.8 : 50;
+        return id === 'xau' ? 1.5 : 50;
     }
 
     return id === 'xau'
-        ? md.atr * 1.5
-        : md.atr * 1.8;
+        ? md.atr * 1.25 : md.atr * 1.8;
 }
     let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
     function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
@@ -1085,7 +1084,7 @@
                 const refPrice=s.entry>0?s.entry:s.originPrice;
                 const expansionDistance=s.type==='buy'? s.tempHigh-refPrice : refPrice-s.tempLow;
                 if(expansionDistance>=resetThreshold){
-                    const entryBuffer=id==='xau'?5.5:120;
+                    const entryBuffer=id==='xau'?5.5:150;
                     const retraceReset=s.type==='buy'? price<=(refPrice-entryBuffer): price>=(refPrice+entryBuffer);
                     if(retraceReset && Date.now()>=(s.warmupUntil||0)){ recordSignalResult(id,'retrace'); resetSignal(id); return;}
                 }
