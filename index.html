@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
-<title>URADVISOR v8.0 — INSTITUTIONAL ENGINE</title>
+<title>URADVISOR v8.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -623,15 +623,15 @@
     // --- HTF Bias Engine (M15 / H1 / H4) ---
     let htfBiasEngine = {
         xau: {
-            m15: { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0 },
-            h1:  { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0 },
-            h4:  { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0 },
+            m15: { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0, ticksPerCandle: HTF_TICK_PER_CANDLE_M15 },
+            h1:  { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0, ticksPerCandle: HTF_TICK_PER_CANDLE_H1 },
+            h4:  { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0, ticksPerCandle: HTF_TICK_PER_CANDLE_H4 },
             composite: 'NEUTRAL', strength: 0
         },
         btc: {
-            m15: { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0 },
-            h1:  { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0 },
-            h4:  { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0 },
+            m15: { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0, ticksPerCandle: HTF_TICK_PER_CANDLE_M15 },
+            h1:  { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0, ticksPerCandle: HTF_TICK_PER_CANDLE_H1 },
+            h4:  { candles: [], tickCount: 0, currentCandle: null, bias: 'NEUTRAL', ema: 0, ticksPerCandle: HTF_TICK_PER_CANDLE_H4 },
             composite: 'NEUTRAL', strength: 0
         }
     };
@@ -895,11 +895,9 @@
         const md = marketData[id]; const sw = swingEngine[id];
         const candles = md.candles;
         if (candles.length < SWING_LOOKBACK * 2 + 1) return;
-
         const n = candles.length;
         const mid = n - SWING_LOOKBACK - 1;
         const midCandle = candles[mid];
-
         // Pivot High: mid.high > all left & right neighbours
         let isPivotHigh = true, isPivotLow = true;
         for (let i = mid - SWING_LOOKBACK; i <= mid + SWING_LOOKBACK; i++) {
@@ -907,9 +905,7 @@
             if (candles[i].high >= midCandle.high) isPivotHigh = false;
             if (candles[i].low  <= midCandle.low)  isPivotLow  = false;
         }
-
         if (isPivotHigh) {
-            const prev = sw.highs[sw.highs.length - 1] || 0;
             sw.highs.push(midCandle.high);
             if (sw.highs.length > SWING_HISTORY_MAX) sw.highs.shift();
             if (sw.highs.length >= 2) {
@@ -927,7 +923,6 @@
                 else sw.lastLL = midCandle.low;
             }
         }
-
         // Determine swing trend
         const hhValid = sw.lastHH > 0 && sw.lastHL > 0;
         const llValid = sw.lastLL > 0 && sw.lastLH > 0;
@@ -954,7 +949,6 @@
         if (md.candles.length < 3) return;
         const lastCandle = md.candles[md.candles.length - 1];
         const price = lastCandle.close;
-
         // BOS (Break of Structure): price breaks most recent swing high/low in trending direction
         if (sw.highs.length >= 2 && sw.trend === 'BULLISH') {
             const prevSwingHigh = sw.highs[sw.highs.length - 2];
@@ -968,7 +962,6 @@
                 se.bos = true; se.bosDir = 'BEAR'; se.lastBOSPrice = prevSwingLow; se.bosCount++;
             }
         }
-
         // CHoCH (Change of Character): price breaks AGAINST the prevailing swing trend
         if (sw.trend === 'BULLISH' && sw.lows.length >= 2) {
             const lastSwingLow = sw.lows[sw.lows.length - 1];
@@ -984,7 +977,6 @@
                 sw.trend = 'NEUTRAL';
             }
         }
-
         // Age out after 30 candles
         if (se.bosCount > 0 && md.candles.length % 30 === 0) { se.bos = false; }
         if (se.chochCount > 0 && md.candles.length % 30 === 0) { se.choch = false; }
@@ -1000,7 +992,6 @@
         const lastCandle = md.candles[md.candles.length - 1];
         const sweepTolXau = 0.3; const sweepTolBtc = 8;
         const tol = id === 'xau' ? sweepTolXau : sweepTolBtc;
-
         // BSL Sweep: price wicks ABOVE a prior swing high then closes below it
         if (sw.highs.length >= 1) {
             const recentHigh = sw.lastHH > 0 ? sw.lastHH : sw.highs[sw.highs.length - 1];
@@ -1013,7 +1004,6 @@
                 }
             }
         }
-
         // SSL Sweep: price wicks BELOW a prior swing low then closes above it
         if (sw.lows.length >= 1) {
             const recentLow = sw.lastLL > 0 ? sw.lastLL : sw.lows[sw.lows.length - 1];
@@ -1026,7 +1016,6 @@
                 }
             }
         }
-
         // Age out sweeps
         le.sweepAge++;
         if (le.sweepAge > 20) { le.bslSweep = false; le.sslSweep = false; le.sweepDir = 'NONE'; }
@@ -1042,12 +1031,10 @@
         const candles = md.candles;
         if (candles.length < 3) return;
         const minGap = id === 'xau' ? FVG_MIN_GAP_XAU : FVG_MIN_GAP_BTC;
-
         // Check last 3-bar FVG pattern: candle[i-2], candle[i-1], candle[i]
         const a = candles[candles.length - 3];
         const b = candles[candles.length - 2]; // the impulse candle
         const c = candles[candles.length - 1];
-
         // Bullish FVG: c.low > a.high (gap between candle[i-2] high and candle[i] low)
         const bullishGap = c.low - a.high;
         if (bullishGap >= minGap) {
@@ -1057,7 +1044,6 @@
                 if (fvg.bullish.length > FVG_MAX) fvg.bullish.shift();
             }
         }
-
         // Bearish FVG: c.high < a.low
         const bearishGap = a.low - c.high;
         if (bearishGap >= minGap) {
@@ -1067,14 +1053,12 @@
                 if (fvg.bearish.length > FVG_MAX) fvg.bearish.shift();
             }
         }
-
         // Mitigation check on live price
         const livePrice = md.price || 0;
         if (livePrice > 0) {
             fvg.bullish.forEach(f => { if (!f.mitigated && livePrice >= f.bottom && livePrice <= f.top) { f.mitigated = true; fvg.lastMitigated = { dir: 'BULL', level: f.mid }; } });
             fvg.bearish.forEach(f => { if (!f.mitigated && livePrice >= f.bottom && livePrice <= f.top) { f.mitigated = true; fvg.lastMitigated = { dir: 'BEAR', level: f.mid }; } });
         }
-
         // Age
         fvg.bullish.forEach(f => f.age++); fvg.bearish.forEach(f => f.age++);
         fvg.bullish = fvg.bullish.filter(f => f.age < 60);
@@ -1088,23 +1072,18 @@
         const sw = swingEngine[id]; const pd = pdEngine[id];
         const md = marketData[id];
         if (md.candles.length < 10) return;
-
         // Range from recent swing highs/lows
         const highs = sw.highs.slice(-10);
         const lows = sw.lows.slice(-10);
         if (highs.length === 0 || lows.length === 0) return;
-
         pd.rangeHigh = Math.max(...highs);
         pd.rangeLow = Math.min(...lows);
         pd.equilibrium = (pd.rangeHigh + pd.rangeLow) / 2;
-
         const livePrice = md.price || 0;
         if (livePrice <= 0 || pd.rangeHigh <= pd.rangeLow) return;
-
         const rangeSize = pd.rangeHigh - pd.rangeLow;
         pd.pct = ((livePrice - pd.rangeLow) / rangeSize) * 100;
-
-        // Premium = above 75%, Discount = below 25%, Equilibrium = 25–75%
+        // Premium = above 75%, Discount = below 25%, Equilibrium = 25-75%
         if (pd.pct >= 75) { pd.zone = 'PREMIUM'; pd.pdScore = -1; }   // sell zone
         else if (pd.pct <= 25) { pd.zone = 'DISCOUNT'; pd.pdScore = 1; }  // buy zone
         else { pd.zone = 'EQUILIBRIUM'; pd.pdScore = 0; }
@@ -1139,13 +1118,11 @@
         let ema = candles[0].close;
         for (let i = 1; i < candles.length; i++) ema = candles[i].close * alpha + ema * (1 - alpha);
         htfFrame.ema = ema;
-
         const window = Math.min(20, candles.length);
         const recent = candles.slice(-window);
         let bull = 0, bear = 0;
         for (const c of recent) { if (c.close > c.open) bull++; else if (c.close < c.open) bear++; }
         const lastClose = candles[candles.length - 1].close;
-
         if (bull > bear + Math.floor(window * 0.2) && lastClose > ema) htfFrame.bias = 'BULLISH';
         else if (bear > bull + Math.floor(window * 0.2) && lastClose < ema) htfFrame.bias = 'BEARISH';
         else htfFrame.bias = 'NEUTRAL';
@@ -1153,20 +1130,12 @@
 
     function updateHTFBiasEngine(id, price) {
         const htf = htfBiasEngine[id];
-
-        // Ensure ticksPerCandle set
-        if (!htf.m15.ticksPerCandle) htf.m15.ticksPerCandle = HTF_TICK_PER_CANDLE_M15;
-        if (!htf.h1.ticksPerCandle)  htf.h1.ticksPerCandle  = HTF_TICK_PER_CANDLE_H1;
-        if (!htf.h4.ticksPerCandle)  htf.h4.ticksPerCandle  = HTF_TICK_PER_CANDLE_H4;
-
         const m15Sealed = buildHTFCandle(htf.m15, price);
         const h1Sealed  = buildHTFCandle(htf.h1, price);
         const h4Sealed  = buildHTFCandle(htf.h4, price);
-
         if (m15Sealed) calcHTFFrameBias(htf.m15);
         if (h1Sealed)  calcHTFFrameBias(htf.h1);
         if (h4Sealed)  calcHTFFrameBias(htf.h4);
-
         // Composite bias: H4 (weight 3) + H1 (weight 2) + M15 (weight 1)
         const score = (
             (htf.h4.bias  === 'BULLISH' ? 3 : htf.h4.bias  === 'BEARISH' ? -3 : 0) +
@@ -1220,51 +1189,40 @@
         const ce   = confluenceEngine[id];
         const md   = marketData[id];
         const livePrice = md.price || state[id]?.lastPrice || 0;
-
         let bullScore = 0, bearScore = 0;
         let factors = [];
-
         // Factor 1: Swing Trend
         if (sw.trend === 'BULLISH') { bullScore += 2; factors.push('SW↑'); }
         else if (sw.trend === 'BEARISH') { bearScore += 2; factors.push('SW↓'); }
-
         // Factor 2: BOS
         if (se.bos && se.bosDir === 'BULL') { bullScore += 2; factors.push('BOS↑'); }
         else if (se.bos && se.bosDir === 'BEAR') { bearScore += 2; factors.push('BOS↓'); }
-
         // Factor 3: CHoCH — strong reversal signal
         if (se.choch && se.chochDir === 'BULL') { bullScore += 3; factors.push('CHoCH↑'); }
         else if (se.choch && se.chochDir === 'BEAR') { bearScore += 3; factors.push('CHoCH↓'); }
-
         // Factor 4: Liquidity Sweep (inverse — after SSL sweep expect buy, after BSL expect sell)
         if (le.sslSweep) { bullScore += 2; factors.push('SSL↑'); }
         else if (le.bslSweep) { bearScore += 2; factors.push('BSL↓'); }
-
         // Factor 5: FVG Mitigation
         if (fvg.lastMitigated) {
             if (fvg.lastMitigated.dir === 'BULL' && livePrice <= fvg.lastMitigated.level) { bullScore += 1; factors.push('FVG↑'); }
             else if (fvg.lastMitigated.dir === 'BEAR' && livePrice >= fvg.lastMitigated.level) { bearScore += 1; factors.push('FVG↓'); }
         }
-
         // Factor 6: Premium / Discount Zone
         if (pd.zone === 'DISCOUNT') { bullScore += 1; factors.push('PD↑'); }
         else if (pd.zone === 'PREMIUM') { bearScore += 1; factors.push('PD↓'); }
-
         // Factor 7: HTF Composite Bias (weighted by strength)
         const htfStrength = Math.abs(htf.strength);
         const htfWeight = htfStrength >= 5 ? 3 : htfStrength >= 3 ? 2 : 1;
         if (htf.composite === 'BULLISH') { bullScore += htfWeight; factors.push(`HTF↑${htfWeight}`); }
         else if (htf.composite === 'BEARISH') { bearScore += htfWeight; factors.push(`HTF↓${htfWeight}`); }
-
         // Factor 8: EMA slope confirmation
         const emaSlope = md.ema - md.prevEMA;
         const slopeTh = id === 'xau' ? 0.05 : 2;
         if (emaSlope > slopeTh) { bullScore += 1; factors.push('EMA↑'); }
         else if (emaSlope < -slopeTh) { bearScore += 1; factors.push('EMA↓'); }
-
         ce.factors = factors;
         const maxScore = bullScore + bearScore;
-
         if (bullScore > bearScore && bullScore >= 5) {
             ce.direction = 'BUY';
             ce.score = maxScore > 0 ? Math.round((bullScore / maxScore) * 100) : 0;
@@ -1275,14 +1233,12 @@
             ce.direction = 'NONE';
             ce.score = 0;
         }
-
-        // Quality tiers
         const topScore = Math.max(bullScore, bearScore);
+        // Quality tiers
         if (topScore >= 10) ce.quality = 'STRONG';
         else if (topScore >= 7) ce.quality = 'MODERATE';
         else if (topScore >= 5) ce.quality = 'WEAK';
         else ce.quality = 'LOW';
-
         return ce;
     }
 
@@ -1292,9 +1248,8 @@
     // Stages:
     //   L1 = CHoCH OR (SSL/BSL sweep + BOS in sweep direction)
     //   L2 = FVG mitigation OR PD zone alignment OR EMA confluence
-    //   L3 = HTF composite confirms + AI confluence score ≥ WEAK
+    //   L3 = HTF composite confirms + AI confluence score >= WEAK
     // ────────────────────────────────────────
-
     function processSignal(id, price) {
         if (!state[id]) return;
         const s = state[id];
@@ -1306,10 +1261,9 @@
         const pd = pdEngine[id];
         const htf = htfBiasEngine[id];
         const ce = confluenceEngine[id];
-
         const resetThreshold = id === 'xau' ? RESET_THRESHOLD_XAU : RESET_THRESHOLD_BTC;
 
-        // ── Track active signal ──────────────────────────────
+        // -- Track active signal --
         if (s.confirmed) {
             if (s.type !== 'none') {
                 if (s.tempHigh === 0 && s.tempLow === 0) { s.tempHigh = s.entry || price; s.tempLow = s.entry || price; }
@@ -1330,7 +1284,6 @@
             else if (hitSL) { recordSignalResult(id, 'sl'); resetSignal(id); }
             return;
         }
-
         if (pendingConfirmation[id]) { s.lastPrice = price; return; }
 
         // Run institutional engines
@@ -1338,68 +1291,55 @@
         updateHTFBiasEngine(id, price);
         runAIConfluence(id);
 
-        // ── STAGE 1 TRIGGER: CHoCH or Sweep+BOS ─────────────
+        // -- STAGE 1 TRIGGER: CHoCH or Sweep+BOS --
         if (!s.l1) {
             let l1Dir = null;
-
             // CHoCH-based trigger (highest quality)
             if (se.choch && se.chochDir === 'BULL') l1Dir = 'buy';
             else if (se.choch && se.chochDir === 'BEAR') l1Dir = 'sell';
-
             // Sweep + BOS trigger
             if (!l1Dir) {
                 if (le.sslSweep && se.bos && se.bosDir === 'BULL') l1Dir = 'buy';
                 else if (le.bslSweep && se.bos && se.bosDir === 'BEAR') l1Dir = 'sell';
             }
-
             // Swing BOS-only trigger (lower quality, needs more confirmation downstream)
             if (!l1Dir && se.bos) {
                 if (se.bosDir === 'BULL' && sw.trend === 'BULLISH') l1Dir = 'buy';
                 else if (se.bosDir === 'BEAR' && sw.trend === 'BEARISH') l1Dir = 'sell';
             }
-
             if (l1Dir) {
                 s.l1 = true; s.type = l1Dir; s.originPrice = price;
                 s.tempHigh = price; s.tempLow = price;
                 throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
             }
         }
-
-        // ── STAGE 2: FVG mitigation OR PD zone OR EMA alignment ─
+        // -- STAGE 2: FVG mitigation OR PD zone OR EMA alignment --
         else if (s.l1 && !s.l2) {
             let l2Confirmed = false;
-
             const inFVG = s.type === 'buy'
                 ? fvg.bullish.some(f => !f.mitigated && price >= f.bottom && price <= f.top)
                 : fvg.bearish.some(f => !f.mitigated && price >= f.bottom && price <= f.top);
-
             const pdOK = (s.type === 'buy' && pd.zone === 'DISCOUNT') ||
                          (s.type === 'sell' && pd.zone === 'PREMIUM');
-
             const emaOK = (s.type === 'buy' && price > md.ema && md.ema > md.prevEMA) ||
                           (s.type === 'sell' && price < md.ema && md.ema < md.prevEMA);
-
             if (inFVG || pdOK || emaOK) l2Confirmed = true;
-
             if (l2Confirmed) {
                 s.l2 = true;
                 throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
             }
         }
-
-        // ── STAGE 3: HTF + AI Confluence gate ────────────────
+        // -- STAGE 3: HTF + AI Confluence gate --
         else if (s.l2 && !s.l3 && !s.confirmed) {
             const htfOK = (s.type === 'buy' && htf.composite !== 'BEARISH') ||
                           (s.type === 'sell' && htf.composite !== 'BULLISH');
             const aiOK = ce.direction === s.type.toUpperCase() && (ce.quality === 'WEAK' || ce.quality === 'MODERATE' || ce.quality === 'STRONG');
-
             if (htfOK && aiOK) {
                 s.l3 = true;
                 throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
                 startConfirmationDelay(id, s.type, price);
             }
         }
-
         s.lastPrice = price;
         throttledSaveState(id);
     }
@@ -1438,7 +1378,6 @@
         const sb = document.getElementById(`signal-bar-${id}`); if (sb) sb.classList.add('confirm-wait');
         const l3 = document.getElementById(`l3-${id}`); if (l3) l3.classList.add('confirm-pending');
         updateSignalUIOnly(id);
-
         function checkCycle() {
             if (!pendingConfirmation[id]) return;
             pendingConfirmation[id].cycleCounter++;
@@ -1451,7 +1390,6 @@
                 const htfOK = (direction === 'buy' && htf.composite !== 'BEARISH') ||
                               (direction === 'sell' && htf.composite !== 'BULLISH');
                 const aiOK = (ce.direction === direction.toUpperCase()) || ce.quality !== 'LOW';
-
                 if (htfOK && aiOK) executeLockSignal(id, direction);
                 else {
                     resetSignal(id);
@@ -1474,7 +1412,6 @@
         s.l3 = true; s.confirmed = true; s.confirmedAt = Date.now(); s.warmupUntil = Date.now() + 2500;
         s.type = direction; s.entry = finalEntry; s.originPrice = finalEntry;
         s.tempHigh = finalEntry; s.tempLow = finalEntry; s.retracePct = 0;
-
         // Risk calculation — based on swing range & PD context, not ATR
         const pd = pdEngine[id];
         const swEng = swingEngine[id];
@@ -1485,10 +1422,8 @@
         } else {
             risk = swRange > 0 ? Math.min(Math.max(swRange * 0.05, finalEntry * 0.002), finalEntry * 0.005) : finalEntry * 0.003;
         }
-
         if (direction === 'buy') { s.sl = finalEntry - risk; s.tp = finalEntry + risk * 1.5; }
         else { s.sl = finalEntry + risk; s.tp = finalEntry - risk * 1.5; }
-
         throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
         const sb = document.getElementById(`signal-bar-${id}`); if (sb) sb.classList.remove('confirm-wait');
         if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
@@ -1496,7 +1431,9 @@
     }
 
     // ============================================================
+    // ============================================================
     // WEBSOCKET / FEED LAYER (unchanged from v7.6)
+    // ============================================================
     // ============================================================
     let xauWs = null, xauReconnectTimer = null, xauReconnectAttempts = 0;
     let xauFetchRetryTimer = null, xauCurrentPrice = 0, xauLastHeartbeat = Date.now();
@@ -1690,15 +1627,12 @@
         performanceStats.btc = loadPerformanceStats('btc');
         updateWinrateAndDrawrate('xau');
         updateWinrateAndDrawrate('btc');
-
         htfSeeded.xau = false; htfSeeded.btc = false;
         htfLiveSeedDone.xau = false; htfLiveSeedDone.btc = false;
         seedHTFBiasEngine('xau', 4500);
         seedHTFBiasEngine('btc', 100000);
         htfSeeded.xau = true; htfSeeded.btc = true;
-
         document.getElementById('terminals').innerHTML = buildCardHTML('xau', 'XAUUSD') + buildCardHTML('btc', 'BTCUSD');
-
         const bindTap = (el, handler) => {
             if (!el) return;
             let lastTap = 0;
@@ -1710,7 +1644,6 @@
         bindTap(document.getElementById('signal-bar-btc'), () => handleSignalBarTap('btc'));
         bindTap(document.getElementById('history-panel-xau'), () => handleHistoryPanelTap('xau'));
         bindTap(document.getElementById('history-panel-btc'), () => handleHistoryPanelTap('btc'));
-
         const switchBtn = document.getElementById('switchPairBtn');
         if (switchBtn) {
             const cleanBtn = switchBtn.cloneNode(true); switchBtn.parentNode.replaceChild(cleanBtn, switchBtn);
@@ -1718,18 +1651,14 @@
             cleanBtn.addEventListener('click', doSwitch);
             cleanBtn.addEventListener('touchstart', doSwitch, { passive: false });
         }
-
         updateSignalUIOnly('xau'); updateSignalUIOnly('btc');
         updatePerformanceUI('xau'); updatePerformanceUI('btc');
-
         initXAUWebSocket(); xauFetchRestPrice();
         initBTCWebSocket(); btcFetchRestPrice();
         updateGlobalPulse();
-
         setInterval(() => { const now = Date.now(); if (now - xauLastHeartbeat > 8000) xauFetchRestPrice(); updateGlobalPulse(); }, 3000);
         setInterval(() => { if (!xauWs || xauWs.readyState !== WebSocket.OPEN) xauFetchRestPrice(); if (!btcWs || btcWs.readyState !== WebSocket.OPEN) btcFetchRestPrice(); }, 2000);
         document.addEventListener('visibilitychange', () => { if (!document.hidden) { xauFetchRestPrice(); btcFetchRestPrice(); updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updateGlobalPulse(); } });
-
         initRunningTextForAllPairs();
     }
 
