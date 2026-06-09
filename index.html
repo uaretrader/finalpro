@@ -9,7 +9,7 @@
 <style>
     :root {
         --obsidian: #1a1a1a;
-        --surface: ##FBBC05;
+        --surface: #1f1f1f;
         --surface2: #1f1f1f;
         --surface3: #0a0a0a;
         --edge: rgba(255,255,255,0.055);
@@ -276,7 +276,6 @@
         50% { border-bottom-color: rgba(201,168,76,0.5); }
     }
 
-    /* RUNNING TEXT MODE - mengganti seluruh isi signal bar */
     .signal-bar.running-mode {
         justify-content: center;
         padding: 10px 18px;
@@ -325,7 +324,6 @@
     }
     @keyframes pulseDot { 0%, 100% { opacity: 0.3; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
 
-    /* BARIS 1: Entry | Target | Deep | Draw Rate */
     .card-level-grid {
         display: flex;
         justify-content: space-between;
@@ -362,7 +360,6 @@
         letter-spacing: -0.3px;
     }
 
-    /* BARIS 2: TP HIT | RETRACE | SL HIT | WINRATE */
     .stats-grid {
         display: flex;
         flex-direction: row;
@@ -395,16 +392,9 @@
         letter-spacing: 0.5px;
     }
 
-    /* Warna khusus untuk RETRACE dan DRAW RATE */
-    .retrace-value {
-        color: var(--gold);
-    }
-    .draw-value {
-        color: var(--gold);
-    }
-    .winrate-value {
-        color: var(--gold);
-    }
+    .retrace-value { color: var(--gold); }
+    .draw-value { color: var(--gold); }
+    .winrate-value { color: var(--gold); }
 
     .htf-badge { display: none; }
 
@@ -519,14 +509,12 @@
     'use strict';
 
     // ============================================================
-    // ========== KONTROL RUNNING TEXT (UBAH DI SINI) ============
+    // KONTROL RUNNING TEXT (UBAH DI SINI)
     // ============================================================
-    // Set ke false untuk menonaktifkan running text
-    // Set ke true untuk mengaktifkan running text
-    const ENABLE_RUNNING_TEXT = false;   // <---- GANTI KE false UNTUK MATIKAN
+    const ENABLE_RUNNING_TEXT = false;
     // ============================================================
 
-    const LS_SCHEMA_VERSION = 3;
+    const LS_SCHEMA_VERSION = 4;
     
     function checkAndMigrateSchema() {
         const storedVer = parseInt(localStorage.getItem('ura_schema_ver') || '1', 10);
@@ -564,20 +552,20 @@
     let pendingPriceData = { xau: null, btc: null };
     let pendingSignalData = { xau: null, btc: null };
     let signalDebounceTimer = { xau: null, btc: null };
-    const SIGNAL_DEBOUNCE_MS = 10;
+    const SIGNAL_DEBOUNCE_MS = 50;      // OPTIMASI: 10 → 50 (lebih selektif)
+    const CONFIRMATION_DELAY_CYCLES = 2; // OPTIMASI: 1 → 2 (validasi ganda)
 
     const ATR_PERIOD = 14;
     const EMA_PERIOD = 21;
     const VOLUME_LOOKBACK = 12;
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
     const XAU_OFFSET = -2.2;
-    const CONFIRMATION_DELAY_CYCLES = 1;
-    const RESET_THRESHOLD_XAU = 2;
-    const RESET_THRESHOLD_BTC = 50;
+    const RESET_THRESHOLD_XAU = 3.0;    // OPTIMASI: 2 → 3 (lebih tahan lama)
+    const RESET_THRESHOLD_BTC = 75;     // OPTIMASI: 50 → 75
 
     let marketData = {
-        xau: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null, price: 0 },
-        btc: { candles: [], atr: 0, ema: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null, price: 0 }
+        xau: { candles: [], atr: 0, ema: 0, prevEMA: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null, price: 0 },
+        btc: { candles: [], atr: 0, ema: 0, prevEMA: 0, volume: [], lastClose: 0, structureHigh: 0, structureLow: 0, currentCandle: null, price: 0 }
     };
 
     let state = { xau: null, btc: null };
@@ -589,6 +577,10 @@
     let historyTapCounters = { xau: 0, btc: 0 };
     let historyTapTimers = { xau: null, btc: null };
     const TAP_TIMEOUT = 500;
+
+    let consecutiveLosses = { xau: 0, btc: 0 };
+    let dailyDrawdown = { xau: 0, btc: 0 };
+    let dailyResetTime = Date.now();
 
     function handleSignalBarTap(id) {
         if (tapTimers[id]) { clearTimeout(tapTimers[id]); tapTimers[id] = null; }
@@ -616,6 +608,7 @@
             if (historyTapTimers[id]) { clearTimeout(historyTapTimers[id]); historyTapTimers[id] = null; }
             if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
             showToast('History reset ✓');
+            consecutiveLosses[id] = 0;
         }
     }
 
@@ -740,155 +733,107 @@
         const slEl = document.getElementById(`sl-${id}`); if (slEl) slEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
     }
 
-    // ==================== RUNNING TEXT DI SIGNAL BAR ====================
-    const runningMessages = [
-        "TODAY > High Impact News: RELEASE at 19.30 pm."
-    ];
-    
+    // ==================== RUNNING TEXT ====================
+    const runningMessages = ["TODAY > High Impact News: RELEASE at 19.30 pm."];
     let runningTextActive = { xau: false, btc: false };
     let runningTextTimers = { xau: null, btc: null };
     let runningTextIntervals = { xau: null, btc: null };
     let originalContentBackup = { xau: null, btc: null };
     
-    function getRandomRunningMessage() {
-        const randomIndex = Math.floor(Math.random() * runningMessages.length);
-        return runningMessages[randomIndex];
-    }
-    
+    function getRandomRunningMessage() { return runningMessages[0]; }
     function showRunningText(id) {
         if (!ENABLE_RUNNING_TEXT) return;
         if (runningTextActive[id]) return;
-        
         const signalBar = document.getElementById(`signal-bar-${id}`);
         if (!signalBar) return;
-        
-        if (!originalContentBackup[id]) {
-            originalContentBackup[id] = signalBar.innerHTML;
-        }
-        
+        if (!originalContentBackup[id]) originalContentBackup[id] = signalBar.innerHTML;
         signalBar.classList.remove('confirm-wait');
         signalBar.classList.add('running-mode');
         const msg = getRandomRunningMessage();
-        signalBar.innerHTML = `
-            <div class="running-text-container">
-                <div class="running-text-scroll">${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; ${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; ${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; ${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; </div>
-            </div>
-        `;
-        
+        signalBar.innerHTML = `<div class="running-text-container"><div class="running-text-scroll">${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; ${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; ${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; ${msg} &nbsp;&nbsp; ✦ &nbsp;&nbsp; </div></div>`;
         runningTextActive[id] = true;
-        
         if (runningTextTimers[id]) clearTimeout(runningTextTimers[id]);
-        runningTextTimers[id] = setTimeout(() => {
-            restoreSignalBar(id);
-        }, 30000);
+        runningTextTimers[id] = setTimeout(() => restoreSignalBar(id), 30000);
     }
-    
     function restoreSignalBar(id) {
         const signalBar = document.getElementById(`signal-bar-${id}`);
         if (!signalBar) return;
-        
         signalBar.classList.remove('running-mode');
-        if (originalContentBackup[id]) {
-            signalBar.innerHTML = originalContentBackup[id];
-        }
-        
+        if (originalContentBackup[id]) signalBar.innerHTML = originalContentBackup[id];
         runningTextActive[id] = false;
-        if (runningTextTimers[id]) {
-            clearTimeout(runningTextTimers[id]);
-            runningTextTimers[id] = null;
-        }
-        
+        if (runningTextTimers[id]) { clearTimeout(runningTextTimers[id]); runningTextTimers[id] = null; }
         updateSignalUIOnly(id);
-        
-        if (pendingConfirmation[id]) {
-            signalBar.classList.add('confirm-wait');
-        }
+        if (pendingConfirmation[id]) signalBar.classList.add('confirm-wait');
     }
-    
     function scheduleRunningText(id) {
         if (!ENABLE_RUNNING_TEXT) return;
         if (runningTextIntervals[id]) clearInterval(runningTextIntervals[id]);
-        runningTextIntervals[id] = setInterval(() => {
-            showRunningText(id);
-        }, 30 * 60 * 1000);
+        runningTextIntervals[id] = setInterval(() => showRunningText(id), 30 * 60 * 1000);
     }
-    
     function initRunningTextForAllPairs() {
         if (!ENABLE_RUNNING_TEXT) return;
-        scheduleRunningText('xau');
-        scheduleRunningText('btc');
+        scheduleRunningText('xau'); scheduleRunningText('btc');
         setTimeout(() => showRunningText('xau'), 5000);
         setTimeout(() => showRunningText('btc'), 8000);
     }
     // ===================================================================
 
     let performanceStats = {};
-    function createDefaultStats() { return { tpHits: 0, retraceResets: 0, slHits: 0, total: 0, winrate: 0.0 }; }
+    function createDefaultStats() { return { tpHits: 0, retraceResets: 0, slHits: 0, total: 0, winrate: 0.0, drawrate: 0.0 }; }
     function loadPerformanceStats(id) {
         try {
             const saved = localStorage.getItem(`ura_stats_${id}`);
             if (!saved) return createDefaultStats();
             const p = JSON.parse(saved);
-            return { tpHits: p.tpHits || 0, retraceResets: p.retraceResets || 0, slHits: p.slHits || 0, total: p.total || 0, winrate: p.winrate || 0 };
+            return { tpHits: p.tpHits || 0, retraceResets: p.retraceResets || 0, slHits: p.slHits || 0, total: p.total || 0, winrate: p.winrate || 0, drawrate: p.drawrate || 0 };
         } catch (e) { return createDefaultStats(); }
     }
     function savePerformanceStats(id) { try { localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id])); } catch(e) {} }
     
-    // PERHITUNGAN WINRATE BARU: TP / (TP + SL) -> RETRACE TIDAK MASUK
-    // DRAW RATE = RETRACE / (TP + RETRACE + SL)
     function updateWinrateAndDrawrate(id) {
         const s = performanceStats[id];
         s.total = s.tpHits + s.retraceResets + s.slHits;
-        // Winrate hanya dari TP dan SL (RETRACE diabaikan)
         const winDenominator = s.tpHits + s.slHits;
         s.winrate = winDenominator > 0 ? parseFloat(((s.tpHits / winDenominator) * 100).toFixed(1)) : 0.0;
-        // Draw rate dari semua sinyal
         s.drawrate = s.total > 0 ? parseFloat(((s.retraceResets / s.total) * 100).toFixed(1)) : 0.0;
     }
     
     function recordSignalResult(id, resultType) {
         const s = performanceStats[id];
-        if (resultType === 'tp') s.tpHits++;
-        else if (resultType === 'retrace') s.retraceResets++;
-        else if (resultType === 'sl') s.slHits++;
+        if (resultType === 'tp') {
+            s.tpHits++;
+            consecutiveLosses[id] = 0;
+        } else if (resultType === 'retrace') {
+            s.retraceResets++;
+        } else if (resultType === 'sl') {
+            s.slHits++;
+            consecutiveLosses[id]++;
+            dailyDrawdown[id] += Math.abs(state[id]?.entry - (state[id]?.sl || 0)) / (state[id]?.entry || 1) * 100;
+        }
         updateWinrateAndDrawrate(id);
         savePerformanceStats(id);
         updatePerformanceUI(id);
+        
+        // Reset harian
+        if (Date.now() - dailyResetTime > 86400000) {
+            dailyDrawdown = { xau: 0, btc: 0 };
+            dailyResetTime = Date.now();
+        }
     }
     
     function updatePerformanceUI(id) {
         const s = performanceStats[id];
         if (!s) return;
-        
-        // Update baris 2: TP HIT, RETRACE, SL HIT, WINRATE
         const tpEl = document.getElementById(`stats-tp-${id}`);
         const retraceEl = document.getElementById(`stats-retrace-${id}`);
         const slEl = document.getElementById(`stats-sl-${id}`);
         const winrateEl = document.getElementById(`stats-winrate-${id}`);
-        
-        if (tpEl) tpEl.innerText = s.tpHits;
-        if (retraceEl) {
-            retraceEl.innerText = s.retraceResets;
-            retraceEl.style.color = 'var(--cyan)';
-        }
-        if (slEl) slEl.innerText = s.slHits;
-        if (winrateEl) {
-            winrateEl.innerText = `${s.winrate}%`;
-            winrateEl.style.color = 'var(--gold)';
-        }
-        
-        // Update baris 1: DRAW RATE
         const drawEl = document.getElementById(`draw-rate-${id}`);
-        if (drawEl) {
-            drawEl.innerText = `${s.drawrate}%`;
-            drawEl.style.color = 'var(--cyan)';
-        }
-    }
-    
-    // Override default stats setelah load
-    function initPerformanceStats(id) {
-        const s = performanceStats[id];
-        updateWinrateAndDrawrate(id);
+        if (tpEl) tpEl.innerText = s.tpHits;
+        if (retraceEl) { retraceEl.innerText = s.retraceResets; retraceEl.style.color = 'var(--cyan)'; }
+        if (slEl) slEl.innerText = s.slHits;
+        if (winrateEl) { winrateEl.innerText = `${s.winrate}%`; winrateEl.style.color = 'var(--gold)'; }
+        if (drawEl) { drawEl.innerText = `${s.drawrate}%`; drawEl.style.color = 'var(--cyan)'; }
     }
 
     let htfDataStore = {
@@ -897,7 +842,8 @@
     };
     let htfTickCounter = { xau: 0, btc: 0 };
     let htfCurrentCandle = { xau: null, btc: null };
-    const HTF_TICK_PER_CANDLE = 15;
+    const HTF_TICK_PER_CANDLE = 20; // OPTIMASI: 15 → 20 (HTF lebih stabil)
+    
     function buildOHLCCandle(id, price) {
         htfTickCounter[id]++;
         if (!htfCurrentCandle[id] || htfTickCounter[id] >= HTF_TICK_PER_CANDLE) {
@@ -914,40 +860,43 @@
             htfCurrentCandle[id].close = price;
         }
     }
+    
     function calculateSimpleHTF(id) {
         const data = htfDataStore[id];
         const candles = data.ohlcCandles.filter(c => c.closed);
-        if (candles.length < 12) return;
-        const window = Math.min(20, candles.length);
+        if (candles.length < 15) return;
+        const window = Math.min(25, candles.length);
         const recentCandles = candles.slice(-window);
         let bullishCount = 0, bearishCount = 0;
         for (const c of recentCandles) { if (c.close > c.open) bullishCount++; else if (c.close < c.open) bearishCount++; }
-        const threshold = Math.floor(window * 0.20);
+        const threshold = Math.floor(window * 0.30); // OPTIMASI: 20% → 30% (lebih ketat)
         if (bullishCount > bearishCount + threshold) data.structure = 'BULLISH';
         else if (bearishCount > bullishCount + threshold) data.structure = 'BEARISH';
         else data.structure = 'NEUTRAL';
-        const last5 = recentCandles.slice(-5);
+        const last8 = recentCandles.slice(-8);
         let upM = 0, downM = 0;
-        for (let i = 1; i < last5.length; i++) { if (last5[i].close > last5[i-1].close) upM++; else if (last5[i].close < last5[i-1].close) downM++; }
-        if (upM >= 3) data.momentum = 'BULLISH';
-        else if (downM >= 3) data.momentum = 'BEARISH';
+        for (let i = 1; i < last8.length; i++) { if (last8[i].close > last8[i-1].close) upM++; else if (last8[i].close < last8[i-1].close) downM++; }
+        if (upM >= 5) data.momentum = 'BULLISH';
+        else if (downM >= 5) data.momentum = 'BEARISH';
         else data.momentum = 'STABLE';
     }
+    
     let htfSeeded = { xau: false, btc: false };
     let htfLiveSeedDone = { xau: false, btc: false };
     function seedHTFData(id, basePrice) {
         const seed = basePrice;
         const step = id === 'xau' ? 0.4 : 40;
         htfDataStore[id].ohlcCandles = [];
-        for (let i = 0; i < 20; i++) {
-            const drift = (i - 10) * step * 0.1;
+        for (let i = 0; i < 25; i++) {
+            const drift = (i - 12) * step * 0.1;
             const open = seed + drift;
-            const close = seed + drift + (i % 3 === 0 ? step * 0.2 : -step * 0.1);
+            const close = seed + drift + (i % 3 === 0 ? step * 0.25 : -step * 0.15);
             htfDataStore[id].ohlcCandles.push({ open, high: Math.max(open, close) + step * 0.1, low: Math.min(open, close) - step * 0.1, close, closed: true });
         }
         calculateSimpleHTF(id);
         htfSeeded[id] = true;
     }
+    
     function maybeReseedHTF(id, livePrice) {
         if (htfLiveSeedDone[id]) return;
         if (!htfSeeded[id] || htfDataStore[id].ohlcCandles.length === 0) {
@@ -956,12 +905,15 @@
             return;
         }
         const firstClose = htfDataStore[id].ohlcCandles[0]?.close || 0;
-        if (firstClose > 0 && Math.abs(firstClose - livePrice) / livePrice > 0.10) {
+        if (firstClose > 0 && Math.abs(firstClose - livePrice) / livePrice > 0.15) {
             seedHTFData(id, livePrice);
             htfLiveSeedDone[id] = true;
         }
     }
+    
     function updateHTFEngine(id, price) { buildOHLCCandle(id, price); calculateSimpleHTF(id); }
+    
+    // OPTIMASI: HTF CONFIRMATION LEBIH KETAT
     function isHTFConfirmingDirection(id, direction) {
         const htf = htfDataStore[id];
         const market = marketData[id];
@@ -969,25 +921,57 @@
         const ema = market.ema || 0;
         const price = market.price || state[id]?.lastPrice || 0;
         if (ema <= 0 || price <= 0) return false;
-        const atrTol = Math.max((market.atr || 0) * 0.05, id === 'xau' ? 0.10 : 5);
+        const atr = market.atr || (id === 'xau' ? 2 : 100);
+        const atrTol = Math.max(atr * 0.04, id === 'xau' ? 0.08 : 4);
         const isAboveEMA = price >= (ema - atrTol);
         const isBelowEMA = price <= (ema + atrTol);
         const emaSlope = market.prevEMA !== undefined ? (ema - market.prevEMA) : 0;
-        const slopeThreshold = Math.max(0.00001, (market.atr || 0) * 0.003);
-        const bullishBias = emaSlope >= slopeThreshold;
-        const bearishBias = emaSlope <= -slopeThreshold;
-        const strongSlopeThreshold = slopeThreshold * 2;
-        const strongBullish = emaSlope >= strongSlopeThreshold;
-        const strongBearish = emaSlope <= -strongSlopeThreshold;
+        const slopeThreshold = Math.max(0.0001, atr * 0.002);
+        
         if (direction === 'buy') {
-            const trendingOK  = htf.structure === 'BULLISH' && htf.momentum === 'BULLISH' && isAboveEMA && bullishBias;
-            const neutralOK   = htf.structure === 'NEUTRAL' && htf.momentum === 'BULLISH' && isAboveEMA && strongBullish;
-            return trendingOK || neutralOK;
+            const htfBullish = htf.structure === 'BULLISH' && htf.momentum === 'BULLISH';
+            const priceOK = isAboveEMA;
+            const slopeOK = emaSlope >= slopeThreshold;
+            const trendScoreOK = state[id]?.trendScore > 0;
+            return htfBullish && priceOK && slopeOK && trendScoreOK;
         }
         if (direction === 'sell') {
-            const trendingOK  = htf.structure === 'BEARISH' && htf.momentum === 'BEARISH' && isBelowEMA && bearishBias;
-            const neutralOK   = htf.structure === 'NEUTRAL' && htf.momentum === 'BEARISH' && isBelowEMA && strongBearish;
-            return trendingOK || neutralOK;
+            const htfBearish = htf.structure === 'BEARISH' && htf.momentum === 'BEARISH';
+            const priceOK = isBelowEMA;
+            const slopeOK = emaSlope <= -slopeThreshold;
+            const trendScoreOK = state[id]?.trendScore < 0;
+            return htfBearish && priceOK && slopeOK && trendScoreOK;
+        }
+        return false;
+    }
+    
+    // OPTIMASI: VOLUME CONFIRMATION
+    function isVolumeConfirming(id, direction) {
+        const md = marketData[id];
+        if (!md.volume || md.volume.length < 5) return true;
+        const avgVolume = md.volume.reduce((a,b) => a + b, 0) / md.volume.length;
+        const lastVolume = md.volume[md.volume.length - 1] || 0;
+        const currentCandleVolume = md.currentCandle?.volume || 0;
+        const totalVolume = lastVolume + currentCandleVolume;
+        return totalVolume > avgVolume * 1.15;
+    }
+    
+    // OPTIMASI: MINIMUM VOLATILITY FILTER
+    function hasMinimumVolatility(id) {
+        const md = marketData[id];
+        const minATR = id === 'xau' ? 1.0 : 60;
+        return md.atr && md.atr >= minATR;
+    }
+    
+    // OPTIMASI: MAX LOSS STREAK PROTECTION
+    function canTakeSignal(id) {
+        if (consecutiveLosses[id] >= 3) {
+            showToast(`${id.toUpperCase()} COOLDOWN: 3 consecutive losses`);
+            return false;
+        }
+        if (dailyDrawdown[id] > 5) {
+            showToast(`${id.toUpperCase()} DAILY DRAWDOWN LIMIT REACHED`);
+            return false;
         }
         return true;
     }
@@ -1006,8 +990,13 @@
             updateSignalUIOnly(id);
             if (pendingConfirmation[id].cycleCounter >= CONFIRMATION_DELAY_CYCLES) {
                 const htfConfirmed = isHTFConfirmingDirection(id, direction);
-                if (htfConfirmed) executeLockSignal(id, direction);
-                else { resetSignal(id); const st = document.getElementById(`signal-text-${id}`); if (st) { st.innerText = 'REJECT'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1200); } }
+                const volumeConfirmed = isVolumeConfirming(id, direction);
+                if (htfConfirmed && volumeConfirmed) executeLockSignal(id, direction);
+                else { 
+                    resetSignal(id); 
+                    const st = document.getElementById(`signal-text-${id}`); 
+                    if (st) { st.innerText = 'REJECT'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1200); } 
+                }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
             } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 3000); }
         }
@@ -1019,18 +1008,40 @@
         const livePrice = (id === 'xau' ? xauCurrentPrice : (marketData[id].price || 0));
         const finalEntry = (livePrice > 0) ? livePrice : (s.lastPrice || 0);
         if (finalEntry <= 0) return;
+        
+        const atr = marketData[id].atr || (id === 'xau' ? 2 : 100);
+        let risk = id === 'xau' ? atr * 1.2 : finalEntry * 0.0035;
+        risk = Math.min(risk, id === 'xau' ? 8 : finalEntry * 0.005);
+        risk = Math.max(risk, id === 'xau' ? 3 : finalEntry * 0.0015);
+        
+        let tpDistance;
+        if (direction === 'buy') {
+            s.sl = finalEntry - risk;
+            tpDistance = risk * 1.8;
+            s.tp = finalEntry + tpDistance;
+        } else {
+            s.sl = finalEntry + risk;
+            tpDistance = risk * 1.8;
+            s.tp = finalEntry - tpDistance;
+        }
+        
+        const rrRatio = tpDistance / risk;
+        if (rrRatio < 1.5) {
+            showToast(`${id.toUpperCase()} REJECTED: RR ${rrRatio.toFixed(2)} < 1.5`);
+            resetSignal(id);
+            return;
+        }
+        
         s.l3 = true; s.confirmed = true; s.confirmedAt = Date.now(); s.warmupUntil = Date.now() + 2500;
         s.type = direction; s.entry = finalEntry; s.originPrice = finalEntry;
         s.tempHigh = finalEntry; s.tempLow = finalEntry;
         s.retracePct = 0;
-        const risk = id === 'xau' ? 6.5 : finalEntry * 0.0030;
-        if (direction === 'buy') { s.sl = finalEntry - risk; s.tp = finalEntry + (risk * 1.5); }
-        else { s.sl = finalEntry + risk; s.tp = finalEntry - (risk * 1.5); }
+        
         throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
         const signalBar = document.getElementById(`signal-bar-${id}`);
         if (signalBar) signalBar.classList.remove('confirm-wait');
         if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-        showToast(`${id.toUpperCase()} SIGNAL: ${direction.toUpperCase()} @ ${finalEntry.toFixed(2)}`);
+        showToast(`${id.toUpperCase()} ${direction.toUpperCase()} @ ${finalEntry.toFixed(2)} | RR ${rrRatio.toFixed(2)}`);
     }
 
     function buildRealCandle(id, price) { 
@@ -1046,6 +1057,7 @@
             calculateAdvancedMetrics(id);
         }
     }
+    
     function calculateAdvancedMetrics(id) {
         const md = marketData[id]; const candles = md.candles;
         if (candles.length < ATR_PERIOD + 5) return;
@@ -1057,24 +1069,36 @@
         md.prevEMA = md.ema || ema; md.ema = ema; md.price = closes[closes.length-1];
         md.volume = candles.slice(-VOLUME_LOOKBACK).map(c=>c.volume);
     }
+    
     function getAdaptiveThreshold(id) {
-    const md = marketData[id];
-
-    if (!md.atr || md.atr <= 0) {
-        return id === 'xau' ? 1.5 : 50;
+        const md = marketData[id];
+        const s = performanceStats[id];
+        if (!md.atr || md.atr <= 0) return id === 'xau' ? 2.5 : 70;
+        let multiplier = id === 'xau' ? 1.1 : 1.6;
+        if (s.winrate < 50) multiplier = multiplier * 0.85;
+        else if (s.winrate > 60) multiplier = multiplier * 1.1;
+        return id === 'xau' ? md.atr * multiplier : md.atr * multiplier;
     }
-
-    return id === 'xau'
-        ? md.atr * 1.25 : md.atr * 1.8;
-}
-    let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.25;
-    function updatePA(id, price) { const s=state[id]; if(paEma[id]===0) paEma[id]=price; else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.5;} const maxTrend=id==='xau'?5:500; if(s.trendScore>maxTrend) s.trendScore=maxTrend; if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; }
+    
+    let paEma = { xau:0, btc:0 }; const paEmaAlpha = 0.2;
+    function updatePA(id, price) { 
+        const s=state[id]; 
+        if(paEma[id]===0) paEma[id]=price; 
+        else paEma[id]=(price*paEmaAlpha)+(paEma[id]*(1-paEmaAlpha)); 
+        if(s.lastPrice!==0){const emaDiff=paEma[id]-s.lastPrice; s.trendScore+=emaDiff*0.4;} 
+        const maxTrend=id==='xau'?4:400; 
+        if(s.trendScore>maxTrend) s.trendScore=maxTrend; 
+        if(s.trendScore<-maxTrend) s.trendScore=-maxTrend; 
+    }
+    
     function createFreshState() { return { v:LS_SCHEMA_VERSION, lastPrice:0, trendScore:0, l1:false,l2:false,l3:false,confirmed:false,confirmedAt:0,resetInProgress:false,warmupUntil:0,type:'none',entry:0,sl:0,tp:0,tempHigh:0,tempLow:0,originPrice:0,retracePct:0 }; }
     function loadState(id) { try{ const saved=localStorage.getItem(`ura_state_${id}`); if(!saved) return createFreshState(); const parsed=JSON.parse(saved); if(typeof parsed!=='object') return createFreshState(); return Object.assign(createFreshState(), parsed); }catch(e){ localStorage.removeItem(`ura_state_${id}`); return createFreshState(); } }
     
     function processSignal(id, price) {
         if (!state[id]) return;
-        const s=state[id]; const resetThreshold= id==='xau'?RESET_THRESHOLD_XAU:RESET_THRESHOLD_BTC;
+        const s=state[id]; 
+        const resetThreshold= getAdaptiveThreshold(id);
+        
         if(s.confirmed){
             if(s.type!=='none'){
                 if(s.tempHigh===0&&s.tempLow===0){s.tempHigh=s.entry||price; s.tempLow=s.entry||price;}
@@ -1096,14 +1120,33 @@
             return;
         }
         if(pendingConfirmation[id]){ s.lastPrice=price; return; }
+        
+        if (!canTakeSignal(id)) return;
+        if (!hasMinimumVolatility(id)) return;
+        
         updatePA(id,price);
-        let threshold=getAdaptiveThreshold(id);
         buildRealCandle(id,price);
+        updateHTFEngine(id,price);
+        
+        let threshold=getAdaptiveThreshold(id);
         if(!s.confirmed && s.lastPrice!==0 && Math.abs(price-s.lastPrice)>threshold){
             const direction=s.type!=='none'?s.type:(price>s.lastPrice?'buy':'sell');
-            if(!s.l1){ s.l1=true; s.type=direction; s.originPrice=price; s.tempHigh=price; s.tempLow=price; throttledSaveState(id); pendingSignalData[id]=true; throttledUpdateUI(id); }
-            else if(!s.l2){ s.l2=true; throttledSaveState(id); pendingSignalData[id]=true; throttledUpdateUI(id); }
-            else if(!s.l3 && !s.confirmed){ s.l3=true; throttledSaveState(id); pendingSignalData[id]=true; throttledUpdateUI(id); startConfirmationDelay(id,direction,price); }
+            if(!s.l1){ 
+                s.l1=true; s.type=direction; s.originPrice=price; s.tempHigh=price; s.tempLow=price; 
+                throttledSaveState(id); pendingSignalData[id]=true; throttledUpdateUI(id); 
+            }
+            else if(!s.l2 && s.l1){ 
+                const volumeOK = isVolumeConfirming(id, s.type);
+                if (volumeOK) {
+                    s.l2=true; 
+                    throttledSaveState(id); pendingSignalData[id]=true; throttledUpdateUI(id); 
+                }
+            }
+            else if(!s.l3 && !s.confirmed && s.l2){ 
+                s.l3=true; 
+                throttledSaveState(id); pendingSignalData[id]=true; throttledUpdateUI(id); 
+                startConfirmationDelay(id,s.type,price); 
+            }
         }
         s.lastPrice=price;
         throttledSaveState(id);
@@ -1150,7 +1193,6 @@
     function switchPair(){ activePairId=activePairId==='xau'?'btc':'xau'; try{ localStorage.setItem('ura_active_pair',activePairId); }catch(e){} const switchLabel=document.getElementById('switchLabel'); if(switchLabel) switchLabel.innerText=activePairId==='xau'?'XAUUSD':'BTCUSD'; document.querySelectorAll('.pair-card').forEach(card=>card.classList.remove('active')); const activeCard=document.getElementById(`card-${activePairId}`); if(activeCard) activeCard.classList.add('active'); if(navigator.vibrate) navigator.vibrate(20); }
     window.copyValue = (id, type) => { const val = document.getElementById(`${type}-${id}`)?.innerText; if(val && val !== '--'){ navigator.clipboard?.writeText(val).then(()=>showToast(`${type.toUpperCase()} copied: ${val}`)).catch(()=>showToast(`${val}`)); if(navigator.vibrate) navigator.vibrate(50); } };
     
-    // BUILD CARD HTML dengan DRAW RATE di baris 1
     function buildCardHTML(id, label){ 
         const isActive=activePairId===id?'active':''; 
         const wsInitClass=id==='xau'?'connected':'disconnected'; 
@@ -1179,7 +1221,6 @@
                     </div>
                     <span id="signal-text-${id}">IDLE</span>
                 </div>
-                <!-- BARIS 1: Entry | Target | Deep | DRAW RATE -->
                 <div class="card-level-grid">
                     <div class="level-item" onclick="window.copyValue('${id}','entry')">
                         <span class="level-label">Entry</span>
@@ -1198,7 +1239,6 @@
                         <span class="level-value draw-value" id="draw-rate-${id}">0%</span>
                     </div>
                 </div>
-                <!-- BARIS 2: TP HIT | RETRACE | SL HIT | WINRATE -->
                 <div class="stats-grid" id="history-panel-${id}">
                     <div class="stats-item">
                         <span class="stats-label">TP HIT</span>
@@ -1227,11 +1267,8 @@
         state.btc=loadState('btc'); 
         performanceStats.xau=loadPerformanceStats('xau'); 
         performanceStats.btc=loadPerformanceStats('btc'); 
-        
-        // Hitung ulang winrate & drawrate setelah load
         updateWinrateAndDrawrate('xau');
         updateWinrateAndDrawrate('btc');
-        
         htfSeeded.xau=false; 
         htfSeeded.btc=false; 
         htfLiveSeedDone.xau=false; 
@@ -1258,7 +1295,6 @@
         setInterval(()=>{ const now=Date.now(); if(now-xauLastHeartbeat>8000) xauFetchRestPrice(); updateGlobalPulse(); },3000); 
         setInterval(()=>{ if(!xauWs || xauWs.readyState!==WebSocket.OPEN) xauFetchRestPrice(); if(!btcWs || btcWs.readyState!==WebSocket.OPEN) btcFetchRestPrice(); },2000); 
         document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ xauFetchRestPrice(); btcFetchRestPrice(); updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updateGlobalPulse(); } }); 
-        
         initRunningTextForAllPairs();
     }
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
