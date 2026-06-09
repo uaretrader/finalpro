@@ -969,7 +969,7 @@
         const ema = market.ema || 0;
         const price = market.price || state[id]?.lastPrice || 0;
         if (ema <= 0 || price <= 0) return false;
-        const atrTol = Math.max((market.atr || 0) * 0.05, id === 'xau' ? 0.10 : 5);
+        const atrTol = Math.max((market.atr || 0) * 0.08, id === 'xau' ? 0.15 : 8);
         const isAboveEMA = price >= (ema - atrTol);
         const isBelowEMA = price <= (ema + atrTol);
         const emaSlope = market.prevEMA !== undefined ? (ema - market.prevEMA) : 0;
