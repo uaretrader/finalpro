@@ -570,7 +570,7 @@
     const VOLUME_LOOKBACK = 12;
     const BTC_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
     const XAU_OFFSET = -2.2;
-    const CONFIRMATION_DELAY_CYCLES = 0;
+    const CONFIRMATION_DELAY_CYCLES = 1;
     const RESET_THRESHOLD_XAU = 2;
     const RESET_THRESHOLD_BTC = 50;
 
@@ -1008,9 +1008,9 @@
                 if (htfConfirmed) executeLockSignal(id, direction);
                 else { resetSignal(id); const st = document.getElementById(`signal-text-${id}`); if (st) { st.innerText = 'REJECT'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1200); } }
                 if (pendingConfirmation[id]) pendingConfirmation[id] = null;
-            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500); }
+            } else { pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 3000); }
         }
-        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 2500);
+        pendingConfirmation[id].timerId = setTimeout(() => { if (pendingConfirmation[id]) checkCycle(); }, 3000);
     }
     
     function executeLockSignal(id, direction) {
