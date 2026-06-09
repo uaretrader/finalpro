@@ -842,7 +842,7 @@
     };
     let htfTickCounter = { xau: 0, btc: 0 };
     let htfCurrentCandle = { xau: null, btc: null };
-    const HTF_TICK_PER_CANDLE = 20; // OPTIMASI: 15 → 20 (HTF lebih stabil)
+    const HTF_TICK_PER_CANDLE = 15; // OPTIMASI: 15 → 20 (HTF lebih stabil)
     
     function buildOHLCCandle(id, price) {
         htfTickCounter[id]++;
@@ -869,7 +869,7 @@
         const recentCandles = candles.slice(-window);
         let bullishCount = 0, bearishCount = 0;
         for (const c of recentCandles) { if (c.close > c.open) bullishCount++; else if (c.close < c.open) bearishCount++; }
-        const threshold = Math.floor(window * 0.25); // OPTIMASI: 20% → 30% (lebih ketat)
+        const threshold = Math.floor(window * 0.30); // OPTIMASI: 20% → 30% (lebih ketat)
         if (bullishCount > bearishCount + threshold) data.structure = 'BULLISH';
         else if (bearishCount > bullishCount + threshold) data.structure = 'BEARISH';
         else data.structure = 'NEUTRAL';
