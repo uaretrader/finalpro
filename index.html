@@ -200,9 +200,9 @@ const LS_SCHEMA_VERSION  = 5;
 const BTC_WS_URL         = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_OFFSET         = -2.9;
 const CONFIRMATION_WAIT_MS = 5000;
-const MIN_CONFLUENCE     = 70;
+const MIN_CONFLUENCE     = 75;
 const COOLDOWN_AFTER_SL_MS = 8000;
-const RR_RATIO           = 2;
+const RR_RATIO           = 2.5;
 
 // ── Schema Migration ─────────────────────────────────────────────
 function checkAndMigrateSchema() {
@@ -345,18 +345,18 @@ function scoreConfluence(id, price, candles) {
 
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
-        if (rsi < 32)      { bull += 18; f.rsi_sig = 'OVERSOLD'; }
+        if (rsi < 32)      { bull += 15; f.rsi_sig = 'OVERSOLD'; }
         else if (rsi < 44) { bull +=  9; f.rsi_sig = 'LOW'; }
-        else if (rsi > 68) { bear += 18; f.rsi_sig = 'OVERBOUGHT'; }
+        else if (rsi > 68) { bear += 15; f.rsi_sig = 'OVERBOUGHT'; }
         else if (rsi > 56) { bear +=  9; f.rsi_sig = 'HIGH'; }
         else                f.rsi_sig = 'MID';
     }
 
     if (macd !== null) {
         f.macd_hist = macd.hist.toFixed(5);
-        if (macd.hist > 0 && macd.line > 0)      { bull += 16; f.macd_sig = 'BULL'; }
+        if (macd.hist > 0 && macd.line > 0)      { bull += 12; f.macd_sig = 'BULL'; }
         else if (macd.hist > 0)                  { bull +=  8; f.macd_sig = 'BULL_X'; }
-        else if (macd.hist < 0 && macd.line < 0) { bear += 16; f.macd_sig = 'BEAR'; }
+        else if (macd.hist < 0 && macd.line < 0) { bear += 12; f.macd_sig = 'BEAR'; }
         else if (macd.hist < 0)                  { bear +=  8; f.macd_sig = 'BEAR_X'; }
         else f.macd_sig = 'FLAT';
     }
@@ -536,7 +536,7 @@ function executeLockSignal(id, direction, livePrice, score) {
     }
     // ================================================================
     
-    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 2.5 : 200);
+    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 4 : 180);
     const tpD = slD * RR_RATIO;
     
     s.l3 = true; s.confirmed = true; s.confirmedAt = Date.now(); s.warmupUntil = Date.now() + 2500;
@@ -577,7 +577,7 @@ function processSignal(id, price) {
         const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
         if (hitSL) { state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS; recordSignalResult(id, 'sl'); resetSignal(id); return; }
-        const buf = id === 'xau' ? 2 : 120;
+        const buf = id === 'xau' ? 3 : 120;
         if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         return;
@@ -590,8 +590,8 @@ function processSignal(id, price) {
     updateEngineBadges(id, cf);
     updateConfluenceBar(id, cf.score);
 
-    const thr0 = MIN_CONFLUENCE * 0.70;
-    const thr1 = MIN_CONFLUENCE * 0.87;
+    const thr0 = MIN_CONFLUENCE * 0.75;
+    const thr1 = MIN_CONFLUENCE * 0.90;
     const thr2 = MIN_CONFLUENCE;
 
     if (!s.l1 && cf.direction && cf.score >= thr0) {
