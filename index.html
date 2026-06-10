@@ -211,7 +211,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 
 const LS_SCHEMA_VERSION  = 4;
 const BTC_WS_URL         = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-const XAU_OFFSET         = -2.67;
+const XAU_OFFSET         = -2.81;
 const CONFIRMATION_WAIT_MS = 3500;
 const MIN_CONFLUENCE     = 55;
 const COOLDOWN_AFTER_SL_MS = 8000;
@@ -672,7 +672,7 @@ function updateSignalUIOnly(id) {
     const st = document.getElementById(`signal-text-${id}`);
     if (st) {
         if (!wsStatus[id] && id === 'btc') { st.innerText = 'NO FEED'; st.style.color = 'var(--danger)'; }
-        else if (pendingConfirmation[id] && s.l3 && !s.confirmed) { st.innerText = 'CONFIRM'; st.style.color = 'var(--gold)'; }
+        else if (pendingConfirmation[id] && s.l3 && !s.confirmed) { st.innerText = 'CONFIRM...'; st.style.color = 'var(--gold)'; }
         else if (s.confirmed) { st.innerText = s.type.toUpperCase(); st.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
         else if (s.l3) { st.innerText = 'LOCKED'; st.style.color = 'var(--accent)'; }
         else if (s.l2) { st.innerText = 'STAGE 2'; st.style.color = 'var(--accent)'; }
