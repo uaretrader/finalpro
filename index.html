@@ -135,7 +135,7 @@ header::after {
     padding: 7px 17px; border-bottom: 1px solid var(--edge); background: rgba(0,0,0,0.1);
 }
 .confluence-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.38rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; white-space: nowrap; flex-shrink: 0; }
-.confluence-bar-wrap { flex: 1; height: 1.5px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.confluence-bar-wrap { flex: 1; height: 1.2px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
 .confluence-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease, background 0.3s ease; background: var(--text-dim); }
 .confluence-score-txt { font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; font-weight: 700; color: var(--text-muted); min-width: 28px; text-align: right; flex-shrink: 0; transition: color 0.3s; }
 .card-level-grid { display: flex; justify-content: space-between; align-items: stretch; border-bottom: 1px solid var(--edge); }
@@ -165,7 +165,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <header>
     <div class="brand">
         <h1>ur<span>advisor</span></h1>
-        <div class="brand-sub">URA v8.0 · APEX ENGINE</div>
+        <div class="brand-sub">URA v8.0</div>
     </div>
     <div class="header-right">
         <div class="sys-status">
@@ -514,7 +514,7 @@ function processSignal(id, price) {
         const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
         if (hitSL) { state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS; recordSignalResult(id, 'sl'); resetSignal(id); return; }
-        const buf = id === 'xau' ? 5.5 : 135;
+        const buf = id === 'xau' ? 3 : 120;
         if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         return;
