@@ -736,7 +736,7 @@ function updateEngineBadges(id, cf) {
         { id: `eb-vwap-${id}`,  val: cf.factors.vwap     || 'VWAP', cls: cf.factors.vwap === 'ABOVE' ? 'bull' : cf.factors.vwap === 'BELOW' ? 'bear' : 'neutral' },
         { id: `eb-bb-${id}`,    val: cf.factors.bb       || 'BB',   cls: cf.factors.bb === 'AT_LOWER' ? 'bull' : cf.factors.bb === 'AT_UPPER' ? 'bear' : cf.factors.bb === 'SQUEEZE' ? 'active' : 'neutral' },
         { id: `eb-choch-${id}`, val: cf.factors.choch    || 'CHOCH',cls: cf.factors.choch === 'BULLISH' ? 'bull' : cf.factors.choch === 'BEARISH' ? 'bear' : 'off' },
-        { id: `eb-vol-${id}`,   val: cf.factors.vol_spike ? 'SPIKE' : 'NORM', cls: cf.factors.vol_spike ? 'active' : 'off' },
+        { id: `eb-vol-${id}`,   val: cf.factors.vol_spike ? 'SPIKE' : 'NORMAL', cls: cf.factors.vol_spike ? 'active' : 'off' },
     ];
     for (const b of badges) { const el = document.getElementById(b.id); if (el) { el.className = `ebadge ${b.cls}`; el.textContent = b.val; } }
     const sc = document.getElementById(`eb-score-${id}`);
