@@ -199,10 +199,10 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 const LS_SCHEMA_VERSION  = 5;
 const BTC_WS_URL         = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_OFFSET         = -2.9;
-const CONFIRMATION_WAIT_MS = 3500;
-const MIN_CONFLUENCE     = 55;
+const CONFIRMATION_WAIT_MS = 5000;
+const MIN_CONFLUENCE     = 65;
 const COOLDOWN_AFTER_SL_MS = 8000;
-const RR_RATIO           = 1.8;
+const RR_RATIO           = 2;
 
 // ── Schema Migration ─────────────────────────────────────────────
 function checkAndMigrateSchema() {
@@ -590,8 +590,8 @@ function processSignal(id, price) {
     updateEngineBadges(id, cf);
     updateConfluenceBar(id, cf.score);
 
-    const thr0 = MIN_CONFLUENCE * 0.68;
-    const thr1 = MIN_CONFLUENCE * 0.84;
+    const thr0 = MIN_CONFLUENCE * 0.70;
+    const thr1 = MIN_CONFLUENCE * 0.87;
     const thr2 = MIN_CONFLUENCE;
 
     if (!s.l1 && cf.direction && cf.score >= thr0) {
