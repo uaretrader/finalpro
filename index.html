@@ -514,7 +514,7 @@ function processSignal(id, price) {
         const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
         if (hitSL) { state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS; recordSignalResult(id, 'sl'); resetSignal(id); return; }
-        const buf = id === 'xau' ? 3 : 120;
+        const buf = id === 'xau' ? 2 : 120;
         if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         return;
