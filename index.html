@@ -521,13 +521,13 @@ function executeLockSignal(id, direction, livePrice, score) {
     let regimeMultiplier = 1.0;
     let regime = 'NORMAL';
     
-    if (closedCandles.length >= 20) {
+    if (closedCandles.length >= 30) {
         const closes = closedCandles.map(c => c.close);
         const bb = calcBollinger(closes, 20, 2);
         const bbWidth = bb ? bb.width : 0;
         
         // Detect regime
-        const w = closedCandles.slice(-20);
+        const w = closedCandles.slice(-30);
         let upMoves = 0, downMoves = 0;
         for (let i = 1; i < w.length; i++) {
             const up = w[i].high - w[i-1].high;
