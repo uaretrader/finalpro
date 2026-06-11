@@ -198,7 +198,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 
 const LS_SCHEMA_VERSION  = 5;
 const BTC_WS_URL         = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-const XAU_OFFSET         = -3.1;
+const XAU_OFFSET         = -3;
 const CONFIRMATION_WAIT_MS = 5000;
 const MIN_CONFLUENCE     = 85;
 const COOLDOWN_AFTER_SL_MS = 8000;
@@ -345,18 +345,18 @@ function scoreConfluence(id, price, candles) {
 
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
-        if (rsi < 32)      { bull += 16; f.rsi_sig = 'OVERSOLD'; }
+        if (rsi < 28)      { bull += 18; f.rsi_sig = 'OVERSOLD'; }
         else if (rsi < 44) { bull +=  9; f.rsi_sig = 'LOW'; }
-        else if (rsi > 68) { bear += 16; f.rsi_sig = 'OVERBOUGHT'; }
+        else if (rsi > 72) { bear += 18; f.rsi_sig = 'OVERBOUGHT'; }
         else if (rsi > 56) { bear +=  9; f.rsi_sig = 'HIGH'; }
         else                f.rsi_sig = 'MID';
     }
 
     if (macd !== null) {
         f.macd_hist = macd.hist.toFixed(5);
-        if (macd.hist > 0 && macd.line > 0)      { bull += 12; f.macd_sig = 'BULL'; }
+        if (macd.hist > 0 && macd.line > 0)      { bull += 14; f.macd_sig = 'BULL'; }
         else if (macd.hist > 0)                  { bull +=  8; f.macd_sig = 'BULL_X'; }
-        else if (macd.hist < 0 && macd.line < 0) { bear += 12; f.macd_sig = 'BEAR'; }
+        else if (macd.hist < 0 && macd.line < 0) { bear += 14; f.macd_sig = 'BEAR'; }
         else if (macd.hist < 0)                  { bear +=  8; f.macd_sig = 'BEAR_X'; }
         else f.macd_sig = 'FLAT';
     }
