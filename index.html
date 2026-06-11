@@ -213,7 +213,7 @@ const PAIR_CONFIG = {
     btc: {
         MIN_CONFLUENCE:      88,     // BTC — jangan diubah
         CONFIRMATION_WAIT_MS: 5000,  // BTC — jangan diubah
-        COOLDOWN_AFTER_SL_MS: 8000,  // BTC — jangan diubah
+        COOLDOWN_AFTER_SL_MS: 12000,  // BTC — jangan diubah
         RR_RATIO:            1.9,    // BTC — jangan diubah
     },
 };
@@ -614,7 +614,7 @@ function processSignal(id, price) {
     updateEngineBadges(id, cf);
     updateConfluenceBar(id, cf.score);
 
-    const thr0 = PAIR_CONFIG[id].MIN_CONFLUENCE * 0.80;
+    const thr0 = PAIR_CONFIG[id].MIN_CONFLUENCE * 0.85;
     const thr1 = PAIR_CONFIG[id].MIN_CONFLUENCE * 0.90;
     const thr2 = PAIR_CONFIG[id].MIN_CONFLUENCE;
 
