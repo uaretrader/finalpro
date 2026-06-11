@@ -198,7 +198,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 
 const LS_SCHEMA_VERSION  = 5;
 const BTC_WS_URL         = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-const XAU_OFFSET         = -3;
+const XAU_OFFSET         = -3.1;
 const CONFIRMATION_WAIT_MS = 5000;
 const MIN_CONFLUENCE     = 88;
 const COOLDOWN_AFTER_SL_MS = 8000;
@@ -730,7 +730,7 @@ function updateSignalUIOnly(id) {
 
 function updateEngineBadges(id, cf) {
     const badges = [
-        { id: `eb-rsi-${id}`,   val: cf.factors.rsi_sig  || 'RSI',  cls: cf.factors.rsi_sig === 'OVERSOLD' ? 'bull' : cf.factors.rsi_sig === 'OVERBOUGHT' ? 'bear' : cf.factors.rsi_sig === 'LOW' ? 'bull' : cf.factors.rsi_sig === 'HIGH' ? 'bear' : 'neutral' },
+        { id: `eb-rsi-${id}`,   val: cf.factors.rsi_sig  || 'RSI',  cls: cf.factors.rsi_sig === 'OVS' ? 'bull' : cf.factors.rsi_sig === 'OVB' ? 'bear' : cf.factors.rsi_sig === 'LOW' ? 'bull' : cf.factors.rsi_sig === 'HIGH' ? 'bear' : 'neutral' },
         { id: `eb-macd-${id}`,  val: cf.factors.macd_sig || 'MACD', cls: (cf.factors.macd_sig||'').startsWith('BULL') ? 'bull' : (cf.factors.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral' },
         { id: `eb-ema-${id}`,   val: cf.factors.ema_cross|| 'EMA',  cls: cf.factors.ema_cross === 'BULL' ? 'bull' : cf.factors.ema_cross === 'BEAR' ? 'bear' : 'off' },
         { id: `eb-vwap-${id}`,  val: cf.factors.vwap     || 'VWAP', cls: cf.factors.vwap === 'ABOVE' ? 'bull' : cf.factors.vwap === 'BELOW' ? 'bear' : 'neutral' },
