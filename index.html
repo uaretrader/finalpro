@@ -359,9 +359,9 @@ function scoreConfluence(id, price, candles) {
 
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
-        if (rsi < 25)      { bull += 18; f.rsi_sig = 'OVS'; }
+        if (rsi < 25)      { bull += 17; f.rsi_sig = 'OVS'; }
         else if (rsi < 44) { bull +=  9; f.rsi_sig = 'LOW'; }
-        else if (rsi > 75) { bear += 18; f.rsi_sig = 'OVB'; }
+        else if (rsi > 75) { bear += 17; f.rsi_sig = 'OVB'; }
         else if (rsi > 56) { bear +=  9; f.rsi_sig = 'HIGH'; }
         else                f.rsi_sig = 'MID';
     }
@@ -377,7 +377,7 @@ function scoreConfluence(id, price, candles) {
 
     if (ema9 && ema21) {
         f.ema_cross = ema9 > ema21 ? 'BULL' : 'BEAR';
-        ema9 > ema21 ? bull += 14 : bear += 14;
+        ema9 > ema21 ? bull += 15 : bear += 15;
     }
 
     if (ema50) {
@@ -406,11 +406,11 @@ function scoreConfluence(id, price, candles) {
     }
 
     f.choch = choch;
-    if (choch === 'BULLISH') bull += 12;
-    else if (choch === 'BEARISH') bear += 12;
+    if (choch === 'BULLISH') bull += 13;
+    else if (choch === 'BEARISH') bear += 13;
 
     f.vol_spike = vspi;
-    if (vspi) { if (bull >= bear) bull += 8; else bear += 8; }
+    if (vspi) { if (bull >= bear) bull += 9; else bear += 9; }
 
     const MAX = 100;
     let direction = null, score = 0;
