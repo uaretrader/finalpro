@@ -205,15 +205,15 @@ const XAU_OFFSET         = -3.3;
 // ================================================================
 const PAIR_CONFIG = {
     xau: {
-        MIN_CONFLUENCE:      95,     // ← ubah nilai XAU di sini
+        MIN_CONFLUENCE:      94,     // ← ubah nilai XAU di sini
         CONFIRMATION_WAIT_MS: 5000,  // ← ubah nilai XAU di sini
-        COOLDOWN_AFTER_SL_MS: 16000, // ← ubah nilai XAU di sini (dinaikkan dari 8000)
+        COOLDOWN_AFTER_SL_MS: 25000, // ← ubah nilai XAU di sini (dinaikkan dari 8000)
         RR_RATIO:            1.9,    // ← ubah nilai XAU di sini
     },
     btc: {
-        MIN_CONFLUENCE:      95,     // BTC — jangan diubah
+        MIN_CONFLUENCE:      94,     // BTC — jangan diubah
         CONFIRMATION_WAIT_MS: 5000,  // BTC — jangan diubah
-        COOLDOWN_AFTER_SL_MS: 14000,  // BTC — jangan diubah
+        COOLDOWN_AFTER_SL_MS: 25000,  // BTC — jangan diubah
         RR_RATIO:            1.9,    // BTC — jangan diubah
     },
 };
@@ -359,68 +359,68 @@ function scoreConfluence(id, price, candles) {
 
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
-        if (rsi < 25)      { bull += 17; f.rsi_sig = 'OVS'; }
-        else if (rsi < 44) { bull +=  9; f.rsi_sig = 'LOW'; }
-        else if (rsi > 75) { bear += 17; f.rsi_sig = 'OVB'; }
-        else if (rsi > 56) { bear +=  9; f.rsi_sig = 'HIGH'; }
+        if (rsi < 25)      { bull += 18; f.rsi_sig = 'OVS'; }
+        else if (rsi < 35) { bull +=  9; f.rsi_sig = 'LOW'; }
+        else if (rsi > 75) { bear += 18; f.rsi_sig = 'OVB'; }
+        else if (rsi > 65) { bear +=  9; f.rsi_sig = 'HIGH'; }
         else                f.rsi_sig = 'MID';
     }
 
     if (macd !== null) {
         f.macd_hist = macd.hist.toFixed(5);
-        if (macd.hist > 0 && macd.line > 0)      { bull += 14; f.macd_sig = 'BULL'; }
+        if (macd.hist > 0.3 && macd.line > 0.3)      { bull += 16; f.macd_sig = 'BULL'; }
         else if (macd.hist > 0)                  { bull +=  8; f.macd_sig = 'BULL_X'; }
-        else if (macd.hist < 0 && macd.line < 0) { bear += 14; f.macd_sig = 'BEAR'; }
+        else if (macd.hist < 0.3 && macd.line < 0.3) { bear += 16; f.macd_sig = 'BEAR'; }
         else if (macd.hist < 0)                  { bear +=  8; f.macd_sig = 'BEAR_X'; }
         else f.macd_sig = 'FLAT';
     }
 
     if (ema9 && ema21) {
         f.ema_cross = ema9 > ema21 ? 'BULL' : 'BEAR';
-        ema9 > ema21 ? bull += 15 : bear += 15;
+        ema9 > ema21 ? bull += 16 : bear += 16;
     }
 
     if (ema50) {
-        const tol = atr * 0.12;
-        if (price > ema50 + tol)      { bull += 10; f.ema50 = 'ABOVE'; }
-        else if (price < ema50 - tol) { bear += 10; f.ema50 = 'BELOW'; }
+        const tol = atr * 0.10;
+        if (price > ema50 + tol)      { bull += 12; f.ema50 = 'ABOVE'; }
+        else if (price < ema50 - tol) { bear += 12; f.ema50 = 'BELOW'; }
         else f.ema50 = 'AT';
     }
 
     if (vwap) {
-        const tol = atr * 0.15;
+        const tol = atr * 0.12;
         f.vwap_dist = (price - vwap).toFixed(2);
-        if (price > vwap + tol)      { bull += 10; f.vwap = 'ABOVE'; }
-        else if (price < vwap - tol) { bear += 10; f.vwap = 'BELOW'; }
+        if (price > vwap + tol)      { bull += 12; f.vwap = 'ABOVE'; }
+        else if (price < vwap - tol) { bear += 12; f.vwap = 'BELOW'; }
         else f.vwap = 'AT';
     }
 
     if (bb) {
         f.bb_width = (bb.width / bb.mid * 100).toFixed(2) + '%';
-        const squeeze = bb.width < atr * 1.3;
+        const squeeze = bb.width < atr * 1.2;
         f.bb_squeeze = squeeze;
-        if (price <= bb.lower + atr * 0.18)      { bull += 12; f.bb = 'AT_LOWER'; }
-        else if (price >= bb.upper - atr * 0.18) { bear += 12; f.bb = 'AT_UPPER'; }
+        if (price <= bb.lower + atr * 0.16)      { bull += 14; f.bb = 'AT_LOWER'; }
+        else if (price >= bb.upper - atr * 0.16) { bear += 14; f.bb = 'AT_UPPER'; }
         else if (squeeze)                         f.bb = 'SQUEEZE';
         else                                      f.bb = 'MID';
     }
 
     f.choch = choch;
-    if (choch === 'BULLISH') bull += 13;
-    else if (choch === 'BEARISH') bear += 13;
+    if (choch === 'BULLISH') bull += 12;
+    else if (choch === 'BEARISH') bear += 12;
 
     f.vol_spike = vspi;
-    if (vspi) { if (bull >= bear) bull += 9; else bear += 9; }
+    if (vspi) { if (bull >= bear) bull += 10; else bear += 10; }
 
     const MAX = 100;
     let direction = null, score = 0;
     const diff = Math.abs(bull - bear);
-    if (bull > bear && diff >= 8) {
+    if (bull > bear && diff >= 10) {
         direction = 'buy';
-        score = Math.min(100, Math.round((bull / MAX) * 100 + bull * 0.38));
-    } else if (bear > bull && diff >= 8) {
+        score = Math.min(100, Math.round((bull / MAX) * 100 + bull * 0.42));
+    } else if (bear > bull && diff >= 10) {
         direction = 'sell';
-        score = Math.min(100, Math.round((bear / MAX) * 100 + bear * 0.38));
+        score = Math.min(100, Math.round((bear / MAX) * 100 + bear * 0.42));
     } else {
         score = Math.round(Math.max(bull, bear) / 2);
     }
@@ -537,7 +537,7 @@ function executeLockSignal(id, direction, livePrice, score) {
         }
         const directional = Math.abs(upMoves - downMoves) / (w.length - 1);
         
-        if (directional >= 0.35 && bbWidth > (id === 'xau' ? 0.004 : 0.006)) {
+        if (directional >= 0.40 && bbWidth > (id === 'xau' ? 0.005 : 0.006)) {
             regime = upMoves > downMoves ? 'TRENDING_UP' : 'TRENDING_DOWN';
             regimeMultiplier = 1.3;  // Trending → SL lebih longgar (+30%)
         } else if (bbWidth < (id === 'xau' ? 0.003 : 0.004)) {
