@@ -359,9 +359,9 @@ function scoreConfluence(id, price, candles) {
 
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
-        if (rsi < 72)      { bull += 18; f.rsi_sig = 'OVB'; }
+        if (rsi < 72)      { bull += 18; f.rsi_sig = 'OVS'; }
         else if (rsi < 44) { bull +=  9; f.rsi_sig = 'LOW'; }
-        else if (rsi > 28) { bear += 18; f.rsi_sig = 'OVS'; }
+        else if (rsi > 28) { bear += 18; f.rsi_sig = 'OVB'; }
         else if (rsi > 56) { bear +=  9; f.rsi_sig = 'HIGH'; }
         else                f.rsi_sig = 'MID';
     }
@@ -754,7 +754,7 @@ function updateSignalUIOnly(id) {
 
 function updateEngineBadges(id, cf) {
     const badges = [
-        { id: `eb-rsi-${id}`,   val: cf.factors.rsi_sig  || 'RSI',  cls: cf.factors.rsi_sig === 'OVB' ? 'bull' : cf.factors.rsi_sig === 'OVS' ? 'bear' : cf.factors.rsi_sig === 'LOW' ? 'bull' : cf.factors.rsi_sig === 'HIGH' ? 'bear' : 'neutral' },
+        { id: `eb-rsi-${id}`,   val: cf.factors.rsi_sig  || 'RSI',  cls: cf.factors.rsi_sig === 'OVS' ? 'bull' : cf.factors.rsi_sig === 'OVB' ? 'bear' : cf.factors.rsi_sig === 'LOW' ? 'bull' : cf.factors.rsi_sig === 'HIGH' ? 'bear' : 'neutral' },
         { id: `eb-macd-${id}`,  val: cf.factors.macd_sig || 'MACD', cls: (cf.factors.macd_sig||'').startsWith('BULL') ? 'bull' : (cf.factors.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral' },
         { id: `eb-ema-${id}`,   val: cf.factors.ema_cross|| 'EMA',  cls: cf.factors.ema_cross === 'BULL' ? 'bull' : cf.factors.ema_cross === 'BEAR' ? 'bear' : 'off' },
         { id: `eb-vwap-${id}`,  val: cf.factors.vwap     || 'VWAP', cls: cf.factors.vwap === 'ABOVE' ? 'bull' : cf.factors.vwap === 'BELOW' ? 'bear' : 'neutral' },
