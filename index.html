@@ -359,9 +359,9 @@ function scoreConfluence(id, price, candles) {
 
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
-        if (rsi < 72)      { bull += 18; f.rsi_sig = 'OVS'; }
+        if (rsi < 25)      { bull += 18; f.rsi_sig = 'OVS'; }
         else if (rsi < 44) { bull +=  9; f.rsi_sig = 'LOW'; }
-        else if (rsi > 28) { bear += 18; f.rsi_sig = 'OVB'; }
+        else if (rsi > 75) { bear += 18; f.rsi_sig = 'OVB'; }
         else if (rsi > 56) { bear +=  9; f.rsi_sig = 'HIGH'; }
         else                f.rsi_sig = 'MID';
     }
