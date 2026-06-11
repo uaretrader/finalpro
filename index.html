@@ -550,7 +550,7 @@ function executeLockSignal(id, direction, livePrice, score) {
     }
     // ================================================================
     
-    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 4 : 170);
+    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 4.5 : 170);
     const tpD = slD * PAIR_CONFIG[id].RR_RATIO;
     
     s.l3 = true; s.confirmed = true; s.confirmedAt = Date.now(); s.warmupUntil = Date.now() + 2500;
@@ -591,7 +591,7 @@ function processSignal(id, price) {
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
 
         // Retrace: early exit, hanya aktif jika harga sudah sempat profit minimal dari entry
-        const buf         = id === 'xau' ? 3.9  : 150;
+        const buf         = id === 'xau' ? 4  : 150;
         const minProfit   = id === 'xau' ? 2.0  : 50;
         const sudahProfit = s.type === 'buy'
             ? s.tempHigh >= s.entry + minProfit
