@@ -588,12 +588,22 @@ function processSignal(id, price) {
         if (price < s.tempLow)  s.tempLow  = price;
         updateTracker(id, price);
         const hitTP = (s.type === 'buy' && price >= s.tp)  || (s.type === 'sell' && price <= s.tp);
-        const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
+
+        // Retrace: early exit, hanya aktif jika harga sudah sempat profit minimal dari entry
+        const buf         = id === 'xau' ? 3.9  : 150;
+        const minProfit   = id === 'xau' ? 2.0  : 50;
+        const sudahProfit = s.type === 'buy'
+            ? s.tempHigh >= s.entry + minProfit
+            : s.tempLow  <= s.entry - minProfit;
+        if (sudahProfit && Date.now() > (s.warmupUntil || 0)) {
+            if (s.type === 'buy'  && price <= (s.entry - buf)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
+            if (s.type === 'sell' && price >= (s.entry + buf)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
+        }
+
+        // SL: harga langsung berlawanan tanpa sempat profit → SL yang bekerja
+        const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
         if (hitSL) { state[id].cooldownUntil = Date.now() + PAIR_CONFIG[id].COOLDOWN_AFTER_SL_MS; recordSignalResult(id, 'sl'); resetSignal(id); return; }
-        const buf = id === 'xau' ? 3.9 : 150;
-        if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
-        if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         return;
     }
 
