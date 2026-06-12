@@ -346,9 +346,9 @@ function scoreConfluence(id, price, candles) {
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
         if (rsi < 25)      { bull += 18; f.rsi_sig = 'OVERSOLD'; }
-        else if (rsi < 40) { bull +=  5; f.rsi_sig = 'LOW'; }
+        else if (rsi < 35) { bull +=  5; f.rsi_sig = 'LOW'; }
         else if (rsi > 75) { bear += 18; f.rsi_sig = 'OVERBOUGHT'; }
-        else if (rsi > 60) { bear +=  5; f.rsi_sig = 'HIGH'; }
+        else if (rsi > 65) { bear +=  5; f.rsi_sig = 'HIGH'; }
         else                f.rsi_sig = 'MID';
     }
 
@@ -368,16 +368,16 @@ function scoreConfluence(id, price, candles) {
 
     if (ema50) {
         const tol = atr * 0.12;
-        if (price > ema50 + tol)      { bull += 8; f.ema50 = 'ABOVE'; }
-        else if (price < ema50 - tol) { bear += 8; f.ema50 = 'BELOW'; }
+        if (price > ema50 + tol)      { bull += 5; f.ema50 = 'ABOVE'; }
+        else if (price < ema50 - tol) { bear += 5; f.ema50 = 'BELOW'; }
         else f.ema50 = 'AT';
     }
 
     if (vwap) {
         const tol = atr * 0.15;
         f.vwap_dist = (price - vwap).toFixed(2);
-        if (price > vwap + tol)      { bull += 17; f.vwap = 'ABOVE'; }
-        else if (price < vwap - tol) { bear += 17; f.vwap = 'BELOW'; }
+        if (price > vwap + tol)      { bull += 18; f.vwap = 'ABOVE'; }
+        else if (price < vwap - tol) { bear += 18; f.vwap = 'BELOW'; }
         else f.vwap = 'AT';
     }
 
@@ -392,21 +392,21 @@ function scoreConfluence(id, price, candles) {
     }
 
     f.choch = choch;
-    if (choch === 'BULLISH') bull += 15;
-    else if (choch === 'BEARISH') bear += 15;
+    if (choch === 'BULLISH') bull += 16;
+    else if (choch === 'BEARISH') bear += 16;
 
     f.vol_spike = vspi;
-    if (vspi) { if (bull >= bear) bull += 5; else bear += 5; }
+    if (vspi) { if (bull >= bear) bull += 6; else bear += 6; }
 
     const MAX = 100;
     let direction = null, score = 0;
     const diff = Math.abs(bull - bear);
     if (bull > bear && diff >= 8) {
         direction = 'buy';
-        score = Math.min(100, Math.round((bull / MAX) * 100 + bull * 0.38));
+        score = Math.min(100, Math.round((bull / MAX) * 100 + bull * 0.40));
     } else if (bear > bull && diff >= 8) {
         direction = 'sell';
-        score = Math.min(100, Math.round((bear / MAX) * 100 + bear * 0.38));
+        score = Math.min(100, Math.round((bear / MAX) * 100 + bear * 0.40));
     } else {
         score = Math.round(Math.max(bull, bear) / 2);
     }
@@ -536,7 +536,7 @@ function executeLockSignal(id, direction, livePrice, score) {
     }
     // ================================================================
     
-    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 20 : 200);
+    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 15 : 200);
     const tpD = slD * RR_RATIO;
     
     s.l3 = true; s.confirmed = true; s.confirmedAt = Date.now(); s.warmupUntil = Date.now() + 2500;
@@ -577,7 +577,7 @@ function processSignal(id, price) {
         const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
         if (hitSL) { state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS; recordSignalResult(id, 'sl'); resetSignal(id); return; }
-        const buf = id === 'xau' ? 18 : 180;
+        const buf = id === 'xau' ? 13 : 180;
         if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         return;
@@ -590,7 +590,7 @@ function processSignal(id, price) {
     updateEngineBadges(id, cf);
     updateConfluenceBar(id, cf.score);
 
-    const thr0 = MIN_CONFLUENCE * 0.72;
+    const thr0 = MIN_CONFLUENCE * 0.75;
     const thr1 = MIN_CONFLUENCE * 0.85;
     const thr2 = MIN_CONFLUENCE;
 
