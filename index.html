@@ -267,7 +267,7 @@ function calcBollinger(closes, period = 20, std = 2) {
 
 function calcVWAP(candles) {
     if (candles.length < 5) return null;
-    const sl = candles.slice(-Math.min(40, candles.length));
+    const sl = candles.slice(-Math.min(180, candles.length));
     let cumTP = 0, cumV = 0;
     for (const c of sl) { const tp = (c.high + c.low + c.close) / 3; cumTP += tp * c.volume; cumV += c.volume; }
     return cumV > 0 ? cumTP / cumV : null;
@@ -345,25 +345,25 @@ function scoreConfluence(id, price, candles) {
 
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
-        if (rsi < 25)      { bull += 18; f.rsi_sig = 'OVS'; }
-        else if (rsi < 35) { bull +=  5; f.rsi_sig = 'LOW'; }
-        else if (rsi > 75) { bear += 18; f.rsi_sig = 'OVB'; }
-        else if (rsi > 65) { bear +=  5; f.rsi_sig = 'HIGH'; }
+        if (rsi < 30)      { bull += 16; f.rsi_sig = 'OVS'; }
+        else if (rsi < 45) { bull +=  5; f.rsi_sig = 'LOW'; }
+        else if (rsi > 70) { bear += 16; f.rsi_sig = 'OVB'; }
+        else if (rsi > 55) { bear +=  5; f.rsi_sig = 'HIGH'; }
         else                f.rsi_sig = 'MID';
     }
 
     if (macd !== null) {
         f.macd_hist = macd.hist.toFixed(5);
-        if (macd.hist > 0 && macd.line > 0)      { bull += 20; f.macd_sig = 'BULL'; }
+        if (macd.hist > 0 && macd.line > 0)      { bull += 18; f.macd_sig = 'BULL'; }
         else if (macd.hist > 0)                  { bull +=  8; f.macd_sig = 'BULL_X'; }
-        else if (macd.hist < 0 && macd.line < 0) { bear += 20; f.macd_sig = 'BEAR'; }
+        else if (macd.hist < 0 && macd.line < 0) { bear += 18; f.macd_sig = 'BEAR'; }
         else if (macd.hist < 0)                  { bear +=  8; f.macd_sig = 'BEAR_X'; }
         else f.macd_sig = 'FLAT';
     }
 
     if (ema9 && ema21) {
         f.ema_cross = ema9 > ema21 ? 'BULL' : 'BEAR';
-        ema9 > ema21 ? bull += 25 : bear += 25;
+        ema9 > ema21 ? bull += 22 : bear += 22;
     }
 
     if (ema50) {
@@ -376,8 +376,8 @@ function scoreConfluence(id, price, candles) {
     if (vwap) {
         const tol = atr * 0.15;
         f.vwap_dist = (price - vwap).toFixed(2);
-        if (price > vwap + tol)      { bull += 18; f.vwap = 'ABOVE'; }
-        else if (price < vwap - tol) { bear += 18; f.vwap = 'BELOW'; }
+        if (price > vwap + tol)      { bull += 16; f.vwap = 'ABOVE'; }
+        else if (price < vwap - tol) { bear += 16; f.vwap = 'BELOW'; }
         else f.vwap = 'AT';
     }
 
@@ -392,11 +392,11 @@ function scoreConfluence(id, price, candles) {
     }
 
     f.choch = choch;
-    if (choch === 'BULLISH') bull += 16;
-    else if (choch === 'BEARISH') bear += 16;
+    if (choch === 'BULLISH') bull += 14;
+    else if (choch === 'BEARISH') bear += 14;
 
     f.vol_spike = vspi;
-    if (vspi) { if (bull >= bear) bull += 6; else bear += 6; }
+    if (vspi) { if (bull >= bear) bull += 4; else bear += 4; }
 
     const MAX = 100;
     let direction = null, score = 0;
