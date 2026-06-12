@@ -200,7 +200,7 @@ const LS_SCHEMA_VERSION  = 5;
 const BTC_WS_URL         = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_OFFSET         = -2.5;
 const CONFIRMATION_WAIT_MS = 10000;
-const MIN_CONFLUENCE     = 80;
+const MIN_CONFLUENCE     = 85;
 const COOLDOWN_AFTER_SL_MS = 15000;
 const RR_RATIO           = 1.5;
 
@@ -313,7 +313,7 @@ function detectMarketRegime(candles, id, bbWidth) {
         else if (dn > up && dn > 0) downMoves++;
     }
     const directional = Math.abs(upMoves - downMoves) / (w.length - 1);
-    if (directional >= 0.35 && bbWidth > (id === 'xau' ? 0.004 : 0.006)) {
+    if (directional >= 0.50 && bbWidth > (id === 'xau' ? 0.005 : 0.008)) {
         return upMoves > downMoves ? 'TRENDING_UP' : 'TRENDING_DOWN';
     } else if (bbWidth < (id === 'xau' ? 0.003 : 0.004)) {
         return 'SQUEEZE';
@@ -376,8 +376,8 @@ function scoreConfluence(id, price, candles) {
     if (vwap) {
         const tol = atr * 0.15;
         f.vwap_dist = (price - vwap).toFixed(2);
-        if (price > vwap + tol)      { bull += 12; f.vwap = 'ABOVE'; }
-        else if (price < vwap - tol) { bear += 12; f.vwap = 'BELOW'; }
+        if (price > vwap + tol)      { bull += 17; f.vwap = 'ABOVE'; }
+        else if (price < vwap - tol) { bear += 17; f.vwap = 'BELOW'; }
         else f.vwap = 'AT';
     }
 
@@ -392,8 +392,8 @@ function scoreConfluence(id, price, candles) {
     }
 
     f.choch = choch;
-    if (choch === 'BULLISH') bull += 20;
-    else if (choch === 'BEARISH') bear += 20;
+    if (choch === 'BULLISH') bull += 15;
+    else if (choch === 'BEARISH') bear += 15;
 
     f.vol_spike = vspi;
     if (vspi) { if (bull >= bear) bull += 5; else bear += 5; }
