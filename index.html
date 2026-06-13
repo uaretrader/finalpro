@@ -202,7 +202,7 @@ const XAU_OFFSET         = -2.4;
 const CONFIRMATION_WAIT_MS = 5000;
 const MIN_CONFLUENCE     = 80;
 const COOLDOWN_AFTER_SL_MS = 12000;
-const RR_RATIO           = 1.5;
+const RR_RATIO           = 1.8;
 
 // ── Schema Migration ─────────────────────────────────────────────
 function checkAndMigrateSchema() {
@@ -536,7 +536,7 @@ function executeLockSignal(id, direction, livePrice, score) {
     }
     // ================================================================
     
-    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 15 : 200);
+    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 14 : 250);
     const tpD = slD * RR_RATIO;
     
     s.l3 = true; s.confirmed = true; s.confirmedAt = Date.now(); s.warmupUntil = Date.now() + 2500;
@@ -577,7 +577,7 @@ function processSignal(id, price) {
         const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
         if (hitSL) { state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS; recordSignalResult(id, 'sl'); resetSignal(id); return; }
-        const buf = id === 'xau' ? 13 : 180;
+        const buf = id === 'xau' ? 12.5 : 180;
         if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         return;
