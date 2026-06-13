@@ -345,9 +345,9 @@ function scoreConfluence(id, price, candles) {
 
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
-        if (rsi < 30)      { bull += 19; f.rsi_sig = 'OVS'; }
+        if (rsi < 30)      { bull += 12; f.rsi_sig = 'OVS'; }
         else if (rsi < 40) { bull +=  8; f.rsi_sig = 'LOW'; }
-        else if (rsi > 70) { bear += 19; f.rsi_sig = 'OVB'; }
+        else if (rsi > 70) { bear += 12; f.rsi_sig = 'OVB'; }
         else if (rsi > 60) { bear +=  8; f.rsi_sig = 'HIGH'; }
         else                f.rsi_sig = 'MID';
     }
@@ -368,8 +368,8 @@ function scoreConfluence(id, price, candles) {
 
     if (ema50) {
         const tol = atr * 0.12;
-        if (price > ema50 + tol)      { bull += 6; f.ema50 = 'ABOVE'; }
-        else if (price < ema50 - tol) { bear += 6; f.ema50 = 'BELOW'; }
+        if (price > ema50 + tol)      { bull += 8; f.ema50 = 'ABOVE'; }
+        else if (price < ema50 - tol) { bear += 8; f.ema50 = 'BELOW'; }
         else f.ema50 = 'AT';
     }
 
@@ -385,18 +385,18 @@ function scoreConfluence(id, price, candles) {
         f.bb_width = (bb.width / bb.mid * 100).toFixed(2) + '%';
         const squeeze = bb.width < atr * 1.3;
         f.bb_squeeze = squeeze;
-        if (price <= bb.lower + atr * 0.18)      { bull += 10; f.bb = 'AT_LOWER'; }
-        else if (price >= bb.upper - atr * 0.18) { bear += 10; f.bb = 'AT_UPPER'; }
+        if (price <= bb.lower + atr * 0.18)      { bull += 11; f.bb = 'AT_LOWER'; }
+        else if (price >= bb.upper - atr * 0.18) { bear += 11; f.bb = 'AT_UPPER'; }
         else if (squeeze)                         f.bb = 'SQUEEZE';
         else                                      f.bb = 'MID';
     }
 
     f.choch = choch;
-    if (choch === 'BULLISH') bull += 12;
-    else if (choch === 'BEARISH') bear += 12;
+    if (choch === 'BULLISH') bull += 11;
+    else if (choch === 'BEARISH') bear += 11;
 
     f.vol_spike = vspi;
-    if (vspi) { if (bull >= bear) bull += 5; else bear += 5; }
+    if (vspi) { if (bull >= bear) bull += 8; else bear += 8; }
 
     const MAX = 100;
     let direction = null, score = 0;
