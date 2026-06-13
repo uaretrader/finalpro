@@ -345,18 +345,18 @@ function scoreConfluence(id, price, candles) {
 
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
-        if (rsi < 30)      { bull += 16; f.rsi_sig = 'OVS'; }
-        else if (rsi < 45) { bull +=  5; f.rsi_sig = 'LOW'; }
-        else if (rsi > 70) { bear += 16; f.rsi_sig = 'OVB'; }
-        else if (rsi > 55) { bear +=  5; f.rsi_sig = 'HIGH'; }
+        if (rsi < 30)      { bull += 19; f.rsi_sig = 'OVS'; }
+        else if (rsi < 40) { bull +=  8; f.rsi_sig = 'LOW'; }
+        else if (rsi > 70) { bear += 19; f.rsi_sig = 'OVB'; }
+        else if (rsi > 60) { bear +=  8; f.rsi_sig = 'HIGH'; }
         else                f.rsi_sig = 'MID';
     }
 
     if (macd !== null) {
         f.macd_hist = macd.hist.toFixed(5);
-        if (macd.hist > 0 && macd.line > 0)      { bull += 18; f.macd_sig = 'BULL'; }
+        if (macd.hist > 0 && macd.line > 0)      { bull += 10; f.macd_sig = 'BULL'; }
         else if (macd.hist > 0)                  { bull +=  8; f.macd_sig = 'BULL_X'; }
-        else if (macd.hist < 0 && macd.line < 0) { bear += 18; f.macd_sig = 'BEAR'; }
+        else if (macd.hist < 0 && macd.line < 0) { bear += 10; f.macd_sig = 'BEAR'; }
         else if (macd.hist < 0)                  { bear +=  8; f.macd_sig = 'BEAR_X'; }
         else f.macd_sig = 'FLAT';
     }
@@ -368,8 +368,8 @@ function scoreConfluence(id, price, candles) {
 
     if (ema50) {
         const tol = atr * 0.12;
-        if (price > ema50 + tol)      { bull += 5; f.ema50 = 'ABOVE'; }
-        else if (price < ema50 - tol) { bear += 5; f.ema50 = 'BELOW'; }
+        if (price > ema50 + tol)      { bull += 6; f.ema50 = 'ABOVE'; }
+        else if (price < ema50 - tol) { bear += 6; f.ema50 = 'BELOW'; }
         else f.ema50 = 'AT';
     }
 
@@ -385,18 +385,18 @@ function scoreConfluence(id, price, candles) {
         f.bb_width = (bb.width / bb.mid * 100).toFixed(2) + '%';
         const squeeze = bb.width < atr * 1.3;
         f.bb_squeeze = squeeze;
-        if (price <= bb.lower + atr * 0.18)      { bull += 5; f.bb = 'AT_LOWER'; }
-        else if (price >= bb.upper - atr * 0.18) { bear += 5; f.bb = 'AT_UPPER'; }
+        if (price <= bb.lower + atr * 0.18)      { bull += 10; f.bb = 'AT_LOWER'; }
+        else if (price >= bb.upper - atr * 0.18) { bear += 10; f.bb = 'AT_UPPER'; }
         else if (squeeze)                         f.bb = 'SQUEEZE';
         else                                      f.bb = 'MID';
     }
 
     f.choch = choch;
-    if (choch === 'BULLISH') bull += 14;
-    else if (choch === 'BEARISH') bear += 14;
+    if (choch === 'BULLISH') bull += 12;
+    else if (choch === 'BEARISH') bear += 12;
 
     f.vol_spike = vspi;
-    if (vspi) { if (bull >= bear) bull += 4; else bear += 4; }
+    if (vspi) { if (bull >= bear) bull += 5; else bear += 5; }
 
     const MAX = 100;
     let direction = null, score = 0;
@@ -590,8 +590,8 @@ function processSignal(id, price) {
     updateEngineBadges(id, cf);
     updateConfluenceBar(id, cf.score);
 
-    const thr0 = MIN_CONFLUENCE * 0.75;
-    const thr1 = MIN_CONFLUENCE * 0.85;
+    const thr0 = MIN_CONFLUENCE * 0.80;
+    const thr1 = MIN_CONFLUENCE * 0.88;
     const thr2 = MIN_CONFLUENCE;
 
     if (!s.l1 && cf.direction && cf.score >= thr0) {
