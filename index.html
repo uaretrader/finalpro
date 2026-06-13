@@ -200,7 +200,7 @@ const LS_SCHEMA_VERSION  = 5;
 const BTC_WS_URL         = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_OFFSET         = -2.4;
 const CONFIRMATION_WAIT_MS = 10000;
-const MIN_CONFLUENCE     = 85;
+const MIN_CONFLUENCE     = 70;
 const COOLDOWN_AFTER_SL_MS = 15000;
 const RR_RATIO           = 1.5;
 
@@ -403,10 +403,10 @@ function scoreConfluence(id, price, candles) {
     const diff = Math.abs(bull - bear);
     if (bull > bear && diff >= 8) {
         direction = 'buy';
-        score = Math.min(100, Math.round((bull / MAX) * 100 + bull * 0.40));
+        score = Math.min(100, Math.round((bull / MAX) * 100 + bull * 0.25));
     } else if (bear > bull && diff >= 8) {
         direction = 'sell';
-        score = Math.min(100, Math.round((bear / MAX) * 100 + bear * 0.40));
+        score = Math.min(100, Math.round((bear / MAX) * 100 + bear * 0.25));
     } else {
         score = Math.round(Math.max(bull, bear) / 2);
     }
