@@ -411,15 +411,15 @@ if (vspi && vwap != null) {
         bear += 5;
 }
 
-    const MAX = 100;
+    const MAX = 98;
     let direction = null, score = 0;
     const diff = Math.abs(bull - bear);
     if (bull > bear && diff >= 8) {
         direction = 'buy';
-        score = Math.min(100, Math.round((bull / MAX) * 100 + bull * 0.15));
+        score = Math.min(98, Math.round((bull / MAX) * 98 + bull * 0.15));
     } else if (bear > bull && diff >= 8) {
         direction = 'sell';
-        score = Math.min(100, Math.round((bear / MAX) * 100 + bear * 0.15));
+        score = Math.min(98, Math.round((bear / MAX) * 98 + bear * 0.15));
     } else {
         score = Math.round(Math.max(bull, bear) / 2);
     }
@@ -771,7 +771,7 @@ function updateEngineBadges(id, cf) {
 function updateConfluenceBar(id, score) {
     const fill = document.getElementById(`cf-fill-${id}`); const txt = document.getElementById(`cf-txt-${id}`);
     if (!fill || !txt) return;
-    const pct = Math.min(100, Math.max(0, score));
+    const pct = Math.min(98, Math.max(0, score));
     fill.style.width = pct + '%';
     fill.style.background = pct >= MIN_CONFLUENCE ? 'var(--emerald)' : pct >= MIN_CONFLUENCE * 0.7 ? 'var(--gold)' : 'var(--crimson)';
     txt.textContent = Math.round(pct);
