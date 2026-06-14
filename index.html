@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
-<title>URADVISOR v8.0 — APEX ENGINE</title>
+<title>URADVISOR v10.0 — MULTI-TIMEFRAME ENGINE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -165,11 +165,11 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <header>
     <div class="brand">
         <h1>ur<span>advisor</span></h1>
-        <div class="brand-sub">URA v8.0</div>
+        <div class="brand-sub">URA v10.0</div>
     </div>
     <div class="header-right">
         <div class="sys-status">
-            <div><span class="pulse" id="globalPulse"></span>GLOBAL LIVE</div>
+            <div><span class="pulse" id="globalPulse"></span>MTF LIVE</div>
         </div>
         <button class="switch-pair-btn" id="switchPairBtn">
             <span id="switchLabel">XAUUSD</span>
@@ -180,48 +180,63 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <div id="terminals"></div>
 
 <footer>
-    APEX ENGINE v8 · RSI(14) · MACD(12,26,9) · VWAP · BB · EMA CROSS · CHoCH<br>
-    REGIME ADAPTIVE SL · CONFLUENCE GATE ≥55 · RR≥1.8 · SL COOLDOWN · VOLUME SPIKE
+    PRECISION ENGINE v10 · MULTI-TIMEFRAME · MACRO (60s) + MICRO (15s)<br>
+    PULLBACK ENTRY · ZONE BASED SL · RR≥1.8 · ADX TREND FILTER
 </footer>
 </div>
 <div id="toast"></div>
 
 <script>
+// ================================================================
+//  URADVISOR PRECISION ENGINE v10.0
+//  MULTI-TIMEFRAME ARCHITECTURE — Intraday 5-15 Menit
+// ================================================================
+
 (function () {
 'use strict';
 
-// ================================================================
-//  URADVISOR APEX ENGINE v8.0 — REGIME ADAPTIVE SL
-//  Upgrade: Market Regime Detection (TRENDING/RANGING/SQUEEZE)
-//           otomatis menyesuaikan jarak Stop Loss
-// ================================================================
+const LS_SCHEMA_VERSION    = 6;
+const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
+const XAU_OFFSET           = -2.4;
+const CONFIRMATION_WAIT_MS = 4000;
+const COOLDOWN_AFTER_SL_MS = 14000;
+const RR_RATIO             = 1.8;
 
-const LS_SCHEMA_VERSION  = 5;
-const BTC_WS_URL         = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-const XAU_OFFSET         = -2.4;
-const CONFIRMATION_WAIT_MS = 5000;
-const MIN_CONFLUENCE     = 82;
-const COOLDOWN_AFTER_SL_MS = 12000;
-const RR_RATIO           = 1.8;
+// Dual timeframe durations
+const MACRO_DUR = { xau: 60000, btc: 60000 };
+const MICRO_DUR = { xau: 15000, btc: 15000 };
+
+const MIN_MACRO_SCORE = 58;
+const MIN_MICRO_CONF  = 50;
 
 // ── Schema Migration ─────────────────────────────────────────────
 function checkAndMigrateSchema() {
     const v = parseInt(localStorage.getItem('ura_schema_ver') || '1', 10);
     if (v < LS_SCHEMA_VERSION) {
-        ['xau','btc'].forEach(id => { localStorage.removeItem(`ura_state_${id}`); localStorage.removeItem(`ura_stats_${id}`); });
+        ['xau','btc'].forEach(id => {
+            localStorage.removeItem(`ura_state_${id}`);
+            localStorage.removeItem(`ura_stats_${id}`);
+        });
         localStorage.setItem('ura_schema_ver', String(LS_SCHEMA_VERSION));
     }
 }
 
 // ── Toast ────────────────────────────────────────────────────────
 let _tt = null;
-function showToast(msg) { const el = document.getElementById('toast'); if (!el) return; el.textContent = msg; el.classList.add('show'); if (_tt) clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), 2100); }
+function showToast(msg) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    if (_tt) clearTimeout(_tt);
+    _tt = setTimeout(() => el.classList.remove('show'), 2400);
+}
 
 // ================================================================
 //  INDICATOR LIBRARY
 // ================================================================
 function calcEMA(arr, period) {
-    if (arr.length < period) return null;
+    if (!arr || arr.length < period) return null;
     const k = 2 / (period + 1);
     let e = arr.slice(0, period).reduce((a,b) => a+b, 0) / period;
     for (let i = period; i < arr.length; i++) e = arr[i] * k + e * (1 - k);
@@ -229,17 +244,20 @@ function calcEMA(arr, period) {
 }
 
 function calcRSI(closes, period = 14) {
-    if (closes.length < period + 1) return null;
+    if (!closes || closes.length < period + 1) return null;
     const r = closes.slice(-period - 1);
     let g = 0, l = 0;
-    for (let i = 1; i < r.length; i++) { const d = r[i] - r[i-1]; if (d > 0) g += d; else l -= d; }
+    for (let i = 1; i < r.length; i++) {
+        const d = r[i] - r[i-1];
+        if (d > 0) g += d; else l -= d;
+    }
     const ag = g / period, al = l / period;
     if (al === 0) return 100;
     return 100 - 100 / (1 + ag / al);
 }
 
 function calcMACD(closes, fast = 12, slow = 26, sig = 9) {
-    if (closes.length < slow + sig + 2) return null;
+    if (!closes || closes.length < slow + sig + 2) return null;
     const ef = calcEMA(closes, fast);
     const es = calcEMA(closes, slow);
     if (ef === null || es === null) return null;
@@ -258,7 +276,7 @@ function calcMACD(closes, fast = 12, slow = 26, sig = 9) {
 }
 
 function calcBollinger(closes, period = 20, std = 2) {
-    if (closes.length < period) return null;
+    if (!closes || closes.length < period) return null;
     const sl = closes.slice(-period);
     const mean = sl.reduce((a,b) => a+b, 0) / period;
     const sd = Math.sqrt(sl.reduce((a,b) => a + (b - mean) ** 2, 0) / period);
@@ -266,387 +284,705 @@ function calcBollinger(closes, period = 20, std = 2) {
 }
 
 function calcVWAP(candles) {
-    if (candles.length < 5) return null;
-    const sl = candles.slice(-Math.min(180, candles.length));
+    if (!candles || candles.length < 5) return null;
+    const sl = candles.slice(-Math.min(90, candles.length));
     let cumTP = 0, cumV = 0;
-    for (const c of sl) { const tp = (c.high + c.low + c.close) / 3; cumTP += tp * c.volume; cumV += c.volume; }
+    for (const c of sl) {
+        const tp = (c.high + c.low + c.close) / 3;
+        cumTP += tp * c.volume;
+        cumV  += c.volume;
+    }
     return cumV > 0 ? cumTP / cumV : null;
 }
 
 function calcATR(candles, period = 14) {
-    if (candles.length < period + 1) return null;
+    if (!candles || candles.length < period + 1) return null;
     const trs = [];
-    for (let i = 1; i < candles.length; i++) trs.push(Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - candles[i-1].close), Math.abs(candles[i].low - candles[i-1].close)));
+    for (let i = 1; i < candles.length; i++) {
+        trs.push(Math.max(
+            candles[i].high - candles[i].low,
+            Math.abs(candles[i].high - candles[i-1].close),
+            Math.abs(candles[i].low  - candles[i-1].close)
+        ));
+    }
     return trs.slice(-period).reduce((a,b) => a+b, 0) / period;
 }
 
-function detectCHoCH(candles) {
-    if (candles.length < 10) return 'NONE';
-    const a = candles.slice(-10, -5);
-    const b = candles.slice(-5);
-    const aH = Math.max(...a.map(c => c.high));
-    const aL = Math.min(...a.map(c => c.low));
-    const bH = Math.max(...b.map(c => c.high));
-    const bL = Math.min(...b.map(c => c.low));
-    if (bH > aH && bL > aL) return 'BULLISH';
-    if (bL < aL && bH < aH) return 'BEARISH';
-    return 'NONE';
+function calcADX(candles, period = 14) {
+    if (!candles || candles.length < period * 2 + 1) return null;
+    const c = candles.slice(-(period * 2 + 2));
+    const dmPlus = [], dmMinus = [], tr = [];
+    for (let i = 1; i < c.length; i++) {
+        const upMove   = c[i].high  - c[i-1].high;
+        const downMove = c[i-1].low - c[i].low;
+        dmPlus.push(upMove > downMove && upMove > 0 ? upMove : 0);
+        dmMinus.push(downMove > upMove && downMove > 0 ? downMove : 0);
+        tr.push(Math.max(
+            c[i].high - c[i].low,
+            Math.abs(c[i].high - c[i-1].close),
+            Math.abs(c[i].low  - c[i-1].close)
+        ));
+    }
+    let atr14 = tr.slice(0, period).reduce((a,b) => a+b, 0);
+    let pdm14  = dmPlus.slice(0, period).reduce((a,b) => a+b, 0);
+    let mdm14  = dmMinus.slice(0, period).reduce((a,b) => a+b, 0);
+    const dxArr = [];
+    const push = () => {
+        const pDI = atr14 > 0 ? (pdm14 / atr14) * 100 : 0;
+        const mDI = atr14 > 0 ? (mdm14 / atr14) * 100 : 0;
+        dxArr.push((pDI + mDI) > 0 ? Math.abs(pDI - mDI) / (pDI + mDI) * 100 : 0);
+    };
+    push();
+    for (let i = period; i < tr.length; i++) {
+        atr14 = atr14 - (atr14 / period) + tr[i];
+        pdm14  = pdm14  - (pdm14  / period) + dmPlus[i];
+        mdm14  = mdm14  - (mdm14  / period) + dmMinus[i];
+        push();
+    }
+    if (dxArr.length < period) return null;
+    return dxArr.slice(-period).reduce((a,b) => a+b, 0) / period;
 }
 
-function detectVolSpike(candles, lb = 12) {
-    if (candles.length < lb + 1) return false;
+function detectVolSpike(candles, lb = 10) {
+    if (!candles || candles.length < lb + 1) return false;
     const avg = candles.slice(-lb - 1, -1).reduce((a,c) => a + c.volume, 0) / lb;
-    return candles[candles.length - 1].volume > avg * 1.6;
+    return candles[candles.length - 1].volume > avg * 1.65;
 }
 
 // ================================================================
-//  MARKET REGIME DETECTION (BARU — untuk adaptive SL)
+//  MACRO BIAS SCORER
 // ================================================================
-function detectMarketRegime(candles, id, bbWidth) {
-    if (candles.length < 20) return 'UNKNOWN';
-    const w = candles.slice(-20);
-    let upMoves = 0, downMoves = 0;
-    for (let i = 1; i < w.length; i++) {
-        const up = w[i].high - w[i-1].high;
-        const dn = w[i-1].low - w[i].low;
-        if (up > dn && up > 0) upMoves++;
-        else if (dn > up && dn > 0) downMoves++;
+function scoreMacroBias(id, price, macroCandles) {
+    if (!macroCandles || macroCandles.length < 30) {
+        return { bias: 'NEUTRAL', score: 0, zone: null, atr: null, adx: null, factors: {} };
     }
-    const directional = Math.abs(upMoves - downMoves) / (w.length - 1);
-    if (directional >= 0.50 && bbWidth > (id === 'xau' ? 0.005 : 0.008)) {
-        return upMoves > downMoves ? 'TRENDING_UP' : 'TRENDING_DOWN';
-    } else if (bbWidth < (id === 'xau' ? 0.003 : 0.004)) {
-        return 'SQUEEZE';
-    }
-    return 'RANGING';
-}
 
-// ================================================================
-//  CONFLUENCE SCORER
-// ================================================================
-function scoreConfluence(id, price, candles) {
-    if (candles.length < 28) return { score: 0, factors: {}, direction: null };
-
-    const closes = candles.map(c => c.close);
-    const atr    = calcATR(candles) || (id === 'xau' ? 3 : 300);
-
-    const rsi    = calcRSI(closes);
-    const macd   = calcMACD(closes);
-    const bb     = calcBollinger(closes);
-    const vwap   = calcVWAP(candles);
+    const closes = macroCandles.map(c => c.close);
+    const atr    = calcATR(macroCandles, 14) || (id === 'xau' ? 3.5 : 350);
+    const adx    = calcADX(macroCandles, 14);
     const ema9   = calcEMA(closes, 9);
     const ema21  = calcEMA(closes, 21);
     const ema50  = calcEMA(closes, Math.min(50, closes.length - 1));
-    const choch  = detectCHoCH(candles);
-    const vspi   = detectVolSpike(candles);
+    const macd   = calcMACD(closes);
+    const vwap   = calcVWAP(macroCandles);
+    const bb     = calcBollinger(closes, 20, 2);
 
-    let bull = 0, bear = 0;
+    const half   = Math.floor(macroCandles.length / 2);
+    const first  = macroCandles.slice(0, half);
+    const second = macroCandles.slice(half);
+    const fH = Math.max(...first.map(c => c.high));
+    const fL  = Math.min(...first.map(c => c.low));
+    const sH = Math.max(...second.map(c => c.high));
+    const sL  = Math.min(...second.map(c => c.low));
+    const structure = (sH > fH && sL > fL) ? 'BULLISH' : (sH < fH && sL < fL) ? 'BEARISH' : 'UNCLEAR';
+
     const f = {};
+    let bull = 0, bear = 0;
 
-    if (rsi !== null) {
-    f.rsi = rsi.toFixed(1);
+    f.adx = adx ? adx.toFixed(1) : null;
+    const adxClass = !adx ? 'UNKNOWN' : adx < 15 ? 'DEAD' : adx < 22 ? 'WEAK' : adx < 30 ? 'MILD' : 'STRONG';
+    f.adx_class = adxClass;
 
-    if (rsi > 55) {
-        bull += 3;
-        f.rsi_sig = 'BULL';
+    if (adxClass === 'DEAD') {
+        return { bias: 'NEUTRAL', score: 0, zone: null, atr, adx, factors: f };
     }
-    else if (rsi < 45) {
-        bear += 3;
-        f.rsi_sig = 'BEAR';
-    }
-    else {
-        f.rsi_sig = 'MID';
-    }
-}
-
-    if (macd !== null) {
-        f.macd_hist = macd.hist.toFixed(5);
-        if (macd.hist > 0 && macd.line > 0)      { bull += 6; f.macd_sig = 'BULL'; }
-        else if (macd.hist > 0)                  { bull +=  4; f.macd_sig = 'BULL_X'; }
-        else if (macd.hist < 0 && macd.line < 0) { bear += 6; f.macd_sig = 'BEAR'; }
-        else if (macd.hist < 0)                  { bear +=  4; f.macd_sig = 'BEAR_X'; }
-        else f.macd_sig = 'FLAT';
-    }
+    const adxW = adxClass === 'WEAK' ? 0.6 : adxClass === 'MILD' ? 0.85 : 1.0;
 
     if (ema9 && ema21) {
         f.ema_cross = ema9 > ema21 ? 'BULL' : 'BEAR';
-        ema9 > ema21 ? bull += 25 : bear += 25;
+        ema9 > ema21 ? bull += 28 : bear += 28;
     }
 
     if (ema50) {
-        const tol = atr * 0.12;
+        const tol = atr * 0.1;
         if (price > ema50 + tol)      { bull += 12; f.ema50 = 'ABOVE'; }
         else if (price < ema50 - tol) { bear += 12; f.ema50 = 'BELOW'; }
         else f.ema50 = 'AT';
     }
 
-    if (vwap) {
-        const tol = atr * 0.15;
-        f.vwap_dist = (price - vwap).toFixed(2);
-        if (price > vwap + tol)      { bull += 15; f.vwap = 'ABOVE'; }
-        else if (price < vwap - tol) { bear += 15; f.vwap = 'BELOW'; }
-        else f.vwap = 'AT';
+    let macdDir = 'NEUTRAL';
+    if (macd) {
+        f.macd_sig = macd.hist > 0 && macd.line > 0 ? 'BULL' :
+                     macd.hist > 0                   ? 'BULL_X' :
+                     macd.hist < 0 && macd.line < 0  ? 'BEAR' :
+                     macd.hist < 0                   ? 'BEAR_X' : 'FLAT';
+        if (f.macd_sig.startsWith('BULL')) { bull += 18; macdDir = 'BULL'; }
+        else if (f.macd_sig.startsWith('BEAR')) { bear += 18; macdDir = 'BEAR'; }
     }
+
+    let vwapDir = 'NEUTRAL';
+    if (vwap) {
+        const tol = atr * 0.12;
+        f.vwap = price > vwap + tol ? 'ABOVE' : price < vwap - tol ? 'BELOW' : 'AT';
+        if (f.vwap === 'ABOVE') { bull += 18; vwapDir = 'BULL'; }
+        else if (f.vwap === 'BELOW') { bear += 18; vwapDir = 'BEAR'; }
+    }
+
+    f.structure = structure;
+    if (structure === 'BULLISH') bull += 14;
+    else if (structure === 'BEARISH') bear += 14;
+    else { bull = Math.round(bull * 0.88); bear = Math.round(bear * 0.88); }
 
     if (bb) {
-        f.bb_width = (bb.width / bb.mid * 100).toFixed(2) + '%';
-        const squeeze = bb.width < atr * 1.3;
-        f.bb_squeeze = squeeze;
-        if (price <= bb.lower + atr * 0.18)      { bull += 2; f.bb = 'AT_LOWER'; }
-        else if (price >= bb.upper - atr * 0.18) { bear += 2; f.bb = 'AT_UPPER'; }
-        else if (squeeze)                         f.bb = 'SQUEEZE';
-        else                                      f.bb = 'MID';
+        const bwPct = bb.width / bb.mid;
+        f.bb_squeeze = bwPct < (id === 'xau' ? 0.004 : 0.006);
+        if (f.bb_squeeze) {
+            bull = Math.round(bull * 0.75);
+            bear = Math.round(bear * 0.75);
+            f.squeeze_warn = true;
+        }
     }
 
-    f.choch = choch;
-    if (choch === 'BULLISH') bull += 30;
-    else if (choch === 'BEARISH') bear += 30;
+    let conflict = 0;
+    const emaBias = ema9 && ema21 ? (ema9 > ema21 ? 'BULL' : 'BEAR') : 'NEUTRAL';
+    if (emaBias === 'BULL' && macdDir === 'BEAR') conflict += 12;
+    if (emaBias === 'BEAR' && macdDir === 'BULL') conflict += 12;
+    if (vwapDir === 'BULL' && structure === 'BEARISH') conflict += 10;
+    if (vwapDir === 'BEAR' && structure === 'BULLISH') conflict += 10;
+    if (emaBias === 'BULL' && vwapDir === 'BEAR') conflict += 8;
+    if (emaBias === 'BEAR' && vwapDir === 'BULL') conflict += 8;
+    f.conflict = conflict;
 
-    f.vol_spike = vspi;
+    if (conflict >= 22) {
+        return { bias: 'NEUTRAL', score: 0, zone: null, atr, adx, factors: f };
+    }
 
-if (vspi && vwap != null) {
-    if (choch === 'BULLISH' && price > vwap)
-        bull += 5;
-    else if (choch === 'BEARISH' && price < vwap)
-        bear += 5;
+    bull = Math.round(bull * adxW) - (bull > bear ? conflict : 0);
+    bear = Math.round(bear * adxW) - (bear > bull ? conflict : 0);
+    bull = Math.max(0, bull);
+    bear = Math.max(0, bear);
+
+    const diff = Math.abs(bull - bear);
+    let bias = 'NEUTRAL';
+    let score = 0;
+
+    if (bull > bear && diff >= 10) {
+        bias  = 'BULL';
+        score = Math.min(100, Math.round(bull * 1.1));
+    } else if (bear > bull && diff >= 10) {
+        bias  = 'BEAR';
+        score = Math.min(100, Math.round(bear * 1.1));
+    } else {
+        score = Math.round(Math.max(bull, bear) * 0.5);
+    }
+
+    if (bias === 'BULL') {
+        if (emaBias !== 'BULL' || macdDir !== 'BULL' || vwapDir !== 'BULL') {
+            f.triple_fail = true;
+            bias  = 'NEUTRAL';
+            score = Math.round(score * 0.5);
+        }
+    } else if (bias === 'BEAR') {
+        if (emaBias !== 'BEAR' || macdDir !== 'BEAR' || vwapDir !== 'BEAR') {
+            f.triple_fail = true;
+            bias  = 'NEUTRAL';
+            score = Math.round(score * 0.5);
+        }
+    }
+
+    let zone = null;
+    if (bias !== 'NEUTRAL' && ema21 && vwap) {
+        if (bias === 'BULL') {
+            const zoneHigh = Math.max(ema21, vwap) + atr * 0.15;
+            const zoneLow  = Math.min(ema21, vwap) - atr * 0.3;
+            zone = { high: zoneHigh, low: zoneLow, mid: (ema21 + vwap) / 2, type: 'SUPPORT' };
+        } else {
+            const zoneHigh = Math.max(ema21, vwap) + atr * 0.3;
+            const zoneLow  = Math.min(ema21, vwap) - atr * 0.15;
+            zone = { high: zoneHigh, low: zoneLow, mid: (ema21 + vwap) / 2, type: 'RESISTANCE' };
+        }
+    }
+
+    f.ema21_val = ema21 ? ema21.toFixed(2) : null;
+    f.vwap_val  = vwap  ? vwap.toFixed(2)  : null;
+
+    return { bias, score, zone, atr, adx, vwap, ema21, factors: f };
 }
 
-    const MAX = 98;
-    let direction = null, score = 0;
-    const diff = Math.abs(bull - bear);
-    if (bull > bear && diff >= 8) {
-        direction = 'buy';
-        score = Math.min(98, Math.round((bull / MAX) * 98 + bull * 0.15));
-    } else if (bear > bull && diff >= 8) {
-        direction = 'sell';
-        score = Math.min(98, Math.round((bear / MAX) * 98 + bear * 0.15));
-    } else {
-        score = Math.round(Math.max(bull, bear) / 2);
+// ================================================================
+//  MICRO PULLBACK SCORER
+// ================================================================
+function scoreMicroPullback(id, price, microCandles, macroBias, macroZone, macroATR) {
+    if (!microCandles || microCandles.length < 8) {
+        return { confirmed: false, score: 0, rejection: false, factors: {} };
     }
 
-    return { score, factors: f, direction, bull, bear, rsi, macd, ema9, ema21, vwap, atr };
+    const closes  = microCandles.map(c => c.close);
+    const rsi     = calcRSI(closes, 9);
+    const macd    = calcMACD(closes, 6, 13, 5);
+    const volSpike = detectVolSpike(microCandles, 8);
+    const atr     = calcATR(microCandles, 8) || macroATR * 0.3;
+
+    const f = {};
+    let score = 0;
+
+    if (rsi !== null) {
+        f.rsi = rsi.toFixed(1);
+        if (macroBias === 'BULL') {
+            if (rsi < 35)       { score += 28; f.rsi_sig = 'OVS'; }
+            else if (rsi < 45)  { score += 18; f.rsi_sig = 'LOW'; }
+            else if (rsi > 65)  { score -= 15; f.rsi_sig = 'HIGH_WARN'; }
+            else f.rsi_sig = 'MID';
+        } else if (macroBias === 'BEAR') {
+            if (rsi > 65)       { score += 28; f.rsi_sig = 'OVB'; }
+            else if (rsi > 55)  { score += 18; f.rsi_sig = 'HIGH'; }
+            else if (rsi < 35)  { score -= 15; f.rsi_sig = 'LOW_WARN'; }
+            else f.rsi_sig = 'MID';
+        }
+    }
+
+    if (macd) {
+        f.macd_micro = macd.hist.toFixed(5);
+        if (macroBias === 'BULL') {
+            if (macd.hist > 0)       { score += 22; f.macd_micro_sig = 'TURNING_BULL'; }
+            else if (macd.hist > -0.0001 * (id === 'xau' ? 1 : 100)) { score += 10; f.macd_micro_sig = 'NEAR_CROSS'; }
+            else                     { score += 5;  f.macd_micro_sig = 'STILL_BEAR'; }
+        } else if (macroBias === 'BEAR') {
+            if (macd.hist < 0)       { score += 22; f.macd_micro_sig = 'TURNING_BEAR'; }
+            else if (macd.hist < 0.0001 * (id === 'xau' ? 1 : 100)) { score += 10; f.macd_micro_sig = 'NEAR_CROSS'; }
+            else                     { score += 5;  f.macd_micro_sig = 'STILL_BULL'; }
+        }
+    }
+
+    let rejection = false;
+    if (microCandles.length >= 3) {
+        const last3 = microCandles.slice(-3);
+        if (macroBias === 'BULL') {
+            const c = last3[last3.length - 1];
+            const c2 = last3[last3.length - 2];
+            const bullRej = c.close > c.open &&
+                            c.close > c2.close &&
+                            (c.close - c.low) > (c.high - c.close) * 0.6;
+            if (bullRej) { rejection = true; score += 30; f.rejection = 'BULL_REJ'; }
+        } else if (macroBias === 'BEAR') {
+            const c = last3[last3.length - 1];
+            const c2 = last3[last3.length - 2];
+            const bearRej = c.close < c.open &&
+                            c.close < c2.close &&
+                            (c.high - c.close) > (c.close - c.low) * 0.6;
+            if (bearRej) { rejection = true; score += 30; f.rejection = 'BEAR_REJ'; }
+        }
+    }
+
+    f.vol_spike = volSpike;
+    if (volSpike) { score += 20; }
+
+    if (macroZone) {
+        const distToMid = Math.abs(price - macroZone.mid);
+        const inZone = price >= macroZone.low && price <= macroZone.high;
+        f.in_zone = inZone;
+        f.zone_dist = distToMid.toFixed(2);
+        if (inZone) {
+            score += 18;
+            if (distToMid < macroATR * 0.25) score += 8;
+        }
+    }
+
+    f.micro_score = score;
+    const confirmed = score >= MIN_MICRO_CONF;
+    return { confirmed, score, rejection, factors: f };
 }
 
 // ================================================================
 //  STATE MANAGEMENT
 // ================================================================
 function createFreshState() {
-    return { v: LS_SCHEMA_VERSION, lastPrice: 0, l1: false, l2: false, l3: false, confirmed: false, confirmedAt: 0, resetInProgress: false, warmupUntil: 0, cooldownUntil: 0, type: 'none', entry: 0, sl: 0, tp: 0, tempHigh: 0, tempLow: 0, originPrice: 0, retracePct: 0, confluenceScore: 0 };
+    return {
+        v: LS_SCHEMA_VERSION,
+        lastPrice: 0,
+        l1: false, l2: false, l3: false,
+        confirmed: false, confirmedAt: 0,
+        resetInProgress: false,
+        warmupUntil: 0,
+        cooldownUntil: 0,
+        type: 'none', entry: 0, sl: 0, tp: 0,
+        tempHigh: 0, tempLow: 0,
+        originPrice: 0, retracePct: 0,
+        confluenceScore: 0,
+        macroBias: 'NEUTRAL',
+        macroScore: 0,
+        pullbackWaiting: false,
+        pullbackZone: null,
+        inZoneSince: 0,
+    };
 }
-function loadState(id) { try { const r = localStorage.getItem(`ura_state_${id}`); return r ? Object.assign(createFreshState(), JSON.parse(r)) : createFreshState(); } catch(e) { return createFreshState(); } }
-function createDefaultStats() { return { tpHits: 0, retraceResets: 0, slHits: 0, total: 0, winrate: 0.0, drawrate: 0.0 }; }
-function loadPerformanceStats(id) { try { const r = localStorage.getItem(`ura_stats_${id}`); return r ? Object.assign(createDefaultStats(), JSON.parse(r)) : createDefaultStats(); } catch(e) { return createDefaultStats(); } }
-function savePerformanceStats(id) { try { localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id])); } catch(e) {} }
-function updateWinrateAndDrawrate(id) { const s = performanceStats[id]; s.total = s.tpHits + s.retraceResets + s.slHits; const wd = s.tpHits + s.slHits; s.winrate = wd > 0 ? parseFloat(((s.tpHits / wd) * 100).toFixed(1)) : 0.0; s.drawrate = s.total > 0 ? parseFloat(((s.retraceResets / s.total) * 100).toFixed(1)) : 0.0; }
-function recordSignalResult(id, type) { const s = performanceStats[id]; if (type === 'tp') s.tpHits++; else if (type === 'retrace') s.retraceResets++; else if (type === 'sl') s.slHits++; updateWinrateAndDrawrate(id); savePerformanceStats(id); updatePerformanceUI(id); }
+
+function loadState(id) {
+    try {
+        const r = localStorage.getItem(`ura_state_${id}`);
+        return r ? Object.assign(createFreshState(), JSON.parse(r)) : createFreshState();
+    } catch(e) { return createFreshState(); }
+}
+
+function createDefaultStats() {
+    return { tpHits: 0, retraceResets: 0, slHits: 0, total: 0, winrate: 0.0, drawrate: 0.0 };
+}
+
+function loadPerformanceStats(id) {
+    try {
+        const r = localStorage.getItem(`ura_stats_${id}`);
+        return r ? Object.assign(createDefaultStats(), JSON.parse(r)) : createDefaultStats();
+    } catch(e) { return createDefaultStats(); }
+}
+
+function savePerformanceStats(id) {
+    try { localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id])); } catch(e) {}
+}
+
+function updateWinrateAndDrawrate(id) {
+    const s = performanceStats[id];
+    s.total = s.tpHits + s.retraceResets + s.slHits;
+    const wd = s.tpHits + s.slHits;
+    s.winrate  = wd > 0    ? parseFloat(((s.tpHits / wd) * 100).toFixed(1)) : 0.0;
+    s.drawrate = s.total > 0 ? parseFloat(((s.retraceResets / s.total) * 100).toFixed(1)) : 0.0;
+}
+
+function recordSignalResult(id, type) {
+    const s = performanceStats[id];
+    if (type === 'tp') s.tpHits++;
+    else if (type === 'retrace') s.retraceResets++;
+    else if (type === 'sl') s.slHits++;
+    updateWinrateAndDrawrate(id);
+    savePerformanceStats(id);
+    updatePerformanceUI(id);
+}
 
 // ================================================================
-//  GLOBAL STATE VARS
+//  GLOBAL STATE
 // ================================================================
-let state              = { xau: null, btc: null };
-let wsStatus           = { xau: false, btc: false };
-let activePairId       = localStorage.getItem('ura_active_pair') || 'xau';
-let performanceStats   = {};
-let pendingConfirmation= { xau: null, btc: null };
-let tapCounters        = { xau: 0, btc: 0 };
-let tapTimers          = { xau: null, btc: null };
+let state             = { xau: null, btc: null };
+let wsStatus          = { xau: false, btc: false };
+let activePairId      = localStorage.getItem('ura_active_pair') || 'xau';
+let performanceStats  = {};
+let pendingConfirmation = { xau: null, btc: null };
+let tapCounters       = { xau: 0, btc: 0 };
+let tapTimers         = { xau: null, btc: null };
 let historyTapCounters = { xau: 0, btc: 0 };
-let historyTapTimers   = { xau: null, btc: null };
-const TAP_TIMEOUT      = 500;
-let pendingPriceData   = { xau: null, btc: null };
-let pendingSignalData  = { xau: false, btc: false };
-let rafPending         = { xau: false, btc: false };
-let pendingSaveData    = { xau: null, btc: null };
-let pendingSaveTimer   = { xau: null, btc: null };
-const SAVE_INTERVAL    = 1000;
-let signalDebounceTimer= { xau: null, btc: null };
-const SIGNAL_DEBOUNCE_MS = 12;
+let historyTapTimers  = { xau: null, btc: null };
+const TAP_TIMEOUT     = 500;
+let pendingPriceData  = { xau: null, btc: null };
+let pendingSignalData = { xau: false, btc: false };
+let rafPending        = { xau: false, btc: false };
+let pendingSaveData   = { xau: null, btc: null };
+let pendingSaveTimer  = { xau: null, btc: null };
+const SAVE_INTERVAL   = 1000;
+let signalDebounceTimer = { xau: null, btc: null };
+const SIGNAL_DEBOUNCE_MS = 15;
 
-// candle engine
+// ================================================================
+//  DUAL TIMEFRAME CANDLE ENGINE
+// ================================================================
 let marketData = {
-    xau: { candles: [], currentCandle: null, candleStart: 0, atr: 0, ema: 0, prevEMA: 0, price: 0 },
-    btc: { candles: [], currentCandle: null, candleStart: 0, atr: 0, ema: 0, prevEMA: 0, price: 0 }
-};
-const CANDLE_DUR = { xau: 5000, btc: 4000 };
-
-function buildCandle(id, price) {
-    const md = marketData[id]; const now = Date.now();
-    if (!md.currentCandle || (now - md.candleStart) >= CANDLE_DUR[id]) {
-        if (md.currentCandle) { md.currentCandle.closed = true; md.candles.push({ ...md.currentCandle }); if (md.candles.length > 200) md.candles.shift(); }
-        md.currentCandle = { open: price, high: price, low: price, close: price, volume: 1, closed: false };
-        md.candleStart = now;
-    } else {
-        md.currentCandle.high  = Math.max(md.currentCandle.high, price);
-        md.currentCandle.low   = Math.min(md.currentCandle.low, price);
-        md.currentCandle.close = price;
-        md.currentCandle.volume++;
+    xau: {
+        macro: { candles: [], currentCandle: null, candleStart: 0 },
+        micro: { candles: [], currentCandle: null, candleStart: 0 },
+        atr: 0, price: 0,
+        lastMacroBias: null,
+        lastMacroAt: 0,
+    },
+    btc: {
+        macro: { candles: [], currentCandle: null, candleStart: 0 },
+        micro: { candles: [], currentCandle: null, candleStart: 0 },
+        atr: 0, price: 0,
+        lastMacroBias: null,
+        lastMacroAt: 0,
     }
+};
+
+function buildDualCandle(id, price) {
+    const md  = marketData[id];
+    const now = Date.now();
+
+    const mac = md.macro;
+    if (!mac.currentCandle || (now - mac.candleStart) >= MACRO_DUR[id]) {
+        if (mac.currentCandle) {
+            mac.currentCandle.closed = true;
+            mac.candles.push({ ...mac.currentCandle });
+            if (mac.candles.length > 120) mac.candles.shift();
+        }
+        mac.currentCandle = { open: price, high: price, low: price, close: price, volume: 1, closed: false };
+        mac.candleStart = now;
+    } else {
+        mac.currentCandle.high   = Math.max(mac.currentCandle.high, price);
+        mac.currentCandle.low    = Math.min(mac.currentCandle.low,  price);
+        mac.currentCandle.close  = price;
+        mac.currentCandle.volume++;
+    }
+
+    const mic = md.micro;
+    if (!mic.currentCandle || (now - mic.candleStart) >= MICRO_DUR[id]) {
+        if (mic.currentCandle) {
+            mic.currentCandle.closed = true;
+            mic.candles.push({ ...mic.currentCandle });
+            if (mic.candles.length > 80) mic.candles.shift();
+        }
+        mic.currentCandle = { open: price, high: price, low: price, close: price, volume: 1, closed: false };
+        mic.candleStart = now;
+    } else {
+        mic.currentCandle.high   = Math.max(mic.currentCandle.high, price);
+        mic.currentCandle.low    = Math.min(mic.currentCandle.low,  price);
+        mic.currentCandle.close  = price;
+        mic.currentCandle.volume++;
+    }
+
     md.price = price;
-    if (md.candles.length >= 5) {
-        const c = md.candles.filter(x => x.closed);
-        md.atr = calcATR(c) || md.atr;
-        const cl = c.map(x => x.close);
-        md.prevEMA = md.ema;
-        md.ema = calcEMA(cl, Math.min(21, cl.length)) || md.ema;
+    const macClosed = md.macro.candles.filter(c => c.closed);
+    if (macClosed.length >= 5) {
+        md.atr = calcATR(macClosed, 14) || md.atr;
     }
 }
-function getClosedCandles(id) { return marketData[id].candles.filter(c => c.closed); }
+
+function getMacroCandles(id) { return marketData[id].macro.candles.filter(c => c.closed); }
+function getMicroCandles(id) { return marketData[id].micro.candles.filter(c => c.closed); }
 
 function seedCandles(id, base) {
-    const step = id === 'xau' ? 0.5 : 55; const n = 65;
-    marketData[id].candles = [];
-    for (let i = 0; i < n; i++) {
-        const noise = (Math.random() - 0.5) * step * 0.7;
-        const open  = base + (i - n / 2) * step * 0.025 + noise;
-        const close = open + (Math.random() - 0.48) * step * 0.18;
-        const hi = Math.max(open, close) + Math.random() * step * 0.08;
-        const lo = Math.min(open, close) - Math.random() * step * 0.08;
-        marketData[id].candles.push({ open, high: hi, low: lo, close, volume: 40 + Math.floor(Math.random() * 90), closed: true });
+    const md   = marketData[id];
+    const step = id === 'xau' ? 1.2 : 120;
+
+    md.macro.candles = [];
+    for (let i = 0; i < 90; i++) {
+        const noise = (Math.random() - 0.5) * step * 0.6;
+        const open  = base + (i - 45) * step * 0.015 + noise;
+        const close = open + (Math.random() - 0.48) * step * 0.12;
+        const hi    = Math.max(open, close) + Math.random() * step * 0.06;
+        const lo    = Math.min(open, close) - Math.random() * step * 0.06;
+        md.macro.candles.push({ open, high: hi, low: lo, close, volume: 80 + Math.floor(Math.random() * 120), closed: true });
+    }
+
+    md.micro.candles = [];
+    for (let i = 0; i < 40; i++) {
+        const noise = (Math.random() - 0.5) * step * 0.15;
+        const open  = base + noise;
+        const close = open + (Math.random() - 0.48) * step * 0.04;
+        const hi    = Math.max(open, close) + Math.random() * step * 0.02;
+        const lo    = Math.min(open, close) - Math.random() * step * 0.02;
+        md.micro.candles.push({ open, high: hi, low: lo, close, volume: 20 + Math.floor(Math.random() * 40), closed: true });
     }
 }
 
 // ================================================================
-//  EXECUTE LOCK SIGNAL — DENGAN REGIME ADAPTIVE SL
+//  EXECUTE LOCK SIGNAL
 // ================================================================
-function executeLockSignal(id, direction, livePrice, score) {
+function executeLockSignal(id, direction, livePrice, macroResult, microResult) {
     const s = state[id];
     const entry = livePrice > 0 ? livePrice : (s.lastPrice || 0);
     if (entry <= 0) return;
-    
-    const atr = marketData[id].atr || (id === 'xau' ? 3.5 : 350);
-    const closedCandles = getClosedCandles(id);
-    
-    // ========== MARKET REGIME DETECTION untuk Adaptive SL ==========
-    let regimeMultiplier = 1.0;
-    let regime = 'NORMAL';
-    
-    if (closedCandles.length >= 20) {
-        const closes = closedCandles.map(c => c.close);
-        const bb = calcBollinger(closes, 20, 2);
-        const bbWidth = bb ? bb.width : 0;
-        
-        // Detect regime
-        const w = closedCandles.slice(-20);
-        let upMoves = 0, downMoves = 0;
-        for (let i = 1; i < w.length; i++) {
-            const up = w[i].high - w[i-1].high;
-            const dn = w[i-1].low - w[i].low;
-            if (up > dn && up > 0) upMoves++;
-            else if (dn > up && dn > 0) downMoves++;
-        }
-        const directional = Math.abs(upMoves - downMoves) / (w.length - 1);
-        
-        if (directional >= 0.35 && bbWidth > (id === 'xau' ? 0.004 : 0.006)) {
-            regime = upMoves > downMoves ? 'TRENDING_UP' : 'TRENDING_DOWN';
-            regimeMultiplier = 1.3;  // Trending → SL lebih longgar (+30%)
-        } else if (bbWidth < (id === 'xau' ? 0.003 : 0.004)) {
-            regime = 'SQUEEZE';
-            regimeMultiplier = 0.7;  // Squeeze → SL lebih ketat (-30%)
+
+    const atr   = macroResult.atr || marketData[id].atr || (id === 'xau' ? 3.5 : 350);
+    const zone  = macroResult.zone;
+
+    let slD;
+    if (zone) {
+        if (direction === 'buy') {
+            slD = Math.abs(entry - zone.low) + atr * 0.4;
         } else {
-            regime = 'RANGING';
-            regimeMultiplier = 0.85; // Ranging → SL sedikit lebih ketat (-15%)
+            slD = Math.abs(zone.high - entry) + atr * 0.4;
         }
+    } else {
+        slD = atr * 1.2;
     }
-    // ================================================================
-    
-    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 14 : 250);
+
+    slD = Math.max(slD, id === 'xau' ? 8 : 145);
     const tpD = slD * RR_RATIO;
-    
-    s.l3 = true; s.confirmed = true; s.confirmedAt = Date.now(); s.warmupUntil = Date.now() + 2500;
+
+    s.l3 = true; s.confirmed = true; s.confirmedAt = Date.now();
+    s.warmupUntil = Date.now() + 3000;
     s.type = direction; s.entry = entry; s.originPrice = entry;
-    s.tempHigh = entry; s.tempLow = entry; s.retracePct = 0; s.confluenceScore = score;
-    
-    if (direction === 'buy') { 
-        s.sl = entry - slD; 
-        s.tp = entry + tpD; 
-    } else { 
-        s.sl = entry + slD; 
-        s.tp = entry - tpD; 
+    s.tempHigh = entry; s.tempLow = entry;
+    s.retracePct = 0;
+    s.confluenceScore = Math.round((macroResult.score + (microResult?.score || 0)) / 2);
+    s.macroBias = macroResult.bias;
+    s.pullbackWaiting = false;
+    s.pullbackZone = null;
+
+    if (direction === 'buy') {
+        s.sl = entry - slD;
+        s.tp = entry + tpD;
+    } else {
+        s.sl = entry + slD;
+        s.tp = entry - tpD;
     }
-    
-    throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
+
+    throttledSaveState(id);
+    pendingSignalData[id] = true;
+    throttledUpdateUI(id);
     document.getElementById(`signal-bar-${id}`)?.classList.remove('confirm-wait');
     if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-    showToast(`${id.toUpperCase()} ${direction.toUpperCase()} @ ${entry.toFixed(2)} | ${regime} | SL:${slD.toFixed(2)}`);
+
+    const regime = macroResult.factors.adx_class || 'N/A';
+    showToast(`${id.toUpperCase()} ${direction.toUpperCase()} @ ${entry.toFixed(2)} | ADX:${regime} | SL:${slD.toFixed(1)}`);
 }
 
 // ================================================================
-//  SIGNAL ENGINE — CORE
+//  SIGNAL ENGINE — CORE (MTF FLOW)
 // ================================================================
 function processSignal(id, price) {
-    const s = state[id]; if (!s) return;
+    const s = state[id];
+    if (!s) return;
     if (Date.now() < (s.cooldownUntil || 0)) return;
 
-    buildCandle(id, price);
-    const closed = getClosedCandles(id);
+    buildDualCandle(id, price);
 
-    // OPEN TRADE — manage TP/SL/retrace
     if (s.confirmed && s.type !== 'none') {
         if (!s.tempHigh || s.tempHigh === 0) { s.tempHigh = s.entry; s.tempLow = s.entry; }
         if (price > s.tempHigh) s.tempHigh = price;
         if (price < s.tempLow)  s.tempLow  = price;
         updateTracker(id, price);
-        const hitTP = (s.type === 'buy' && price >= s.tp)  || (s.type === 'sell' && price <= s.tp);
-        const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
+
+        const hitTP = (s.type === 'buy'  && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
+        const hitSL = (s.type === 'buy'  && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
+
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
-        if (hitSL) { state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS; recordSignalResult(id, 'sl'); resetSignal(id); return; }
-        const buf = id === 'xau' ? 12.5 : 180;
+        if (hitSL) {
+            state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
+            recordSignalResult(id, 'sl');
+            resetSignal(id);
+            return;
+        }
+
+        const buf = id === 'xau' ? 7.5 : 120;
         if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         return;
     }
 
     if (pendingConfirmation[id]) { s.lastPrice = price; return; }
-    if (closed.length < 28)     { s.lastPrice = price; return; }
 
-    const cf = scoreConfluence(id, price, closed);
-    updateEngineBadges(id, cf);
-    updateConfluenceBar(id, cf.score);
+    const macroCandles = getMacroCandles(id);
+    const microCandles = getMicroCandles(id);
 
-    const thr0 = MIN_CONFLUENCE * 0.75;
-    const thr1 = MIN_CONFLUENCE * 0.85;
-    const thr2 = MIN_CONFLUENCE;
+    if (macroCandles.length < 30) { s.lastPrice = price; return; }
 
-    if (!s.l1 && cf.direction && cf.score >= thr0) {
-        s.l1 = true; s.type = cf.direction; s.originPrice = price; s.tempHigh = price; s.tempLow = price;
-        pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id); return;
+    const now = Date.now();
+    const macroAge = now - (marketData[id].lastMacroAt || 0);
+    let macroResult = marketData[id].lastMacroBias;
+
+    if (!macroResult || macroAge > 15000) {
+        macroResult = scoreMacroBias(id, price, macroCandles);
+        marketData[id].lastMacroBias = macroResult;
+        marketData[id].lastMacroAt   = now;
+        updateEngineBadges(id, macroResult);
+        updateConfluenceBar(id, macroResult.score);
     }
-    if (s.l1 && !s.l2 && cf.direction === s.type && cf.score >= thr1) {
-        s.l2 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id); return;
+
+    if (macroResult.bias === 'NEUTRAL' || macroResult.score < MIN_MACRO_SCORE) {
+        if (s.l1 && s.macroBias && s.macroBias !== 'NEUTRAL' &&
+            macroResult.bias !== 'NEUTRAL' && macroResult.bias !== s.macroBias) {
+            resetSignal(id);
+        }
+        s.lastPrice = price;
+        if (s.l1) { s.l1 = false; pendingSignalData[id] = true; throttledUpdateUI(id); }
+        return;
     }
-    if (s.l2 && !s.l3 && cf.direction === s.type && cf.score >= thr2) {
-        s.l3 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id);
-        startConfirmationDelay(id, cf.direction, price, cf); return;
+
+    if (s.macroBias && s.macroBias !== 'NEUTRAL' && s.macroBias !== macroResult.bias) {
+        resetSignal(id);
+        s.lastPrice = price;
+        return;
     }
-    if (s.l1 && !s.confirmed && cf.direction && cf.direction !== s.type && cf.score > thr2 * 0.9) {
-        resetSignal(id); return;
+
+    if (!s.l1) {
+        s.l1 = true;
+        s.macroBias = macroResult.bias;
+        s.pullbackWaiting = true;
+        s.pullbackZone = macroResult.zone;
+        s.type = macroResult.bias === 'BULL' ? 'buy' : 'sell';
+        pendingSignalData[id] = true;
+        throttledUpdateUI(id);
+        throttledSaveState(id);
     }
-    s.lastPrice = price; throttledSaveState(id);
+
+    const zone = macroResult.zone || s.pullbackZone;
+    if (!zone) { s.lastPrice = price; return; }
+
+    const inZone = price >= zone.low && price <= zone.high;
+
+    if (!inZone) {
+        const distFromZone = macroResult.bias === 'BULL'
+            ? price - zone.high
+            : zone.low - price;
+
+        if (distFromZone > macroResult.atr * 3.5) {
+            if (s.l1 || s.l2) { resetSignal(id); }
+        }
+        s.lastPrice = price;
+        return;
+    }
+
+    if (s.inZoneSince === 0) s.inZoneSince = now;
+
+    if (s.l1 && !s.l2) {
+        s.l2 = true;
+        pendingSignalData[id] = true;
+        throttledUpdateUI(id);
+        throttledSaveState(id);
+    }
+
+    if (microCandles.length < 8) { s.lastPrice = price; return; }
+
+    const microResult = scoreMicroPullback(
+        id, price, microCandles,
+        macroResult.bias, zone, macroResult.atr
+    );
+
+    if (s.l2 && !s.l3 && microResult.confirmed) {
+        s.l3 = true;
+        pendingSignalData[id] = true;
+        throttledUpdateUI(id);
+        throttledSaveState(id);
+        startConfirmationDelay(id, macroResult.bias === 'BULL' ? 'buy' : 'sell', price, macroResult, microResult);
+        return;
+    }
+
+    s.lastPrice = price;
+    throttledSaveState(id);
 }
 
 function updateSignal(id, price) {
     if (signalDebounceTimer[id]) clearTimeout(signalDebounceTimer[id]);
-    signalDebounceTimer[id] = setTimeout(() => { processSignal(id, price); signalDebounceTimer[id] = null; }, SIGNAL_DEBOUNCE_MS);
+    signalDebounceTimer[id] = setTimeout(() => {
+        processSignal(id, price);
+        signalDebounceTimer[id] = null;
+    }, SIGNAL_DEBOUNCE_MS);
 }
 
-function startConfirmationDelay(id, direction, entryPrice, cf) {
+function startConfirmationDelay(id, direction, entryPrice, macroResult, microResult) {
     if (pendingConfirmation[id]) cancelPendingConfirmation(id);
-    pendingConfirmation[id] = { direction, entryPrice, cf };
+    pendingConfirmation[id] = { direction, entryPrice, macroResult, microResult };
     const sb = document.getElementById(`signal-bar-${id}`);
     if (sb) sb.classList.add('confirm-wait');
     document.getElementById(`l3-${id}`)?.classList.add('confirm-pending');
     updateSignalUIOnly(id);
+
     pendingConfirmation[id].timerId = setTimeout(() => {
         if (!pendingConfirmation[id]) return;
-        const closed = getClosedCandles(id);
+
+        const macroCandles = getMacroCandles(id);
+        const microCandles = getMicroCandles(id);
         const lp = id === 'xau' ? xauCurrentPrice : (marketData[id].price || state[id].lastPrice || 0);
-        const cf2 = closed.length >= 28 ? scoreConfluence(id, lp, closed) : { score: 0, direction: null };
-        if (cf2.score >= MIN_CONFLUENCE && cf2.direction === direction) {
-            executeLockSignal(id, direction, lp, cf2.score);
+
+        const cf2 = macroCandles.length >= 30 ? scoreMacroBias(id, lp, macroCandles) : { bias: 'NEUTRAL', score: 0 };
+        const dirBias = direction === 'buy' ? 'BULL' : 'BEAR';
+
+        const zone = macroResult.zone || state[id].pullbackZone;
+        const mc2  = microCandles.length >= 8
+            ? scoreMicroPullback(id, lp, microCandles, dirBias, zone, macroResult.atr)
+            : { confirmed: false, score: 0 };
+
+        const macroStillValid = cf2.bias === dirBias && cf2.score >= MIN_MACRO_SCORE;
+        const microStillValid = mc2.confirmed || mc2.score >= MIN_MICRO_CONF * 0.8;
+        const stillInZone     = zone ? (lp >= zone.low && lp <= zone.high) : true;
+
+        if (macroStillValid && (microStillValid || stillInZone)) {
+            executeLockSignal(id, direction, lp, cf2, mc2);
         } else {
             resetSignal(id);
             const st = document.getElementById(`signal-text-${id}`);
-            if (st) { st.innerText = 'REJECT'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1500); }
+            if (st) {
+                st.innerText = 'REJECT';
+                st.style.color = 'var(--danger)';
+                setTimeout(() => updateSignalUIOnly(id), 1800);
+            }
         }
         pendingConfirmation[id] = null;
     }, CONFIRMATION_WAIT_MS);
@@ -665,11 +1001,16 @@ function resetSignal(id) {
     s.resetInProgress = true;
     if (pendingConfirmation[id]) cancelPendingConfirmation(id);
     if (signalDebounceTimer[id]) { clearTimeout(signalDebounceTimer[id]); signalDebounceTimer[id] = null; }
+    marketData[id].lastMacroBias = null;
+    marketData[id].lastMacroAt   = 0;
     const kept = { lastPrice: s.lastPrice, cooldownUntil: s.cooldownUntil || 0 };
     Object.assign(s, createFreshState(), kept);
-    pendingSignalData[id] = true; updateSignalUIOnly(id);
-    const t = document.getElementById(`tracker-${id}`); if (t) t.innerText = '0';
-    throttledSaveState(id); throttledUpdateUI(id);
+    pendingSignalData[id] = true;
+    updateSignalUIOnly(id);
+    const t = document.getElementById(`tracker-${id}`);
+    if (t) t.innerText = '0';
+    throttledSaveState(id);
+    throttledUpdateUI(id);
     requestAnimationFrame(() => { s.resetInProgress = false; });
     setTimeout(() => { s.resetInProgress = false; }, 300);
 }
@@ -682,7 +1023,10 @@ function throttledSaveState(id) {
     pendingSaveData[id] = { ...s };
     if (pendingSaveTimer[id]) return;
     pendingSaveTimer[id] = setTimeout(() => {
-        if (pendingSaveData[id]) { try { localStorage.setItem(`ura_state_${id}`, JSON.stringify(pendingSaveData[id])); } catch(e) {} pendingSaveData[id] = null; }
+        if (pendingSaveData[id]) {
+            try { localStorage.setItem(`ura_state_${id}`, JSON.stringify(pendingSaveData[id])); } catch(e) {}
+            pendingSaveData[id] = null;
+        }
         pendingSaveTimer[id] = null;
     }, SAVE_INTERVAL);
 }
@@ -705,16 +1049,23 @@ function updatePriceDisplayOnly(id, price) {
     el.innerText = price.toFixed(2); el.dataset.prev = price;
     if (prev !== 0 && prev !== price) {
         el.style.color = price > prev ? 'var(--success)' : 'var(--danger)';
-        clearTimeout(el._ct); el._ct = setTimeout(() => { el.style.color = ''; }, 280);
+        clearTimeout(el._ct);
+        el._ct = setTimeout(() => { el.style.color = ''; }, 280);
     }
     if (state[id]) updateTracker(id, price);
 }
 
 function updateTracker(id, price) {
     const s = state[id]; const t = document.getElementById(`tracker-${id}`);
-    if (!s || !s.confirmed || s.type === 'none' || s.entry <= 0) { if (t) { t.innerText = '0'; t.style.color = ''; } return; }
+    if (!s || !s.confirmed || s.type === 'none' || s.entry <= 0) {
+        if (t) { t.innerText = '0'; t.style.color = ''; }
+        return;
+    }
     const dist = s.type === 'buy' ? price - s.entry : s.entry - price;
-    if (t) { t.innerText = (Math.round(dist * 100) / 100).toFixed(2); t.style.color = dist >= 0 ? 'var(--emerald)' : 'var(--crimson)'; }
+    if (t) {
+        t.innerText = (Math.round(dist * 100) / 100).toFixed(2);
+        t.style.color = dist >= 0 ? 'var(--emerald)' : 'var(--crimson)';
+    }
 }
 
 function updateSignalUIOnly(id) {
@@ -725,57 +1076,63 @@ function updateSignalUIOnly(id) {
         else if (pendingConfirmation[id] && eid === `l3-${id}` && !s.confirmed) el.className = 'dot confirm-pending';
         else el.className = type === 'sell' ? 'dot active-down' : 'dot active';
     };
-    setDot(`l1-${id}`, s.l1, s.type); setDot(`l2-${id}`, s.l2, s.type); setDot(`l3-${id}`, s.l3, s.type);
+    setDot(`l1-${id}`, s.l1, s.type);
+    setDot(`l2-${id}`, s.l2, s.type);
+    setDot(`l3-${id}`, s.l3, s.type);
+
     const st = document.getElementById(`signal-text-${id}`);
     if (st) {
         if (!wsStatus[id] && id === 'btc') { st.innerText = 'NO FEED'; st.style.color = 'var(--danger)'; }
         else if (pendingConfirmation[id] && s.l3 && !s.confirmed) { st.innerText = 'CONFIRM...'; st.style.color = 'var(--gold)'; }
         else if (s.confirmed) { st.innerText = s.type.toUpperCase(); st.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
-        else if (s.l3) { st.innerText = 'LOCKED'; st.style.color = 'var(--accent)'; }
-        else if (s.l2) { st.innerText = 'STAGE 2'; st.style.color = 'var(--accent)'; }
-        else if (s.l1) { st.innerText = 'STAGE 1'; st.style.color = 'var(--amber)'; }
+        else if (s.l3) { st.innerText = 'ENTRY'; st.style.color = 'var(--accent)'; }
+        else if (s.l2) { st.innerText = 'ZONE'; st.style.color = 'var(--accent)'; }
+        else if (s.l1) { st.innerText = s.macroBias || 'BIAS'; st.style.color = s.macroBias === 'BULL' ? 'var(--emerald)' : s.macroBias === 'BEAR' ? 'var(--crimson)' : 'var(--amber)'; }
         else { st.innerText = 'IDLE'; st.style.color = 'var(--text-dim)'; }
     }
+
     const eEl = document.getElementById(`entry-${id}`); if (eEl) eEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-    const tEl = document.getElementById(`tp-${id}`);    if (tEl) tEl.innerText    = s.confirmed ? s.tp.toFixed(2)    : '--';
-    const sEl = document.getElementById(`sl-${id}`);    if (sEl) sEl.innerText    = s.confirmed ? s.sl.toFixed(2)    : '--';
+    const tEl = document.getElementById(`tp-${id}`);    if (tEl) tEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
+    const sEl = document.getElementById(`sl-${id}`);    if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
 }
 
-function updateEngineBadges(id, cf) {
+function updateEngineBadges(id, macro) {
+    const f = macro.factors || {};
+    const bias = macro.bias;
+
     const badges = [
-        {
-    id: `eb-rsi-${id}`,
-    val: cf.factors.rsi_sig || 'RSI',
-    cls:
-        cf.factors.rsi_sig === 'BULL' ? 'bull' :
-        cf.factors.rsi_sig === 'BEAR' ? 'bear' :
-        'neutral'
-},
-        { id: `eb-macd-${id}`,  val: cf.factors.macd_sig || 'MACD', cls: (cf.factors.macd_sig||'').startsWith('BULL') ? 'bull' : (cf.factors.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral' },
-        { id: `eb-ema-${id}`,   val: cf.factors.ema_cross|| 'EMA',  cls: cf.factors.ema_cross === 'BULL' ? 'bull' : cf.factors.ema_cross === 'BEAR' ? 'bear' : 'off' },
-        { id: `eb-vwap-${id}`,  val: cf.factors.vwap     || 'VWAP', cls: cf.factors.vwap === 'ABOVE' ? 'bull' : cf.factors.vwap === 'BELOW' ? 'bear' : 'neutral' },
-        { id: `eb-bb-${id}`,    val: cf.factors.bb       || 'BB',   cls: cf.factors.bb === 'AT_LOWER' ? 'bull' : cf.factors.bb === 'AT_UPPER' ? 'bear' : cf.factors.bb === 'SQUEEZE' ? 'active' : 'neutral' },
-        { id: `eb-choch-${id}`, val: cf.factors.choch    || 'CHOCH',cls: cf.factors.choch === 'BULLISH' ? 'bull' : cf.factors.choch === 'BEARISH' ? 'bear' : 'off' },
-        { id: `eb-vol-${id}`,   val: cf.factors.vol_spike ? 'SPIKE' : 'NORM', cls: cf.factors.vol_spike ? 'active' : 'off' },
+        { id: `eb-rsi-${id}`, val: 'MACRO', cls: bias === 'BULL' ? 'bull' : bias === 'BEAR' ? 'bear' : 'off' },
+        { id: `eb-macd-${id}`, val: f.macd_sig || 'MACD', cls: (f.macd_sig||'').startsWith('BULL') ? 'bull' : (f.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral' },
+        { id: `eb-ema-${id}`, val: f.ema_cross || 'EMA', cls: f.ema_cross === 'BULL' ? 'bull' : f.ema_cross === 'BEAR' ? 'bear' : 'off' },
+        { id: `eb-vwap-${id}`, val: f.vwap || 'VWAP', cls: f.vwap === 'ABOVE' ? 'bull' : f.vwap === 'BELOW' ? 'bear' : 'neutral' },
+        { id: `eb-bb-${id}`, val: f.squeeze_warn ? 'SQZ' : (f.ema50 || 'EMA50'), cls: f.squeeze_warn ? 'active' : f.ema50 === 'ABOVE' ? 'bull' : f.ema50 === 'BELOW' ? 'bear' : 'neutral' },
+        { id: `eb-choch-${id}`, val: f.structure || 'STR', cls: f.structure === 'BULLISH' ? 'bull' : f.structure === 'BEARISH' ? 'bear' : 'off' },
+        { id: `eb-vol-${id}`, val: f.adx_class ? `ADX:${f.adx_class.slice(0,3)}` : 'ADX', cls: f.adx_class === 'STRONG' || f.adx_class === 'MILD' ? 'bull' : f.adx_class === 'WEAK' ? 'neutral' : f.adx_class === 'DEAD' ? 'bear' : 'off' },
     ];
-    for (const b of badges) { const el = document.getElementById(b.id); if (el) { el.className = `ebadge ${b.cls}`; el.textContent = b.val; } }
+
+    for (const b of badges) {
+        const el = document.getElementById(b.id);
+        if (el) { el.className = `ebadge ${b.cls}`; el.textContent = b.val; }
+    }
+
     const sc = document.getElementById(`eb-score-${id}`);
     if (sc) {
-        const s = Math.round(cf.score);
+        const s = Math.round(macro.score);
         sc.textContent = `CF:${s}`;
-        sc.className = 'ebadge score';
-        sc.style.color = s >= MIN_CONFLUENCE ? 'var(--emerald)' : s >= MIN_CONFLUENCE * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
+        sc.className   = 'ebadge score';
+        sc.style.color = s >= MIN_MACRO_SCORE ? 'var(--emerald)' : s >= MIN_MACRO_SCORE * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
     }
 }
 
 function updateConfluenceBar(id, score) {
-    const fill = document.getElementById(`cf-fill-${id}`); const txt = document.getElementById(`cf-txt-${id}`);
+    const fill = document.getElementById(`cf-fill-${id}`);
+    const txt  = document.getElementById(`cf-txt-${id}`);
     if (!fill || !txt) return;
-    const pct = Math.min(98, Math.max(0, score));
-    fill.style.width = pct + '%';
-    fill.style.background = pct >= MIN_CONFLUENCE ? 'var(--emerald)' : pct >= MIN_CONFLUENCE * 0.7 ? 'var(--gold)' : 'var(--crimson)';
-    txt.textContent = Math.round(pct);
-    txt.style.color = pct >= MIN_CONFLUENCE ? 'var(--emerald)' : pct >= MIN_CONFLUENCE * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
+    const pct = Math.min(100, Math.max(0, score));
+    fill.style.width      = pct + '%';
+    fill.style.background = pct >= MIN_MACRO_SCORE ? 'var(--emerald)' : pct >= MIN_MACRO_SCORE * 0.7 ? 'var(--gold)' : 'var(--crimson)';
+    txt.textContent       = Math.round(pct);
+    txt.style.color       = pct >= MIN_MACRO_SCORE ? 'var(--emerald)' : pct >= MIN_MACRO_SCORE * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
 }
 
 function updatePerformanceUI(id) {
@@ -784,34 +1141,55 @@ function updatePerformanceUI(id) {
     const rt = document.getElementById(`stats-retrace-${id}`);
     const sl = document.getElementById(`stats-sl-${id}`);
     const wr = document.getElementById(`stats-winrate-${id}`);
-    const dr = document.getElementById(`draw-rate-${id}`);
     if (tp) tp.innerText = s.tpHits;
     if (rt) { rt.innerText = s.retraceResets; rt.style.color = 'var(--teal)'; }
     if (sl) sl.innerText = s.slHits;
-    if (wr) { wr.innerText = `${s.winrate}%`; wr.style.color = s.winrate >= 65 ? 'var(--emerald)' : s.winrate >= 50 ? 'var(--gold)' : 'var(--crimson)'; }
-    if (dr) { dr.innerText = `${s.drawrate}%`; dr.style.color = 'var(--teal)'; }
+    if (wr) {
+        wr.innerText = `${s.winrate}%`;
+        wr.style.color = s.winrate >= 65 ? 'var(--emerald)' : s.winrate >= 50 ? 'var(--gold)' : 'var(--crimson)';
+    }
 }
 
 function updateFeedBadge(id, status) {
     const el = document.getElementById(`feed-badge-${id}`); if (!el) return;
     el.className = 'feed-badge';
-    if (status === 'ok')       { el.textContent = '● WS';   el.classList.add('ok'); }
+    if (status === 'ok')           { el.textContent = '● WS';   el.classList.add('ok'); }
     else if (status === 'fallback') { el.textContent = '⚡ REST'; el.classList.add('fallback'); }
-    else                       { el.textContent = '✕ ERR';  el.classList.add('err'); }
+    else                           { el.textContent = '✕ ERR';  el.classList.add('err'); }
 }
-function updateGlobalPulse() { const el = document.getElementById('globalPulse'); if (el) el.className = (xauCurrentPrice > 0 || wsStatus.btc) ? 'pulse connected' : 'pulse disconnected'; }
+
+function updateGlobalPulse() {
+    const el = document.getElementById('globalPulse');
+    if (el) el.className = (xauCurrentPrice > 0 || wsStatus.btc) ? 'pulse connected' : 'pulse disconnected';
+}
 
 function handleSignalBarTap(id) {
     if (tapTimers[id]) clearTimeout(tapTimers[id]);
     tapCounters[id]++;
     tapTimers[id] = setTimeout(() => { tapCounters[id] = 0; tapTimers[id] = null; }, TAP_TIMEOUT);
-    if (tapCounters[id] === 3) { if (pendingConfirmation[id]) cancelPendingConfirmation(id); resetSignal(id); tapCounters[id] = 0; if (tapTimers[id]) { clearTimeout(tapTimers[id]); tapTimers[id] = null; } if (navigator.vibrate) navigator.vibrate(30); showToast('Signal reset ✓'); }
+    if (tapCounters[id] === 3) {
+        if (pendingConfirmation[id]) cancelPendingConfirmation(id);
+        resetSignal(id);
+        tapCounters[id] = 0;
+        if (tapTimers[id]) { clearTimeout(tapTimers[id]); tapTimers[id] = null; }
+        if (navigator.vibrate) navigator.vibrate(30);
+        showToast('Signal reset ✓');
+    }
 }
+
 function handleHistoryPanelTap(id) {
     if (historyTapTimers[id]) clearTimeout(historyTapTimers[id]);
     historyTapCounters[id]++;
     historyTapTimers[id] = setTimeout(() => { historyTapCounters[id] = 0; historyTapTimers[id] = null; }, TAP_TIMEOUT);
-    if (historyTapCounters[id] === 3) { performanceStats[id] = createDefaultStats(); savePerformanceStats(id); updatePerformanceUI(id); historyTapCounters[id] = 0; if (historyTapTimers[id]) { clearTimeout(historyTapTimers[id]); historyTapTimers[id] = null; } if (navigator.vibrate) navigator.vibrate([30, 50, 30]); showToast('History reset ✓'); }
+    if (historyTapCounters[id] === 3) {
+        performanceStats[id] = createDefaultStats();
+        savePerformanceStats(id);
+        updatePerformanceUI(id);
+        historyTapCounters[id] = 0;
+        if (historyTapTimers[id]) { clearTimeout(historyTapTimers[id]); historyTapTimers[id] = null; }
+        if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+        showToast('History reset ✓');
+    }
 }
 
 // ================================================================
@@ -830,7 +1208,7 @@ function buildCardHTML(id, label) {
             </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;">
-            <span class="price" id="price-${id}">0.00</span>
+            <span class="price" id="price-${id}" data-prev="0">0.00</span>
             <span class="tracker-badge" id="tracker-${id}">0</span>
           </div>
         </div>
@@ -844,13 +1222,13 @@ function buildCardHTML(id, label) {
           <span id="signal-text-${id}">IDLE</span>
         </div>
         <div class="engine-badge-row">
-          <span class="ebadge off" id="eb-rsi-${id}">RSI</span>
+          <span class="ebadge off" id="eb-rsi-${id}">MACRO</span>
           <span class="ebadge off" id="eb-macd-${id}">MACD</span>
           <span class="ebadge off" id="eb-ema-${id}">EMA</span>
           <span class="ebadge off" id="eb-vwap-${id}">VWAP</span>
-          <span class="ebadge off" id="eb-bb-${id}">BB</span>
-          <span class="ebadge off" id="eb-choch-${id}">CHoCH</span>
-          <span class="ebadge off" id="eb-vol-${id}">VOL</span>
+          <span class="ebadge off" id="eb-bb-${id}">EMA50</span>
+          <span class="ebadge off" id="eb-choch-${id}">STR</span>
+          <span class="ebadge off" id="eb-vol-${id}">ADX</span>
         </div>
         <div class="confluence-panel">
           <span class="confluence-label">STRENGTH</span>
@@ -877,9 +1255,15 @@ function buildCardHTML(id, label) {
       </div>
     </div>`;
 }
+
 window.copyValue = (id, type) => {
     const val = document.getElementById(`${type}-${id}`)?.innerText;
-    if (val && val !== '--') { navigator.clipboard?.writeText(val).then(() => showToast(`${type.toUpperCase()} copied: ${val}`)).catch(() => showToast(val)); if (navigator.vibrate) navigator.vibrate(50); }
+    if (val && val !== '--') {
+        navigator.clipboard?.writeText(val)
+            .then(() => showToast(`${type.toUpperCase()} copied: ${val}`))
+            .catch(() => showToast(val));
+        if (navigator.vibrate) navigator.vibrate(50);
+    }
 };
 
 // ================================================================
@@ -899,6 +1283,7 @@ function updateXAUDisplay(price) {
     const el = document.getElementById('ws-status-xau'); if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; }
     updateFeedBadge('xau', 'ok');
 }
+
 async function xauFetchRestPrice() {
     for (let i = 0; i < XAU_REST.length; i++) {
         try {
@@ -920,6 +1305,7 @@ async function xauFetchRestPrice() {
     }
     updateFeedBadge('xau', 'err'); return false;
 }
+
 function initXAUWebSocket() {
     if (xauWs) { try { xauWs.close(); } catch(e) {} xauWs = null; }
     if (xauReconnectTimer) clearTimeout(xauReconnectTimer);
@@ -934,6 +1320,7 @@ function initXAUWebSocket() {
 }
 
 let btcWs = null, btcReconnectTimer = null, btcReconnectAttempts = 0, btcFetchRetryTimer = null;
+
 async function btcFetchRestPrice() {
     try {
         const resp = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
@@ -942,6 +1329,7 @@ async function btcFetchRestPrice() {
     } catch(e) {}
     updateFeedBadge('btc','err'); return false;
 }
+
 function initBTCWebSocket() {
     if (btcWs) { try { btcWs.close(); } catch(e) {} btcWs = null; }
     if (btcReconnectTimer) clearTimeout(btcReconnectTimer);
@@ -1000,7 +1388,7 @@ function init() {
     let seedFixed = { xau: false, btc: false };
     const fixSeed = (id, price) => {
         if (seedFixed[id]) return;
-        const first = marketData[id].candles[0]?.close || 0;
+        const first = marketData[id].macro.candles[0]?.close || 0;
         if (first > 0 && Math.abs(first - price) / price > 0.07) seedCandles(id, price);
         seedFixed[id] = true;
     };
