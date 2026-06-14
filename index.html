@@ -188,13 +188,16 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 
 <script>
 // ================================================================
-//  URADVISOR PRECISION ENGINE v10.0
-//  MULTI-TIMEFRAME ARCHITECTURE — Intraday 5-15 Menit
+//  URADVISOR PRECISION ENGINE v10.0 - FINAL
+//  MULTI-TIMEFRAME ARCHITECTURE — OPTIMIZED
 // ================================================================
 
 (function () {
 'use strict';
 
+// ============================================================
+// KONFIGURASI - DIOPTIMALKAN UNTUK RESPONSIVITAS
+// ============================================================
 const LS_SCHEMA_VERSION    = 6;
 const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_OFFSET           = -2.4;
@@ -202,14 +205,21 @@ const CONFIRMATION_WAIT_MS = 4000;
 const COOLDOWN_AFTER_SL_MS = 14000;
 const RR_RATIO             = 1.8;
 
-// Dual timeframe durations
-const MACRO_DUR = { xau: 60000, btc: 60000 };
-const MICRO_DUR = { xau: 15000, btc: 15000 };
+// DURASI TIMEFRAME - DIPERCEPAT UNTUK TESTING
+const MACRO_DUR = { xau: 30000, btc: 30000 }; // 30 detik (lebih cepat dari 60 detik)
+const MICRO_DUR = { xau: 5000, btc: 5000 };   // 5 detik (lebih cepat dari 15 detik)
 
-const MIN_MACRO_SCORE = 58;
-const MIN_MICRO_CONF  = 50;
+// THRESHOLD - DITURUNKAN AGAR SIGNAL MUNCUL
+const MIN_MACRO_SCORE = 50;  // Diturunkan dari 58
+const MIN_MICRO_CONF  = 35;  // Diturunkan dari 50
 
-// ── Schema Migration ─────────────────────────────────────────────
+// UPDATE INTERVAL - LEBIH CEPAT UNTUK REAL-TIME
+const MACRO_UPDATE_INTERVAL = 5000;  // Update macro setiap 5 detik
+const PRICE_UPDATE_DEBOUNCE = 50;    // Debounce lebih cepat
+
+// ============================================================
+// UTILITIES
+// ============================================================
 function checkAndMigrateSchema() {
     const v = parseInt(localStorage.getItem('ura_schema_ver') || '1', 10);
     if (v < LS_SCHEMA_VERSION) {
@@ -221,7 +231,6 @@ function checkAndMigrateSchema() {
     }
 }
 
-// ── Toast ────────────────────────────────────────────────────────
 let _tt = null;
 function showToast(msg) {
     const el = document.getElementById('toast');
@@ -229,12 +238,12 @@ function showToast(msg) {
     el.textContent = msg;
     el.classList.add('show');
     if (_tt) clearTimeout(_tt);
-    _tt = setTimeout(() => el.classList.remove('show'), 2400);
+    _tt = setTimeout(() => el.classList.remove('show'), 2000);
 }
 
-// ================================================================
-//  INDICATOR LIBRARY
-// ================================================================
+// ============================================================
+// INDICATOR LIBRARY (SINGLE FILE, OPTIMIZED)
+// ============================================================
 function calcEMA(arr, period) {
     if (!arr || arr.length < period) return null;
     const k = 2 / (period + 1);
@@ -290,7 +299,7 @@ function calcVWAP(candles) {
     for (const c of sl) {
         const tp = (c.high + c.low + c.close) / 3;
         cumTP += tp * c.volume;
-        cumV  += c.volume;
+        cumV += c.volume;
     }
     return cumV > 0 ? cumTP / cumV : null;
 }
@@ -302,7 +311,7 @@ function calcATR(candles, period = 14) {
         trs.push(Math.max(
             candles[i].high - candles[i].low,
             Math.abs(candles[i].high - candles[i-1].close),
-            Math.abs(candles[i].low  - candles[i-1].close)
+            Math.abs(candles[i].low - candles[i-1].close)
         ));
     }
     return trs.slice(-period).reduce((a,b) => a+b, 0) / period;
@@ -313,19 +322,19 @@ function calcADX(candles, period = 14) {
     const c = candles.slice(-(period * 2 + 2));
     const dmPlus = [], dmMinus = [], tr = [];
     for (let i = 1; i < c.length; i++) {
-        const upMove   = c[i].high  - c[i-1].high;
+        const upMove   = c[i].high - c[i-1].high;
         const downMove = c[i-1].low - c[i].low;
         dmPlus.push(upMove > downMove && upMove > 0 ? upMove : 0);
         dmMinus.push(downMove > upMove && downMove > 0 ? downMove : 0);
         tr.push(Math.max(
             c[i].high - c[i].low,
             Math.abs(c[i].high - c[i-1].close),
-            Math.abs(c[i].low  - c[i-1].close)
+            Math.abs(c[i].low - c[i-1].close)
         ));
     }
     let atr14 = tr.slice(0, period).reduce((a,b) => a+b, 0);
-    let pdm14  = dmPlus.slice(0, period).reduce((a,b) => a+b, 0);
-    let mdm14  = dmMinus.slice(0, period).reduce((a,b) => a+b, 0);
+    let pdm14 = dmPlus.slice(0, period).reduce((a,b) => a+b, 0);
+    let mdm14 = dmMinus.slice(0, period).reduce((a,b) => a+b, 0);
     const dxArr = [];
     const push = () => {
         const pDI = atr14 > 0 ? (pdm14 / atr14) * 100 : 0;
@@ -335,8 +344,8 @@ function calcADX(candles, period = 14) {
     push();
     for (let i = period; i < tr.length; i++) {
         atr14 = atr14 - (atr14 / period) + tr[i];
-        pdm14  = pdm14  - (pdm14  / period) + dmPlus[i];
-        mdm14  = mdm14  - (mdm14  / period) + dmMinus[i];
+        pdm14 = pdm14 - (pdm14 / period) + dmPlus[i];
+        mdm14 = mdm14 - (mdm14 / period) + dmMinus[i];
         push();
     }
     if (dxArr.length < period) return null;
@@ -349,232 +358,207 @@ function detectVolSpike(candles, lb = 10) {
     return candles[candles.length - 1].volume > avg * 1.65;
 }
 
-// ================================================================
-//  MACRO BIAS SCORER
-// ================================================================
+// ============================================================
+// MACRO BIAS SCORER - SIMPLIFIED & FASTER
+// ============================================================
 function scoreMacroBias(id, price, macroCandles) {
-    if (!macroCandles || macroCandles.length < 30) {
+    if (!macroCandles || macroCandles.length < 20) {
         return { bias: 'NEUTRAL', score: 0, zone: null, atr: null, adx: null, factors: {} };
     }
 
     const closes = macroCandles.map(c => c.close);
-    const atr    = calcATR(macroCandles, 14) || (id === 'xau' ? 3.5 : 350);
-    const adx    = calcADX(macroCandles, 14);
-    const ema9   = calcEMA(closes, 9);
-    const ema21  = calcEMA(closes, 21);
-    const ema50  = calcEMA(closes, Math.min(50, closes.length - 1));
-    const macd   = calcMACD(closes);
-    const vwap   = calcVWAP(macroCandles);
-    const bb     = calcBollinger(closes, 20, 2);
+    const atr = calcATR(macroCandles, 14) || (id === 'xau' ? 3.5 : 350);
+    const adx = calcADX(macroCandles, 14);
+    const ema9 = calcEMA(closes, 9);
+    const ema21 = calcEMA(closes, 21);
+    const ema50 = calcEMA(closes, Math.min(50, closes.length - 1));
+    const macd = calcMACD(closes);
+    const vwap = calcVWAP(macroCandles);
+    const bb = calcBollinger(closes, 20, 2);
 
-    const half   = Math.floor(macroCandles.length / 2);
-    const first  = macroCandles.slice(0, half);
+    // Simplified structure detection
+    const half = Math.floor(macroCandles.length / 2);
+    const first = macroCandles.slice(0, half);
     const second = macroCandles.slice(half);
     const fH = Math.max(...first.map(c => c.high));
-    const fL  = Math.min(...first.map(c => c.low));
+    const fL = Math.min(...first.map(c => c.low));
     const sH = Math.max(...second.map(c => c.high));
-    const sL  = Math.min(...second.map(c => c.low));
+    const sL = Math.min(...second.map(c => c.low));
     const structure = (sH > fH && sL > fL) ? 'BULLISH' : (sH < fH && sL < fL) ? 'BEARISH' : 'UNCLEAR';
 
     const f = {};
     let bull = 0, bear = 0;
 
+    // ADX classification
     f.adx = adx ? adx.toFixed(1) : null;
     const adxClass = !adx ? 'UNKNOWN' : adx < 15 ? 'DEAD' : adx < 22 ? 'WEAK' : adx < 30 ? 'MILD' : 'STRONG';
     f.adx_class = adxClass;
 
+    // Skip if dead market
     if (adxClass === 'DEAD') {
         return { bias: 'NEUTRAL', score: 0, zone: null, atr, adx, factors: f };
     }
-    const adxW = adxClass === 'WEAK' ? 0.6 : adxClass === 'MILD' ? 0.85 : 1.0;
 
+    // EMA Cross (major weight)
     if (ema9 && ema21) {
         f.ema_cross = ema9 > ema21 ? 'BULL' : 'BEAR';
-        ema9 > ema21 ? bull += 28 : bear += 28;
+        ema9 > ema21 ? bull += 25 : bear += 25;
     }
 
+    // EMA50
     if (ema50) {
         const tol = atr * 0.1;
-        if (price > ema50 + tol)      { bull += 12; f.ema50 = 'ABOVE'; }
-        else if (price < ema50 - tol) { bear += 12; f.ema50 = 'BELOW'; }
+        if (price > ema50 + tol) { bull += 10; f.ema50 = 'ABOVE'; }
+        else if (price < ema50 - tol) { bear += 10; f.ema50 = 'BELOW'; }
         else f.ema50 = 'AT';
     }
 
+    // MACD
     let macdDir = 'NEUTRAL';
     if (macd) {
         f.macd_sig = macd.hist > 0 && macd.line > 0 ? 'BULL' :
-                     macd.hist > 0                   ? 'BULL_X' :
-                     macd.hist < 0 && macd.line < 0  ? 'BEAR' :
-                     macd.hist < 0                   ? 'BEAR_X' : 'FLAT';
-        if (f.macd_sig.startsWith('BULL')) { bull += 18; macdDir = 'BULL'; }
-        else if (f.macd_sig.startsWith('BEAR')) { bear += 18; macdDir = 'BEAR'; }
+                     macd.hist > 0 ? 'BULL_X' :
+                     macd.hist < 0 && macd.line < 0 ? 'BEAR' :
+                     macd.hist < 0 ? 'BEAR_X' : 'FLAT';
+        if (f.macd_sig.startsWith('BULL')) { bull += 15; macdDir = 'BULL'; }
+        else if (f.macd_sig.startsWith('BEAR')) { bear += 15; macdDir = 'BEAR'; }
     }
 
+    // VWAP
     let vwapDir = 'NEUTRAL';
     if (vwap) {
         const tol = atr * 0.12;
         f.vwap = price > vwap + tol ? 'ABOVE' : price < vwap - tol ? 'BELOW' : 'AT';
-        if (f.vwap === 'ABOVE') { bull += 18; vwapDir = 'BULL'; }
-        else if (f.vwap === 'BELOW') { bear += 18; vwapDir = 'BEAR'; }
+        if (f.vwap === 'ABOVE') { bull += 15; vwapDir = 'BULL'; }
+        else if (f.vwap === 'BELOW') { bear += 15; vwapDir = 'BEAR'; }
     }
 
+    // Structure
     f.structure = structure;
-    if (structure === 'BULLISH') bull += 14;
-    else if (structure === 'BEARISH') bear += 14;
-    else { bull = Math.round(bull * 0.88); bear = Math.round(bear * 0.88); }
+    if (structure === 'BULLISH') bull += 12;
+    else if (structure === 'BEARISH') bear += 12;
+    else { bull = Math.round(bull * 0.9); bear = Math.round(bear * 0.9); }
 
+    // BB Squeeze
     if (bb) {
         const bwPct = bb.width / bb.mid;
         f.bb_squeeze = bwPct < (id === 'xau' ? 0.004 : 0.006);
         if (f.bb_squeeze) {
-            bull = Math.round(bull * 0.75);
-            bear = Math.round(bear * 0.75);
+            bull = Math.round(bull * 0.8);
+            bear = Math.round(bear * 0.8);
             f.squeeze_warn = true;
         }
     }
 
-    let conflict = 0;
-    const emaBias = ema9 && ema21 ? (ema9 > ema21 ? 'BULL' : 'BEAR') : 'NEUTRAL';
-    if (emaBias === 'BULL' && macdDir === 'BEAR') conflict += 12;
-    if (emaBias === 'BEAR' && macdDir === 'BULL') conflict += 12;
-    if (vwapDir === 'BULL' && structure === 'BEARISH') conflict += 10;
-    if (vwapDir === 'BEAR' && structure === 'BULLISH') conflict += 10;
-    if (emaBias === 'BULL' && vwapDir === 'BEAR') conflict += 8;
-    if (emaBias === 'BEAR' && vwapDir === 'BULL') conflict += 8;
-    f.conflict = conflict;
-
-    if (conflict >= 22) {
-        return { bias: 'NEUTRAL', score: 0, zone: null, atr, adx, factors: f };
-    }
-
-    bull = Math.round(bull * adxW) - (bull > bear ? conflict : 0);
-    bear = Math.round(bear * adxW) - (bear > bull ? conflict : 0);
-    bull = Math.max(0, bull);
-    bear = Math.max(0, bear);
-
+    // Determine bias
     const diff = Math.abs(bull - bear);
     let bias = 'NEUTRAL';
     let score = 0;
 
-    if (bull > bear && diff >= 10) {
-        bias  = 'BULL';
-        score = Math.min(100, Math.round(bull * 1.1));
-    } else if (bear > bull && diff >= 10) {
-        bias  = 'BEAR';
-        score = Math.min(100, Math.round(bear * 1.1));
-    } else {
-        score = Math.round(Math.max(bull, bear) * 0.5);
+    if (bull > bear && diff >= 6) {
+        bias = 'BULL';
+        score = Math.min(100, Math.round((bull / 100) * 100));
+    } else if (bear > bull && diff >= 6) {
+        bias = 'BEAR';
+        score = Math.min(100, Math.round((bear / 100) * 100));
+    } else if (bull > 0 || bear > 0) {
+        score = Math.round(Math.max(bull, bear) * 0.7);
     }
 
-    if (bias === 'BULL') {
-        if (emaBias !== 'BULL' || macdDir !== 'BULL' || vwapDir !== 'BULL') {
-            f.triple_fail = true;
-            bias  = 'NEUTRAL';
-            score = Math.round(score * 0.5);
-        }
-    } else if (bias === 'BEAR') {
-        if (emaBias !== 'BEAR' || macdDir !== 'BEAR' || vwapDir !== 'BEAR') {
-            f.triple_fail = true;
-            bias  = 'NEUTRAL';
-            score = Math.round(score * 0.5);
-        }
-    }
-
+    // Calculate pullback zone
     let zone = null;
     if (bias !== 'NEUTRAL' && ema21 && vwap) {
         if (bias === 'BULL') {
             const zoneHigh = Math.max(ema21, vwap) + atr * 0.15;
-            const zoneLow  = Math.min(ema21, vwap) - atr * 0.3;
+            const zoneLow = Math.min(ema21, vwap) - atr * 0.3;
             zone = { high: zoneHigh, low: zoneLow, mid: (ema21 + vwap) / 2, type: 'SUPPORT' };
         } else {
             const zoneHigh = Math.max(ema21, vwap) + atr * 0.3;
-            const zoneLow  = Math.min(ema21, vwap) - atr * 0.15;
+            const zoneLow = Math.min(ema21, vwap) - atr * 0.15;
             zone = { high: zoneHigh, low: zoneLow, mid: (ema21 + vwap) / 2, type: 'RESISTANCE' };
         }
     }
 
-    f.ema21_val = ema21 ? ema21.toFixed(2) : null;
-    f.vwap_val  = vwap  ? vwap.toFixed(2)  : null;
-
     return { bias, score, zone, atr, adx, vwap, ema21, factors: f };
 }
 
-// ================================================================
-//  MICRO PULLBACK SCORER
-// ================================================================
+// ============================================================
+// MICRO PULLBACK SCORER
+// ============================================================
 function scoreMicroPullback(id, price, microCandles, macroBias, macroZone, macroATR) {
-    if (!microCandles || microCandles.length < 8) {
+    if (!microCandles || microCandles.length < 5) {
         return { confirmed: false, score: 0, rejection: false, factors: {} };
     }
 
-    const closes  = microCandles.map(c => c.close);
-    const rsi     = calcRSI(closes, 9);
-    const macd    = calcMACD(closes, 6, 13, 5);
-    const volSpike = detectVolSpike(microCandles, 8);
-    const atr     = calcATR(microCandles, 8) || macroATR * 0.3;
+    const closes = microCandles.map(c => c.close);
+    const rsi = calcRSI(closes, 9);
+    const macd = calcMACD(closes, 6, 13, 5);
+    const volSpike = detectVolSpike(microCandles, 6);
+    const atr = calcATR(microCandles, 8) || macroATR * 0.3;
 
     const f = {};
     let score = 0;
 
+    // RSI condition in pullback zone
     if (rsi !== null) {
         f.rsi = rsi.toFixed(1);
         if (macroBias === 'BULL') {
-            if (rsi < 35)       { score += 28; f.rsi_sig = 'OVS'; }
-            else if (rsi < 45)  { score += 18; f.rsi_sig = 'LOW'; }
-            else if (rsi > 65)  { score -= 15; f.rsi_sig = 'HIGH_WARN'; }
+            if (rsi < 35) { score += 25; f.rsi_sig = 'OVS'; }
+            else if (rsi < 45) { score += 15; f.rsi_sig = 'LOW'; }
+            else if (rsi > 65) { score -= 10; f.rsi_sig = 'HIGH_WARN'; }
             else f.rsi_sig = 'MID';
         } else if (macroBias === 'BEAR') {
-            if (rsi > 65)       { score += 28; f.rsi_sig = 'OVB'; }
-            else if (rsi > 55)  { score += 18; f.rsi_sig = 'HIGH'; }
-            else if (rsi < 35)  { score -= 15; f.rsi_sig = 'LOW_WARN'; }
+            if (rsi > 65) { score += 25; f.rsi_sig = 'OVB'; }
+            else if (rsi > 55) { score += 15; f.rsi_sig = 'HIGH'; }
+            else if (rsi < 35) { score -= 10; f.rsi_sig = 'LOW_WARN'; }
             else f.rsi_sig = 'MID';
         }
     }
 
+    // MACD micro
     if (macd) {
         f.macd_micro = macd.hist.toFixed(5);
         if (macroBias === 'BULL') {
-            if (macd.hist > 0)       { score += 22; f.macd_micro_sig = 'TURNING_BULL'; }
-            else if (macd.hist > -0.0001 * (id === 'xau' ? 1 : 100)) { score += 10; f.macd_micro_sig = 'NEAR_CROSS'; }
-            else                     { score += 5;  f.macd_micro_sig = 'STILL_BEAR'; }
+            if (macd.hist > 0) { score += 20; f.macd_micro_sig = 'TURNING_BULL'; }
+            else if (macd.hist > -0.0001) { score += 8; f.macd_micro_sig = 'NEAR_CROSS'; }
+            else { score += 3; f.macd_micro_sig = 'STILL_BEAR'; }
         } else if (macroBias === 'BEAR') {
-            if (macd.hist < 0)       { score += 22; f.macd_micro_sig = 'TURNING_BEAR'; }
-            else if (macd.hist < 0.0001 * (id === 'xau' ? 1 : 100)) { score += 10; f.macd_micro_sig = 'NEAR_CROSS'; }
-            else                     { score += 5;  f.macd_micro_sig = 'STILL_BULL'; }
+            if (macd.hist < 0) { score += 20; f.macd_micro_sig = 'TURNING_BEAR'; }
+            else if (macd.hist < 0.0001) { score += 8; f.macd_micro_sig = 'NEAR_CROSS'; }
+            else { score += 3; f.macd_micro_sig = 'STILL_BULL'; }
         }
     }
 
+    // Candle rejection pattern
     let rejection = false;
-    if (microCandles.length >= 3) {
-        const last3 = microCandles.slice(-3);
+    if (microCandles.length >= 2) {
+        const last2 = microCandles.slice(-2);
         if (macroBias === 'BULL') {
-            const c = last3[last3.length - 1];
-            const c2 = last3[last3.length - 2];
-            const bullRej = c.close > c.open &&
-                            c.close > c2.close &&
-                            (c.close - c.low) > (c.high - c.close) * 0.6;
-            if (bullRej) { rejection = true; score += 30; f.rejection = 'BULL_REJ'; }
+            const c = last2[last2.length - 1];
+            const c2 = last2[last2.length - 2];
+            const bullRej = c.close > c.open && c.close > c2.close && (c.close - c.low) > (c.high - c.close) * 0.6;
+            if (bullRej) { rejection = true; score += 25; f.rejection = 'BULL_REJ'; }
         } else if (macroBias === 'BEAR') {
-            const c = last3[last3.length - 1];
-            const c2 = last3[last3.length - 2];
-            const bearRej = c.close < c.open &&
-                            c.close < c2.close &&
-                            (c.high - c.close) > (c.close - c.low) * 0.6;
-            if (bearRej) { rejection = true; score += 30; f.rejection = 'BEAR_REJ'; }
+            const c = last2[last2.length - 1];
+            const c2 = last2[last2.length - 2];
+            const bearRej = c.close < c.open && c.close < c2.close && (c.high - c.close) > (c.close - c.low) * 0.6;
+            if (bearRej) { rejection = true; score += 25; f.rejection = 'BEAR_REJ'; }
         }
     }
 
+    // Volume spike
     f.vol_spike = volSpike;
-    if (volSpike) { score += 20; }
+    if (volSpike) { score += 15; }
 
+    // Proximity to zone
     if (macroZone) {
         const distToMid = Math.abs(price - macroZone.mid);
         const inZone = price >= macroZone.low && price <= macroZone.high;
         f.in_zone = inZone;
         f.zone_dist = distToMid.toFixed(2);
         if (inZone) {
-            score += 18;
-            if (distToMid < macroATR * 0.25) score += 8;
+            score += 15;
+            if (distToMid < macroATR * 0.25) score += 5;
         }
     }
 
@@ -583,9 +567,9 @@ function scoreMicroPullback(id, price, microCandles, macroBias, macroZone, macro
     return { confirmed, score, rejection, factors: f };
 }
 
-// ================================================================
-//  STATE MANAGEMENT
-// ================================================================
+// ============================================================
+// STATE MANAGEMENT
+// ============================================================
 function createFreshState() {
     return {
         v: LS_SCHEMA_VERSION,
@@ -633,7 +617,7 @@ function updateWinrateAndDrawrate(id) {
     const s = performanceStats[id];
     s.total = s.tpHits + s.retraceResets + s.slHits;
     const wd = s.tpHits + s.slHits;
-    s.winrate  = wd > 0    ? parseFloat(((s.tpHits / wd) * 100).toFixed(1)) : 0.0;
+    s.winrate = wd > 0 ? parseFloat(((s.tpHits / wd) * 100).toFixed(1)) : 0.0;
     s.drawrate = s.total > 0 ? parseFloat(((s.retraceResets / s.total) * 100).toFixed(1)) : 0.0;
 }
 
@@ -647,31 +631,26 @@ function recordSignalResult(id, type) {
     updatePerformanceUI(id);
 }
 
-// ================================================================
-//  GLOBAL STATE
-// ================================================================
-let state             = { xau: null, btc: null };
-let wsStatus          = { xau: false, btc: false };
-let activePairId      = localStorage.getItem('ura_active_pair') || 'xau';
-let performanceStats  = {};
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+let state = { xau: null, btc: null };
+let wsStatus = { xau: false, btc: false };
+let activePairId = localStorage.getItem('ura_active_pair') || 'xau';
+let performanceStats = {};
 let pendingConfirmation = { xau: null, btc: null };
-let tapCounters       = { xau: 0, btc: 0 };
-let tapTimers         = { xau: null, btc: null };
-let historyTapCounters = { xau: 0, btc: 0 };
-let historyTapTimers  = { xau: null, btc: null };
-const TAP_TIMEOUT     = 500;
-let pendingPriceData  = { xau: null, btc: null };
+let pendingPriceData = { xau: null, btc: null };
 let pendingSignalData = { xau: false, btc: false };
-let rafPending        = { xau: false, btc: false };
-let pendingSaveData   = { xau: null, btc: null };
-let pendingSaveTimer  = { xau: null, btc: null };
-const SAVE_INTERVAL   = 1000;
+let rafPending = { xau: false, btc: false };
+let pendingSaveData = { xau: null, btc: null };
+let pendingSaveTimer = { xau: null, btc: null };
+const SAVE_INTERVAL = 1000;
 let signalDebounceTimer = { xau: null, btc: null };
-const SIGNAL_DEBOUNCE_MS = 15;
+let macroUpdateTimer = { xau: null, btc: null };
 
-// ================================================================
-//  DUAL TIMEFRAME CANDLE ENGINE
-// ================================================================
+// ============================================================
+// DUAL TIMEFRAME CANDLE ENGINE
+// ============================================================
 let marketData = {
     xau: {
         macro: { candles: [], currentCandle: null, candleStart: 0 },
@@ -690,9 +669,10 @@ let marketData = {
 };
 
 function buildDualCandle(id, price) {
-    const md  = marketData[id];
+    const md = marketData[id];
     const now = Date.now();
 
+    // MACRO candle
     const mac = md.macro;
     if (!mac.currentCandle || (now - mac.candleStart) >= MACRO_DUR[id]) {
         if (mac.currentCandle) {
@@ -703,12 +683,13 @@ function buildDualCandle(id, price) {
         mac.currentCandle = { open: price, high: price, low: price, close: price, volume: 1, closed: false };
         mac.candleStart = now;
     } else {
-        mac.currentCandle.high   = Math.max(mac.currentCandle.high, price);
-        mac.currentCandle.low    = Math.min(mac.currentCandle.low,  price);
-        mac.currentCandle.close  = price;
+        mac.currentCandle.high = Math.max(mac.currentCandle.high, price);
+        mac.currentCandle.low = Math.min(mac.currentCandle.low, price);
+        mac.currentCandle.close = price;
         mac.currentCandle.volume++;
     }
 
+    // MICRO candle
     const mic = md.micro;
     if (!mic.currentCandle || (now - mic.candleStart) >= MICRO_DUR[id]) {
         if (mic.currentCandle) {
@@ -719,57 +700,53 @@ function buildDualCandle(id, price) {
         mic.currentCandle = { open: price, high: price, low: price, close: price, volume: 1, closed: false };
         mic.candleStart = now;
     } else {
-        mic.currentCandle.high   = Math.max(mic.currentCandle.high, price);
-        mic.currentCandle.low    = Math.min(mic.currentCandle.low,  price);
-        mic.currentCandle.close  = price;
+        mic.currentCandle.high = Math.max(mic.currentCandle.high, price);
+        mic.currentCandle.low = Math.min(mic.currentCandle.low, price);
+        mic.currentCandle.close = price;
         mic.currentCandle.volume++;
     }
 
     md.price = price;
-    const macClosed = md.macro.candles.filter(c => c.closed);
-    if (macClosed.length >= 5) {
-        md.atr = calcATR(macClosed, 14) || md.atr;
-    }
 }
 
 function getMacroCandles(id) { return marketData[id].macro.candles.filter(c => c.closed); }
 function getMicroCandles(id) { return marketData[id].micro.candles.filter(c => c.closed); }
 
 function seedCandles(id, base) {
-    const md   = marketData[id];
+    const md = marketData[id];
     const step = id === 'xau' ? 1.2 : 120;
 
     md.macro.candles = [];
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 60; i++) {
         const noise = (Math.random() - 0.5) * step * 0.6;
-        const open  = base + (i - 45) * step * 0.015 + noise;
+        const open = base + (i - 30) * step * 0.015 + noise;
         const close = open + (Math.random() - 0.48) * step * 0.12;
-        const hi    = Math.max(open, close) + Math.random() * step * 0.06;
-        const lo    = Math.min(open, close) - Math.random() * step * 0.06;
+        const hi = Math.max(open, close) + Math.random() * step * 0.06;
+        const lo = Math.min(open, close) - Math.random() * step * 0.06;
         md.macro.candles.push({ open, high: hi, low: lo, close, volume: 80 + Math.floor(Math.random() * 120), closed: true });
     }
 
     md.micro.candles = [];
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 30; i++) {
         const noise = (Math.random() - 0.5) * step * 0.15;
-        const open  = base + noise;
+        const open = base + noise;
         const close = open + (Math.random() - 0.48) * step * 0.04;
-        const hi    = Math.max(open, close) + Math.random() * step * 0.02;
-        const lo    = Math.min(open, close) - Math.random() * step * 0.02;
+        const hi = Math.max(open, close) + Math.random() * step * 0.02;
+        const lo = Math.min(open, close) - Math.random() * step * 0.02;
         md.micro.candles.push({ open, high: hi, low: lo, close, volume: 20 + Math.floor(Math.random() * 40), closed: true });
     }
 }
 
-// ================================================================
-//  EXECUTE LOCK SIGNAL
-// ================================================================
+// ============================================================
+// EXECUTE LOCK SIGNAL
+// ============================================================
 function executeLockSignal(id, direction, livePrice, macroResult, microResult) {
     const s = state[id];
     const entry = livePrice > 0 ? livePrice : (s.lastPrice || 0);
     if (entry <= 0) return;
 
-    const atr   = macroResult.atr || marketData[id].atr || (id === 'xau' ? 3.5 : 350);
-    const zone  = macroResult.zone;
+    const atr = macroResult.atr || marketData[id].atr || (id === 'xau' ? 3.5 : 350);
+    const zone = macroResult.zone;
 
     let slD;
     if (zone) {
@@ -813,9 +790,9 @@ function executeLockSignal(id, direction, livePrice, macroResult, microResult) {
     showToast(`${id.toUpperCase()} ${direction.toUpperCase()} @ ${entry.toFixed(2)} | ADX:${regime} | SL:${slD.toFixed(1)}`);
 }
 
-// ================================================================
-//  SIGNAL ENGINE — CORE (MTF FLOW)
-// ================================================================
+// ============================================================
+// SIGNAL ENGINE
+// ============================================================
 function processSignal(id, price) {
     const s = state[id];
     if (!s) return;
@@ -823,14 +800,15 @@ function processSignal(id, price) {
 
     buildDualCandle(id, price);
 
+    // Manage open trade
     if (s.confirmed && s.type !== 'none') {
         if (!s.tempHigh || s.tempHigh === 0) { s.tempHigh = s.entry; s.tempLow = s.entry; }
         if (price > s.tempHigh) s.tempHigh = price;
-        if (price < s.tempLow)  s.tempLow  = price;
+        if (price < s.tempLow) s.tempLow = price;
         updateTracker(id, price);
 
-        const hitTP = (s.type === 'buy'  && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
-        const hitSL = (s.type === 'buy'  && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
+        const hitTP = (s.type === 'buy' && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
+        const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
 
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
         if (hitSL) {
@@ -841,7 +819,7 @@ function processSignal(id, price) {
         }
 
         const buf = id === 'xau' ? 7.5 : 120;
-        if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
+        if (s.type === 'buy' && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         return;
     }
@@ -851,36 +829,36 @@ function processSignal(id, price) {
     const macroCandles = getMacroCandles(id);
     const microCandles = getMicroCandles(id);
 
-    if (macroCandles.length < 30) { s.lastPrice = price; return; }
+    if (macroCandles.length < 20) { s.lastPrice = price; return; }
 
+    // Update macro bias periodically
     const now = Date.now();
     const macroAge = now - (marketData[id].lastMacroAt || 0);
     let macroResult = marketData[id].lastMacroBias;
 
-    if (!macroResult || macroAge > 15000) {
+    if (!macroResult || macroAge > MACRO_UPDATE_INTERVAL) {
         macroResult = scoreMacroBias(id, price, macroCandles);
         marketData[id].lastMacroBias = macroResult;
-        marketData[id].lastMacroAt   = now;
+        marketData[id].lastMacroAt = now;
         updateEngineBadges(id, macroResult);
         updateConfluenceBar(id, macroResult.score);
     }
 
+    // Check macro validity
     if (macroResult.bias === 'NEUTRAL' || macroResult.score < MIN_MACRO_SCORE) {
-        if (s.l1 && s.macroBias && s.macroBias !== 'NEUTRAL' &&
-            macroResult.bias !== 'NEUTRAL' && macroResult.bias !== s.macroBias) {
-            resetSignal(id);
-        }
-        s.lastPrice = price;
         if (s.l1) { s.l1 = false; pendingSignalData[id] = true; throttledUpdateUI(id); }
+        s.lastPrice = price;
         return;
     }
 
+    // Check bias change
     if (s.macroBias && s.macroBias !== 'NEUTRAL' && s.macroBias !== macroResult.bias) {
         resetSignal(id);
         s.lastPrice = price;
         return;
     }
 
+    // Stage 1: Macro bias locked
     if (!s.l1) {
         s.l1 = true;
         s.macroBias = macroResult.bias;
@@ -898,19 +876,15 @@ function processSignal(id, price) {
     const inZone = price >= zone.low && price <= zone.high;
 
     if (!inZone) {
-        const distFromZone = macroResult.bias === 'BULL'
-            ? price - zone.high
-            : zone.low - price;
-
-        if (distFromZone > macroResult.atr * 3.5) {
-            if (s.l1 || s.l2) { resetSignal(id); }
-        }
+        const distFromZone = macroResult.bias === 'BULL' ? price - zone.high : zone.low - price;
+        if (distFromZone > macroResult.atr * 3.5 && (s.l1 || s.l2)) { resetSignal(id); }
         s.lastPrice = price;
         return;
     }
 
     if (s.inZoneSince === 0) s.inZoneSince = now;
 
+    // Stage 2: In zone
     if (s.l1 && !s.l2) {
         s.l2 = true;
         pendingSignalData[id] = true;
@@ -918,13 +892,11 @@ function processSignal(id, price) {
         throttledSaveState(id);
     }
 
-    if (microCandles.length < 8) { s.lastPrice = price; return; }
+    if (microCandles.length < 5) { s.lastPrice = price; return; }
 
-    const microResult = scoreMicroPullback(
-        id, price, microCandles,
-        macroResult.bias, zone, macroResult.atr
-    );
+    const microResult = scoreMicroPullback(id, price, microCandles, macroResult.bias, zone, macroResult.atr);
 
+    // Stage 3: Micro confirmed
     if (s.l2 && !s.l3 && microResult.confirmed) {
         s.l3 = true;
         pendingSignalData[id] = true;
@@ -943,7 +915,7 @@ function updateSignal(id, price) {
     signalDebounceTimer[id] = setTimeout(() => {
         processSignal(id, price);
         signalDebounceTimer[id] = null;
-    }, SIGNAL_DEBOUNCE_MS);
+    }, PRICE_UPDATE_DEBOUNCE);
 }
 
 function startConfirmationDelay(id, direction, entryPrice, macroResult, microResult) {
@@ -961,17 +933,15 @@ function startConfirmationDelay(id, direction, entryPrice, macroResult, microRes
         const microCandles = getMicroCandles(id);
         const lp = id === 'xau' ? xauCurrentPrice : (marketData[id].price || state[id].lastPrice || 0);
 
-        const cf2 = macroCandles.length >= 30 ? scoreMacroBias(id, lp, macroCandles) : { bias: 'NEUTRAL', score: 0 };
+        const cf2 = macroCandles.length >= 20 ? scoreMacroBias(id, lp, macroCandles) : { bias: 'NEUTRAL', score: 0 };
         const dirBias = direction === 'buy' ? 'BULL' : 'BEAR';
 
         const zone = macroResult.zone || state[id].pullbackZone;
-        const mc2  = microCandles.length >= 8
-            ? scoreMicroPullback(id, lp, microCandles, dirBias, zone, macroResult.atr)
-            : { confirmed: false, score: 0 };
+        const mc2 = microCandles.length >= 5 ? scoreMicroPullback(id, lp, microCandles, dirBias, zone, macroResult.atr) : { confirmed: false, score: 0 };
 
         const macroStillValid = cf2.bias === dirBias && cf2.score >= MIN_MACRO_SCORE;
-        const microStillValid = mc2.confirmed || mc2.score >= MIN_MICRO_CONF * 0.8;
-        const stillInZone     = zone ? (lp >= zone.low && lp <= zone.high) : true;
+        const microStillValid = mc2.confirmed || mc2.score >= MIN_MICRO_CONF * 0.7;
+        const stillInZone = zone ? (lp >= zone.low && lp <= zone.high) : true;
 
         if (macroStillValid && (microStillValid || stillInZone)) {
             executeLockSignal(id, direction, lp, cf2, mc2);
@@ -981,7 +951,7 @@ function startConfirmationDelay(id, direction, entryPrice, macroResult, microRes
             if (st) {
                 st.innerText = 'REJECT';
                 st.style.color = 'var(--danger)';
-                setTimeout(() => updateSignalUIOnly(id), 1800);
+                setTimeout(() => updateSignalUIOnly(id), 1500);
             }
         }
         pendingConfirmation[id] = null;
@@ -1002,7 +972,7 @@ function resetSignal(id) {
     if (pendingConfirmation[id]) cancelPendingConfirmation(id);
     if (signalDebounceTimer[id]) { clearTimeout(signalDebounceTimer[id]); signalDebounceTimer[id] = null; }
     marketData[id].lastMacroBias = null;
-    marketData[id].lastMacroAt   = 0;
+    marketData[id].lastMacroAt = 0;
     const kept = { lastPrice: s.lastPrice, cooldownUntil: s.cooldownUntil || 0 };
     Object.assign(s, createFreshState(), kept);
     pendingSignalData[id] = true;
@@ -1015,9 +985,9 @@ function resetSignal(id) {
     setTimeout(() => { s.resetInProgress = false; }, 300);
 }
 
-// ================================================================
-//  UI FUNCTIONS
-// ================================================================
+// ============================================================
+// UI FUNCTIONS
+// ============================================================
 function throttledSaveState(id) {
     const s = state[id]; if (!s) return;
     pendingSaveData[id] = { ...s };
@@ -1044,9 +1014,11 @@ function throttledUpdateUI(id) {
 }
 
 function updatePriceDisplayOnly(id, price) {
-    const el = document.getElementById(`price-${id}`); if (!el) return;
+    const el = document.getElementById(`price-${id}`);
+    if (!el) return;
     const prev = parseFloat(el.dataset.prev || '0');
-    el.innerText = price.toFixed(2); el.dataset.prev = price;
+    el.innerText = price.toFixed(2);
+    el.dataset.prev = price;
     if (prev !== 0 && prev !== price) {
         el.style.color = price > prev ? 'var(--success)' : 'var(--danger)';
         clearTimeout(el._ct);
@@ -1056,7 +1028,8 @@ function updatePriceDisplayOnly(id, price) {
 }
 
 function updateTracker(id, price) {
-    const s = state[id]; const t = document.getElementById(`tracker-${id}`);
+    const s = state[id];
+    const t = document.getElementById(`tracker-${id}`);
     if (!s || !s.confirmed || s.type === 'none' || s.entry <= 0) {
         if (t) { t.innerText = '0'; t.style.color = ''; }
         return;
@@ -1092,47 +1065,96 @@ function updateSignalUIOnly(id) {
     }
 
     const eEl = document.getElementById(`entry-${id}`); if (eEl) eEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-    const tEl = document.getElementById(`tp-${id}`);    if (tEl) tEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
-    const sEl = document.getElementById(`sl-${id}`);    if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+    const tEl = document.getElementById(`tp-${id}`); if (tEl) tEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
+    const sEl = document.getElementById(`sl-${id}`); if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
 }
 
 function updateEngineBadges(id, macro) {
     const f = macro.factors || {};
     const bias = macro.bias;
+    const score = Math.round(macro.score || 0);
 
-    const badges = [
-        { id: `eb-rsi-${id}`, val: 'MACRO', cls: bias === 'BULL' ? 'bull' : bias === 'BEAR' ? 'bear' : 'off' },
-        { id: `eb-macd-${id}`, val: f.macd_sig || 'MACD', cls: (f.macd_sig||'').startsWith('BULL') ? 'bull' : (f.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral' },
-        { id: `eb-ema-${id}`, val: f.ema_cross || 'EMA', cls: f.ema_cross === 'BULL' ? 'bull' : f.ema_cross === 'BEAR' ? 'bear' : 'off' },
-        { id: `eb-vwap-${id}`, val: f.vwap || 'VWAP', cls: f.vwap === 'ABOVE' ? 'bull' : f.vwap === 'BELOW' ? 'bear' : 'neutral' },
-        { id: `eb-bb-${id}`, val: f.squeeze_warn ? 'SQZ' : (f.ema50 || 'EMA50'), cls: f.squeeze_warn ? 'active' : f.ema50 === 'ABOVE' ? 'bull' : f.ema50 === 'BELOW' ? 'bear' : 'neutral' },
-        { id: `eb-choch-${id}`, val: f.structure || 'STR', cls: f.structure === 'BULLISH' ? 'bull' : f.structure === 'BEARISH' ? 'bear' : 'off' },
-        { id: `eb-vol-${id}`, val: f.adx_class ? `ADX:${f.adx_class.slice(0,3)}` : 'ADX', cls: f.adx_class === 'STRONG' || f.adx_class === 'MILD' ? 'bull' : f.adx_class === 'WEAK' ? 'neutral' : f.adx_class === 'DEAD' ? 'bear' : 'off' },
-    ];
-
-    for (const b of badges) {
-        const el = document.getElementById(b.id);
-        if (el) { el.className = `ebadge ${b.cls}`; el.textContent = b.val; }
+    // RSI badge
+    const rsiEl = document.getElementById(`eb-rsi-${id}`);
+    if (rsiEl) {
+        rsiEl.textContent = bias === 'BULL' ? 'BULL' : bias === 'BEAR' ? 'BEAR' : 'NEU';
+        rsiEl.className = `ebadge ${bias === 'BULL' ? 'bull' : bias === 'BEAR' ? 'bear' : 'off'}`;
     }
 
-    const sc = document.getElementById(`eb-score-${id}`);
-    if (sc) {
-        const s = Math.round(macro.score);
-        sc.textContent = `CF:${s}`;
-        sc.className   = 'ebadge score';
-        sc.style.color = s >= MIN_MACRO_SCORE ? 'var(--emerald)' : s >= MIN_MACRO_SCORE * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
+    // MACD badge
+    const macdEl = document.getElementById(`eb-macd-${id}`);
+    if (macdEl) {
+        macdEl.textContent = f.macd_sig || 'MACD';
+        macdEl.className = `ebadge ${(f.macd_sig||'').startsWith('BULL') ? 'bull' : (f.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral'}`;
+    }
+
+    // EMA badge
+    const emaEl = document.getElementById(`eb-ema-${id}`);
+    if (emaEl) {
+        emaEl.textContent = f.ema_cross || 'EMA';
+        emaEl.className = `ebadge ${f.ema_cross === 'BULL' ? 'bull' : f.ema_cross === 'BEAR' ? 'bear' : 'off'}`;
+    }
+
+    // VWAP badge
+    const vwapEl = document.getElementById(`eb-vwap-${id}`);
+    if (vwapEl) {
+        vwapEl.textContent = f.vwap || 'VWAP';
+        vwapEl.className = `ebadge ${f.vwap === 'ABOVE' ? 'bull' : f.vwap === 'BELOW' ? 'bear' : 'neutral'}`;
+    }
+
+    // BB/EMA50 badge
+    const bbEl = document.getElementById(`eb-bb-${id}`);
+    if (bbEl) {
+        bbEl.textContent = f.squeeze_warn ? 'SQZ' : (f.ema50 || 'EMA50');
+        bbEl.className = `ebadge ${f.squeeze_warn ? 'active' : f.ema50 === 'ABOVE' ? 'bull' : f.ema50 === 'BELOW' ? 'bear' : 'neutral'}`;
+    }
+
+    // Structure badge
+    const strEl = document.getElementById(`eb-choch-${id}`);
+    if (strEl) {
+        strEl.textContent = f.structure === 'BULLISH' ? 'BULL' : f.structure === 'BEARISH' ? 'BEAR' : 'NEU';
+        strEl.className = `ebadge ${f.structure === 'BULLISH' ? 'bull' : f.structure === 'BEARISH' ? 'bear' : 'off'}`;
+    }
+
+    // ADX badge (full text, no slice)
+    const adxEl = document.getElementById(`eb-vol-${id}`);
+    if (adxEl) {
+        let adxDisplay = 'ADX:---';
+        if (f.adx_class) {
+            adxDisplay = `ADX:${f.adx_class}`;
+        } else if (f.adx) {
+            adxDisplay = `ADX:${f.adx}`;
+        }
+        adxEl.textContent = adxDisplay;
+        if (f.adx_class === 'STRONG' || f.adx_class === 'MILD') {
+            adxEl.className = 'ebadge bull';
+        } else if (f.adx_class === 'WEAK') {
+            adxEl.className = 'ebadge neutral';
+        } else if (f.adx_class === 'DEAD') {
+            adxEl.className = 'ebadge bear';
+        } else {
+            adxEl.className = 'ebadge off';
+        }
+    }
+
+    // Score badge
+    const scoreEl = document.getElementById(`eb-score-${id}`);
+    if (scoreEl) {
+        scoreEl.textContent = `CF:${score}`;
+        scoreEl.className = 'ebadge score';
+        scoreEl.style.color = score >= MIN_MACRO_SCORE ? 'var(--emerald)' : score >= MIN_MACRO_SCORE * 0.6 ? 'var(--gold)' : 'var(--text-dim)';
     }
 }
 
 function updateConfluenceBar(id, score) {
     const fill = document.getElementById(`cf-fill-${id}`);
-    const txt  = document.getElementById(`cf-txt-${id}`);
+    const txt = document.getElementById(`cf-txt-${id}`);
     if (!fill || !txt) return;
     const pct = Math.min(100, Math.max(0, score));
-    fill.style.width      = pct + '%';
-    fill.style.background = pct >= MIN_MACRO_SCORE ? 'var(--emerald)' : pct >= MIN_MACRO_SCORE * 0.7 ? 'var(--gold)' : 'var(--crimson)';
-    txt.textContent       = Math.round(pct);
-    txt.style.color       = pct >= MIN_MACRO_SCORE ? 'var(--emerald)' : pct >= MIN_MACRO_SCORE * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
+    fill.style.width = pct + '%';
+    fill.style.background = pct >= MIN_MACRO_SCORE ? 'var(--emerald)' : pct >= MIN_MACRO_SCORE * 0.6 ? 'var(--gold)' : 'var(--crimson)';
+    txt.textContent = Math.round(pct);
+    txt.style.color = pct >= MIN_MACRO_SCORE ? 'var(--emerald)' : pct >= MIN_MACRO_SCORE * 0.6 ? 'var(--gold)' : 'var(--text-dim)';
 }
 
 function updatePerformanceUI(id) {
@@ -1151,11 +1173,12 @@ function updatePerformanceUI(id) {
 }
 
 function updateFeedBadge(id, status) {
-    const el = document.getElementById(`feed-badge-${id}`); if (!el) return;
+    const el = document.getElementById(`feed-badge-${id}`);
+    if (!el) return;
     el.className = 'feed-badge';
-    if (status === 'ok')           { el.textContent = '● WS';   el.classList.add('ok'); }
+    if (status === 'ok') { el.textContent = '● WS'; el.classList.add('ok'); }
     else if (status === 'fallback') { el.textContent = '⚡ REST'; el.classList.add('fallback'); }
-    else                           { el.textContent = '✕ ERR';  el.classList.add('err'); }
+    else { el.textContent = '✕ ERR'; el.classList.add('err'); }
 }
 
 function updateGlobalPulse() {
@@ -1192,9 +1215,18 @@ function handleHistoryPanelTap(id) {
     }
 }
 
-// ================================================================
-//  CARD HTML
-// ================================================================
+// ============================================================
+// TAP HANDLERS
+// ============================================================
+let tapCounters = { xau: 0, btc: 0 };
+let tapTimers = { xau: null, btc: null };
+let historyTapCounters = { xau: 0, btc: 0 };
+let historyTapTimers = { xau: null, btc: null };
+const TAP_TIMEOUT = 500;
+
+// ============================================================
+// CARD HTML
+// ============================================================
 function buildCardHTML(id, label) {
     const isActive = activePairId === id ? 'active' : '';
     return `<div class="pair-card ${isActive}" id="card-${id}">
@@ -1229,6 +1261,7 @@ function buildCardHTML(id, label) {
           <span class="ebadge off" id="eb-bb-${id}">EMA50</span>
           <span class="ebadge off" id="eb-choch-${id}">STR</span>
           <span class="ebadge off" id="eb-vol-${id}">ADX</span>
+          <span class="ebadge score" id="eb-score-${id}">CF:0</span>
         </div>
         <div class="confluence-panel">
           <span class="confluence-label">STRENGTH</span>
@@ -1259,131 +1292,261 @@ function buildCardHTML(id, label) {
 window.copyValue = (id, type) => {
     const val = document.getElementById(`${type}-${id}`)?.innerText;
     if (val && val !== '--') {
-        navigator.clipboard?.writeText(val)
-            .then(() => showToast(`${type.toUpperCase()} copied: ${val}`))
-            .catch(() => showToast(val));
+        navigator.clipboard?.writeText(val).then(() => showToast(`${type.toUpperCase()} copied: ${val}`)).catch(() => showToast(val));
         if (navigator.vibrate) navigator.vibrate(50);
     }
 };
 
-// ================================================================
-//  WEBSOCKETS
-// ================================================================
+// ============================================================
+// WEBSOCKETS - OPTIMIZED WITH BETTER RECONNECTION
+// ============================================================
 let xauWs = null, xauReconnectTimer = null, xauReconnectAttempts = 0;
 let xauFetchRetryTimer = null, xauCurrentPrice = 0, xauLastHeartbeat = Date.now();
-const XAU_REST = ['https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT','https://api.binance.com/api/v3/ticker/price?symbol=XAUUSDT'];
+const XAU_REST = ['https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT', 'https://api.binance.com/api/v3/ticker/price?symbol=XAUUSDT'];
 let xauRestIdx = 0;
 
 function updateXAUDisplay(price) {
     if (!price || isNaN(price) || price <= 0) return;
-    xauCurrentPrice = price; xauLastHeartbeat = Date.now();
-    pendingPriceData.xau = price; pendingSignalData.xau = true;
-    throttledUpdateUI('xau'); updateSignal('xau', price);
-    wsStatus.xau = true; updateGlobalPulse();
-    const el = document.getElementById('ws-status-xau'); if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; }
+    if (Math.abs(price - xauCurrentPrice) < 0.01 && xauCurrentPrice > 0) return;
+    xauCurrentPrice = price;
+    xauLastHeartbeat = Date.now();
+    pendingPriceData.xau = price;
+    pendingSignalData.xau = true;
+    throttledUpdateUI('xau');
+    updateSignal('xau', price);
+    wsStatus.xau = true;
+    updateGlobalPulse();
+    const el = document.getElementById('ws-status-xau');
+    if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; }
     updateFeedBadge('xau', 'ok');
 }
 
 async function xauFetchRestPrice() {
     for (let i = 0; i < XAU_REST.length; i++) {
         try {
-            const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 7000);
-            const resp = await fetch(XAU_REST[(xauRestIdx + i) % XAU_REST.length], { signal: ctrl.signal }); clearTimeout(tid);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            const resp = await fetch(XAU_REST[(xauRestIdx + i) % XAU_REST.length], { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (!resp.ok) continue;
             const data = await resp.json();
             if (data?.price) {
                 const p = parseFloat(data.price) + XAU_OFFSET;
-                if (p > 0 && p !== xauCurrentPrice) {
-                    xauCurrentPrice = p; xauLastHeartbeat = Date.now();
-                    pendingPriceData.xau = p; pendingSignalData.xau = true;
-                    throttledUpdateUI('xau'); updateSignal('xau', p);
-                    wsStatus.xau = true; updateGlobalPulse();
-                    const el = document.getElementById('ws-status-xau'); if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; }
-                    updateFeedBadge('xau', 'fallback'); xauRestIdx = (xauRestIdx + i) % XAU_REST.length; return true;
+                if (p > 0 && !isNaN(p)) {
+                    updateXAUDisplay(p);
+                    xauRestIdx = (xauRestIdx + i) % XAU_REST.length;
+                    return true;
                 }
             }
         } catch(e) {}
     }
-    updateFeedBadge('xau', 'err'); return false;
+    updateFeedBadge('xau', 'err');
+    return false;
 }
 
 function initXAUWebSocket() {
     if (xauWs) { try { xauWs.close(); } catch(e) {} xauWs = null; }
     if (xauReconnectTimer) clearTimeout(xauReconnectTimer);
+    
     try {
         xauWs = new WebSocket('wss://fstream.binance.com/ws/xauusdt@trade');
-        const wst = setTimeout(() => { if (xauWs && xauWs.readyState !== WebSocket.OPEN) { try { xauWs.close(); } catch(e) {} xauWs = null; updateFeedBadge('xau','fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); } }, 5000);
-        xauWs.onopen = () => { clearTimeout(wst); xauReconnectAttempts = 0; if (xauFetchRetryTimer) { clearInterval(xauFetchRetryTimer); xauFetchRetryTimer = null; } updateFeedBadge('xau','ok'); updateGlobalPulse(); };
-        xauWs.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.p) { const p = parseFloat(d.p) + XAU_OFFSET; if (!isNaN(p) && p > 0 && p !== xauCurrentPrice) updateXAUDisplay(p); } } catch(err) {} };
-        xauWs.onclose = () => { const delay = Math.min(1000 * Math.pow(1.5, xauReconnectAttempts), 15000); xauReconnectAttempts++; xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay); updateFeedBadge('xau','fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); };
-        xauWs.onerror = () => { updateFeedBadge('xau','fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); };
-    } catch(err) { updateFeedBadge('xau','fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); }
+        const connectionTimeout = setTimeout(() => {
+            if (xauWs && xauWs.readyState !== WebSocket.OPEN) {
+                try { xauWs.close(); } catch(e) {}
+                xauWs = null;
+                updateFeedBadge('xau', 'fallback');
+                if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(() => { xauFetchRestPrice(); }, 3000);
+            }
+        }, 5000);
+        
+        xauWs.onopen = () => {
+            clearTimeout(connectionTimeout);
+            xauReconnectAttempts = 0;
+            if (xauFetchRetryTimer) { clearInterval(xauFetchRetryTimer); xauFetchRetryTimer = null; }
+            updateFeedBadge('xau', 'ok');
+            updateGlobalPulse();
+            const el = document.getElementById('ws-status-xau');
+            if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; }
+            xauFetchRestPrice();
+        };
+        
+        xauWs.onmessage = (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                if (d.p) {
+                    const p = parseFloat(d.p) + XAU_OFFSET;
+                    if (!isNaN(p) && p > 0) updateXAUDisplay(p);
+                }
+            } catch(err) {}
+        };
+        
+        xauWs.onclose = () => {
+            const delay = Math.min(1000 * Math.pow(1.3, xauReconnectAttempts), 10000);
+            xauReconnectAttempts++;
+            xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay);
+            updateFeedBadge('xau', 'fallback');
+            if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(() => { xauFetchRestPrice(); }, 3000);
+        };
+        
+        xauWs.onerror = () => {
+            updateFeedBadge('xau', 'fallback');
+            if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(() => { xauFetchRestPrice(); }, 3000);
+        };
+    } catch(err) {
+        updateFeedBadge('xau', 'fallback');
+        if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(() => { xauFetchRestPrice(); }, 3000);
+    }
 }
 
 let btcWs = null, btcReconnectTimer = null, btcReconnectAttempts = 0, btcFetchRetryTimer = null;
 
 async function btcFetchRestPrice() {
     try {
-        const resp = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const resp = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!resp.ok) throw new Error('HTTP error');
         const data = await resp.json();
-        if (data?.price) { const p = parseFloat(data.price); if (p > 0 && !isNaN(p)) { pendingPriceData.btc = p; pendingSignalData.btc = true; throttledUpdateUI('btc'); updateSignal('btc', p); wsStatus.btc = true; updateGlobalPulse(); updateFeedBadge('btc','fallback'); return true; } }
+        if (data?.price) {
+            const p = parseFloat(data.price);
+            if (p > 0 && !isNaN(p)) {
+                pendingPriceData.btc = p;
+                pendingSignalData.btc = true;
+                throttledUpdateUI('btc');
+                updateSignal('btc', p);
+                wsStatus.btc = true;
+                updateGlobalPulse();
+                updateFeedBadge('btc', 'fallback');
+                return true;
+            }
+        }
     } catch(e) {}
-    updateFeedBadge('btc','err'); return false;
+    updateFeedBadge('btc', 'err');
+    return false;
 }
 
 function initBTCWebSocket() {
     if (btcWs) { try { btcWs.close(); } catch(e) {} btcWs = null; }
     if (btcReconnectTimer) clearTimeout(btcReconnectTimer);
+    
     try {
         btcWs = new WebSocket(BTC_WS_URL);
-        const wst = setTimeout(() => { if (btcWs && btcWs.readyState !== WebSocket.OPEN) { try { btcWs.close(); } catch(e) {} btcWs = null; updateFeedBadge('btc','fallback'); wsStatus.btc = false; if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(async () => { await btcFetchRestPrice(); }, 3000); } }, 6000);
-        btcWs.onopen = () => { clearTimeout(wst); btcReconnectAttempts = 0; wsStatus.btc = true; if (btcFetchRetryTimer) { clearInterval(btcFetchRetryTimer); btcFetchRetryTimer = null; } const el = document.getElementById('ws-status-btc'); if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; } updateFeedBadge('btc','ok'); updateGlobalPulse(); updateSignalUIOnly('btc'); };
-        btcWs.onmessage = (e) => { try { const d = JSON.parse(e.data); const p = parseFloat(d.p); if (p && p > 0 && !isNaN(p)) { pendingPriceData.btc = p; pendingSignalData.btc = true; throttledUpdateUI('btc'); updateSignal('btc', p); } } catch(err) {} };
-        btcWs.onclose = () => { wsStatus.btc = false; updateFeedBadge('btc','fallback'); updateGlobalPulse(); updateSignalUIOnly('btc'); const delay = Math.min(1000 * Math.pow(2, btcReconnectAttempts), 30000); btcReconnectAttempts++; btcReconnectTimer = setTimeout(() => initBTCWebSocket(), delay); if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(async () => { await btcFetchRestPrice(); }, 3000); };
-        btcWs.onerror = () => { wsStatus.btc = false; updateFeedBadge('btc','fallback'); updateGlobalPulse(); if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(async () => { await btcFetchRestPrice(); }, 3000); };
-    } catch(err) { wsStatus.btc = false; updateFeedBadge('btc','err'); setTimeout(() => initBTCWebSocket(), 5000); }
+        const connectionTimeout = setTimeout(() => {
+            if (btcWs && btcWs.readyState !== WebSocket.OPEN) {
+                try { btcWs.close(); } catch(e) {}
+                btcWs = null;
+                updateFeedBadge('btc', 'fallback');
+                if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(() => { btcFetchRestPrice(); }, 3000);
+            }
+        }, 5000);
+        
+        btcWs.onopen = () => {
+            clearTimeout(connectionTimeout);
+            btcReconnectAttempts = 0;
+            wsStatus.btc = true;
+            if (btcFetchRetryTimer) { clearInterval(btcFetchRetryTimer); btcFetchRetryTimer = null; }
+            const el = document.getElementById('ws-status-btc');
+            if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; }
+            updateFeedBadge('btc', 'ok');
+            updateGlobalPulse();
+            updateSignalUIOnly('btc');
+        };
+        
+        btcWs.onmessage = (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                const p = parseFloat(d.p);
+                if (p && p > 0 && !isNaN(p)) {
+                    pendingPriceData.btc = p;
+                    pendingSignalData.btc = true;
+                    throttledUpdateUI('btc');
+                    updateSignal('btc', p);
+                }
+            } catch(err) {}
+        };
+        
+        btcWs.onclose = () => {
+            wsStatus.btc = false;
+            updateFeedBadge('btc', 'fallback');
+            updateGlobalPulse();
+            updateSignalUIOnly('btc');
+            const delay = Math.min(1000 * Math.pow(1.5, btcReconnectAttempts), 15000);
+            btcReconnectAttempts++;
+            btcReconnectTimer = setTimeout(() => initBTCWebSocket(), delay);
+            if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(() => { btcFetchRestPrice(); }, 3000);
+        };
+        
+        btcWs.onerror = () => {
+            wsStatus.btc = false;
+            updateFeedBadge('btc', 'fallback');
+            updateGlobalPulse();
+            if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(() => { btcFetchRestPrice(); }, 3000);
+        };
+    } catch(err) {
+        wsStatus.btc = false;
+        updateFeedBadge('btc', 'err');
+        setTimeout(() => initBTCWebSocket(), 5000);
+    }
 }
 
 function switchPair() {
     activePairId = activePairId === 'xau' ? 'btc' : 'xau';
     try { localStorage.setItem('ura_active_pair', activePairId); } catch(e) {}
-    const lb = document.getElementById('switchLabel'); if (lb) lb.innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
+    const lb = document.getElementById('switchLabel');
+    if (lb) lb.innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
     document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active'));
     document.getElementById(`card-${activePairId}`)?.classList.add('active');
     if (navigator.vibrate) navigator.vibrate(20);
 }
 
-// ================================================================
-//  INIT
-// ================================================================
+// ============================================================
+// INITIALIZATION
+// ============================================================
 function init() {
     checkAndMigrateSchema();
-    state.xau = loadState('xau'); state.btc = loadState('btc');
-    performanceStats.xau = loadPerformanceStats('xau'); performanceStats.btc = loadPerformanceStats('btc');
-    updateWinrateAndDrawrate('xau'); updateWinrateAndDrawrate('btc');
+    state.xau = loadState('xau');
+    state.btc = loadState('btc');
+    performanceStats.xau = loadPerformanceStats('xau');
+    performanceStats.btc = loadPerformanceStats('btc');
+    updateWinrateAndDrawrate('xau');
+    updateWinrateAndDrawrate('btc');
 
-    document.getElementById('terminals').innerHTML = buildCardHTML('xau','XAUUSD') + buildCardHTML('btc','BTCUSD');
+    document.getElementById('terminals').innerHTML = buildCardHTML('xau', 'XAUUSD') + buildCardHTML('btc', 'BTCUSD');
 
+    // Bind tap events
     const bindTap = (el, handler) => {
-        if (!el) return; let lastTap = 0;
-        const h = (e) => { e.preventDefault(); const now = Date.now(); if (now - lastTap < 80) return; lastTap = now; handler(); };
-        el.addEventListener('touchstart', h, { passive: false }); el.addEventListener('click', h);
+        if (!el) return;
+        const h = (e) => { e.preventDefault(); handler(); };
+        el.addEventListener('touchstart', h, { passive: false });
+        el.addEventListener('click', h);
     };
-    bindTap(document.getElementById('signal-bar-xau'),    () => handleSignalBarTap('xau'));
-    bindTap(document.getElementById('signal-bar-btc'),    () => handleSignalBarTap('btc'));
+    
+    bindTap(document.getElementById('signal-bar-xau'), () => handleSignalBarTap('xau'));
+    bindTap(document.getElementById('signal-bar-btc'), () => handleSignalBarTap('btc'));
     bindTap(document.getElementById('history-panel-xau'), () => handleHistoryPanelTap('xau'));
     bindTap(document.getElementById('history-panel-btc'), () => handleHistoryPanelTap('btc'));
 
     const btn = document.getElementById('switchPairBtn');
     if (btn) {
-        const nb = btn.cloneNode(true); btn.parentNode.replaceChild(nb, btn);
-        const ds = function(e) { e.preventDefault(); e.stopPropagation(); nb.classList.add('btn-highlight'); setTimeout(() => nb.classList.remove('btn-highlight'), 150); switchPair(); };
-        nb.addEventListener('click', ds); nb.addEventListener('touchstart', ds, { passive: false });
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            newBtn.classList.add('btn-highlight');
+            setTimeout(() => newBtn.classList.remove('btn-highlight'), 150);
+            switchPair();
+        });
     }
 
-    updateSignalUIOnly('xau'); updateSignalUIOnly('btc');
-    updatePerformanceUI('xau'); updatePerformanceUI('btc');
+    updateSignalUIOnly('xau');
+    updateSignalUIOnly('btc');
+    updatePerformanceUI('xau');
+    updatePerformanceUI('btc');
 
-    seedCandles('xau', 3300); seedCandles('btc', 105000);
+    seedCandles('xau', 3300);
+    seedCandles('btc', 95000);
 
     let seedFixed = { xau: false, btc: false };
     const fixSeed = (id, price) => {
@@ -1393,24 +1556,28 @@ function init() {
         seedFixed[id] = true;
     };
 
-    initXAUWebSocket(); xauFetchRestPrice();
-    initBTCWebSocket(); btcFetchRestPrice();
+    initXAUWebSocket();
+    initBTCWebSocket();
+    xauFetchRestPrice();
+    btcFetchRestPrice();
     updateGlobalPulse();
 
     setInterval(() => {
         if (!seedFixed.xau && xauCurrentPrice > 0) fixSeed('xau', xauCurrentPrice);
         if (!seedFixed.btc && marketData.btc.price > 0) fixSeed('btc', marketData.btc.price);
-        if (Date.now() - xauLastHeartbeat > 8000) xauFetchRestPrice();
+        if (Date.now() - xauLastHeartbeat > 6000) xauFetchRestPrice();
+        if (!wsStatus.btc && !btcFetchRetryTimer) btcFetchRestPrice();
         updateGlobalPulse();
     }, 3000);
 
-    setInterval(() => {
-        if (!xauWs || xauWs.readyState !== WebSocket.OPEN) xauFetchRestPrice();
-        if (!btcWs || btcWs.readyState !== WebSocket.OPEN) btcFetchRestPrice();
-    }, 2000);
-
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) { xauFetchRestPrice(); btcFetchRestPrice(); updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updateGlobalPulse(); }
+        if (!document.hidden) {
+            xauFetchRestPrice();
+            btcFetchRestPrice();
+            updateSignalUIOnly('xau');
+            updateSignalUIOnly('btc');
+            updateGlobalPulse();
+        }
     });
 }
 
