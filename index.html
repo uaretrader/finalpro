@@ -549,7 +549,7 @@ function executeLockSignal(id, direction, livePrice, score) {
     }
     // ================================================================
     
-    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 14 : 250);
+    const slD = Math.max(atr * regimeMultiplier, id === 'xau' ? 14 : 185);
     const tpD = slD * RR_RATIO;
     
     s.l3 = true; s.confirmed = true; s.confirmedAt = Date.now(); s.warmupUntil = Date.now() + 2500;
