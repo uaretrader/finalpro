@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
-<title>URADVISOR v8.0 — APEX ENGINE</title>
+<title>URADVISOR v8.0 — APEX ENGINE + ADX INSTITUTIONAL</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -130,6 +130,9 @@ header::after {
 .ebadge.neutral { color: var(--amber); border-color: rgba(255,184,48,0.25); background: rgba(255,184,48,0.07); }
 .ebadge.active { color: var(--violet); border-color: rgba(167,139,250,0.3); background: rgba(167,139,250,0.08); }
 .ebadge.score { color: var(--gold); border-color: rgba(240,165,0,0.3); background: rgba(240,165,0,0.08); font-weight: 700; }
+.ebadge.adx-strong { color: var(--emerald); border-color: rgba(0,217,139,0.25); background: rgba(0,217,139,0.07); }
+.ebadge.adx-weak { color: var(--amber); border-color: rgba(255,184,48,0.25); background: rgba(255,184,48,0.07); }
+.ebadge.adx-range { color: var(--crimson); border-color: rgba(255,64,96,0.25); background: rgba(255,64,96,0.07); }
 .confluence-panel {
     display: flex; align-items: center; gap: 8px;
     padding: 7px 17px; border-bottom: 1px solid var(--edge); background: rgba(0,0,0,0.1);
@@ -165,7 +168,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <header>
     <div class="brand">
         <h1>ur<span>advisor</span></h1>
-        <div class="brand-sub">URA v8.0</div>
+        <div class="brand-sub">URA v8.0 + ADX</div>
     </div>
     <div class="header-right">
         <div class="sys-status">
@@ -180,7 +183,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <div id="terminals"></div>
 
 <footer>
-    APEX ENGINE v8 · RSI(14) · MACD(12,26,9) · VWAP · BB · EMA CROSS · CHoCH<br>
+    APEX ENGINE v8 · ADX(14) · RSI(14) · MACD(12,26,9) · VWAP · BB · EMA CROSS · CHoCH<br>
     REGIME ADAPTIVE SL · CONFLUENCE GATE ≥55 · RR≥1.8 · SL COOLDOWN · VOLUME SPIKE
 </footer>
 </div>
@@ -191,18 +194,22 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 'use strict';
 
 // ================================================================
-//  URADVISOR APEX ENGINE v8.0 — REGIME ADAPTIVE SL
-//  Upgrade: Market Regime Detection (TRENDING/RANGING/SQUEEZE)
-//           otomatis menyesuaikan jarak Stop Loss
+//  URADVISOR APEX ENGINE v8.0 — REGIME ADAPTIVE SL + ADX INSTITUTIONAL
+//  ADX Filter untuk mengurangi false signal di ranging market
 // ================================================================
 
-const LS_SCHEMA_VERSION  = 5;
+const LS_SCHEMA_VERSION  = 6; // Incremented for ADX addition
 const BTC_WS_URL         = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_OFFSET         = -2.4;
 const CONFIRMATION_WAIT_MS = 5000;
 const MIN_CONFLUENCE     = 82;
 const COOLDOWN_AFTER_SL_MS = 12000;
 const RR_RATIO           = 1.8;
+
+// ADX Constants
+const ADX_PERIOD = 14;
+const ADX_MIN_STRONG = 25;  // Minimal ADX untuk sinyal berkualitas
+const ADX_BLOCK = 18;       // ADX <18 → BLOCK SIGNAL
 
 // ── Schema Migration ─────────────────────────────────────────────
 function checkAndMigrateSchema() {
@@ -216,6 +223,111 @@ function checkAndMigrateSchema() {
 // ── Toast ────────────────────────────────────────────────────────
 let _tt = null;
 function showToast(msg) { const el = document.getElementById('toast'); if (!el) return; el.textContent = msg; el.classList.add('show'); if (_tt) clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), 2100); }
+
+// ================================================================
+//  ADX INSTITUTIONAL (Wilder Method, Period 14)
+// ================================================================
+function calcADX(closes, highs, lows, period = ADX_PERIOD) {
+    if (!closes || !highs || !lows) return { adx: 0, plusDI: 0, minusDI: 0 };
+    const len = closes.length;
+    if (len < period + 1) return { adx: 0, plusDI: 0, minusDI: 0 };
+    
+    let prevTR = 0, prevPlusDM = 0, prevMinusDM = 0;
+    let sumTR = 0, sumPlusDM = 0, sumMinusDM = 0;
+    let trValues = [], plusDMValues = [], minusDMValues = [];
+    
+    // Calculate True Range, +DM, -DM for each bar
+    for (let i = 1; i < len; i++) {
+        const high = highs[i];
+        const low = lows[i];
+        const prevHigh = highs[i-1];
+        const prevLow = lows[i-1];
+        const prevClose = closes[i-1];
+        
+        // True Range
+        const hl = high - low;
+        const hc = Math.abs(high - prevClose);
+        const lc = Math.abs(low - prevClose);
+        const tr = Math.max(hl, hc, lc);
+        trValues.push(tr);
+        
+        // +DM and -DM
+        const upMove = high - prevHigh;
+        const downMove = prevLow - low;
+        let plusDM = 0;
+        let minusDM = 0;
+        
+        if (upMove > downMove && upMove > 0) {
+            plusDM = upMove;
+        } else if (downMove > upMove && downMove > 0) {
+            minusDM = downMove;
+        }
+        plusDMValues.push(plusDM);
+        minusDMValues.push(minusDM);
+    }
+    
+    const barCount = trValues.length;
+    if (barCount < period) return { adx: 0, plusDI: 0, minusDI: 0 };
+    
+    // Initialize first period sums
+    for (let i = 0; i < period; i++) {
+        sumTR += trValues[i];
+        sumPlusDM += plusDMValues[i];
+        sumMinusDM += minusDMValues[i];
+    }
+    
+    // Apply Wilder smoothing (EMA with alpha = 1/period)
+    let smoothedTR = sumTR;
+    let smoothedPlusDM = sumPlusDM;
+    let smoothedMinusDM = sumMinusDM;
+    
+    let diPlusValues = [];
+    let diMinusValues = [];
+    let adxValues = [];
+    
+    // Calculate +DI and -DI
+    for (let i = period; i <= barCount; i++) {
+        const prevTR = smoothedTR;
+        const prevPlusDM = smoothedPlusDM;
+        const prevMinusDM = smoothedMinusDM;
+        
+        if (i > period) {
+            smoothedTR = prevTR - (prevTR / period) + trValues[i-1];
+            smoothedPlusDM = prevPlusDM - (prevPlusDM / period) + plusDMValues[i-1];
+            smoothedMinusDM = prevMinusDM - (prevMinusDM / period) + minusDMValues[i-1];
+        }
+        
+        const diPlus = (smoothedPlusDM / smoothedTR) * 100;
+        const diMinus = (smoothedMinusDM / smoothedTR) * 100;
+        diPlusValues.push(diPlus);
+        diMinusValues.push(diMinus);
+        
+        const dx = Math.abs(diPlus - diMinus) / (diPlus + diMinus) * 100;
+        
+        // ADX is smoothed DX
+        if (adxValues.length === 0) {
+            adxValues.push(dx);
+        } else {
+            const prevADX = adxValues[adxValues.length - 1];
+            const newADX = (prevADX * (period - 1) + dx) / period;
+            adxValues.push(newADX);
+        }
+    }
+    
+    const currentIdx = adxValues.length - 1;
+    return {
+        adx: adxValues[currentIdx] || 0,
+        plusDI: diPlusValues[currentIdx] || 0,
+        minusDI: diMinusValues[currentIdx] || 0
+    };
+}
+
+// Get ADX status label for badge
+function getADXStatus(adx) {
+    if (adx >= 25) return { text: `ADX:${Math.round(adx)}`, cls: 'adx-strong' };
+    if (adx >= 18) return { text: `ADX:${Math.round(adx)}`, cls: 'adx-weak' };
+    return { text: `ADX:${Math.round(adx)}`, cls: 'adx-range' };
+}
 
 // ================================================================
 //  INDICATOR LIBRARY
@@ -300,7 +412,7 @@ function detectVolSpike(candles, lb = 12) {
 }
 
 // ================================================================
-//  MARKET REGIME DETECTION (BARU — untuk adaptive SL)
+//  MARKET REGIME DETECTION
 // ================================================================
 function detectMarketRegime(candles, id, bbWidth) {
     if (candles.length < 20) return 'UNKNOWN';
@@ -322,14 +434,22 @@ function detectMarketRegime(candles, id, bbWidth) {
 }
 
 // ================================================================
-//  CONFLUENCE SCORER
+//  CONFLUENCE SCORER + ADX Integration
 // ================================================================
 function scoreConfluence(id, price, candles) {
-    if (candles.length < 28) return { score: 0, factors: {}, direction: null };
+    if (candles.length < 28) return { score: 0, factors: {}, direction: null, adx: 0, plusDI: 0, minusDI: 0, adxStatus: 'weak' };
 
     const closes = candles.map(c => c.close);
+    const highs = candles.map(c => c.high);
+    const lows = candles.map(c => c.low);
     const atr    = calcATR(candles) || (id === 'xau' ? 3 : 300);
 
+    // Calculate ADX
+    const adxData = calcADX(closes, highs, lows, ADX_PERIOD);
+    const adx = adxData.adx || 0;
+    const plusDI = adxData.plusDI || 0;
+    const minusDI = adxData.minusDI || 0;
+    
     const rsi    = calcRSI(closes);
     const macd   = calcMACD(closes);
     const bb     = calcBollinger(closes);
@@ -343,22 +463,60 @@ function scoreConfluence(id, price, candles) {
     let bull = 0, bear = 0;
     const f = {};
 
+    // ========== ADX SCORING ==========
+    let adxScore = 0;
+    let adxStatus = 'weak';
+    let adxDirectionValid = false;
+    
+    if (adx >= 25) {
+        if (adx >= 40) adxScore = 12;
+        else if (adx >= 30) adxScore = 8;
+        else if (adx >= 25) adxScore = 4;
+        adxStatus = 'strong';
+        
+        // DI direction validation
+        if (plusDI > minusDI) {
+            bull += adxScore;
+            adxDirectionValid = true;
+            f.adx_sig = 'BULL';
+        } else if (minusDI > plusDI) {
+            bear += adxScore;
+            adxDirectionValid = true;
+            f.adx_sig = 'BEAR';
+        } else {
+            f.adx_sig = 'NEUTRAL';
+        }
+    } else if (adx >= 18) {
+        adxStatus = 'weak';
+        f.adx_sig = 'WEAK';
+        // Weak trend - minimal contribution
+        if (plusDI > minusDI) bull += 2;
+        else if (minusDI > plusDI) bear += 2;
+    } else {
+        adxStatus = 'range';
+        f.adx_sig = 'RANGE';
+        // Ranging market - block will be applied in signal validation
+    }
+    
+    f.adx = adx.toFixed(1);
+    f.plusDI = plusDI.toFixed(1);
+    f.minusDI = minusDI.toFixed(1);
+    
+    // ========== RSI ==========
     if (rsi !== null) {
-    f.rsi = rsi.toFixed(1);
+        f.rsi = rsi.toFixed(1);
+        if (rsi > 55) {
+            bull += 3;
+            f.rsi_sig = 'BULL';
+        } else if (rsi < 45) {
+            bear += 3;
+            f.rsi_sig = 'BEAR';
+        } else {
+            f.rsi_sig = 'MID';
+        }
+    }
 
-    if (rsi > 55) {
-        bull += 3;
-        f.rsi_sig = 'BULL';
-    }
-    else if (rsi < 45) {
-        bear += 3;
-        f.rsi_sig = 'BEAR';
-    }
-    else {
-        f.rsi_sig = 'MID';
-    }
-}
-
+    // ========== MACD ==========
     if (macd !== null) {
         f.macd_hist = macd.hist.toFixed(5);
         if (macd.hist > 0 && macd.line > 0)      { bull += 6; f.macd_sig = 'BULL'; }
@@ -368,11 +526,13 @@ function scoreConfluence(id, price, candles) {
         else f.macd_sig = 'FLAT';
     }
 
+    // ========== EMA Cross ==========
     if (ema9 && ema21) {
         f.ema_cross = ema9 > ema21 ? 'BULL' : 'BEAR';
         ema9 > ema21 ? bull += 25 : bear += 25;
     }
 
+    // ========== EMA50 ==========
     if (ema50) {
         const tol = atr * 0.12;
         if (price > ema50 + tol)      { bull += 12; f.ema50 = 'ABOVE'; }
@@ -380,6 +540,7 @@ function scoreConfluence(id, price, candles) {
         else f.ema50 = 'AT';
     }
 
+    // ========== VWAP ==========
     if (vwap) {
         const tol = atr * 0.15;
         f.vwap_dist = (price - vwap).toFixed(2);
@@ -388,6 +549,7 @@ function scoreConfluence(id, price, candles) {
         else f.vwap = 'AT';
     }
 
+    // ========== Bollinger Bands ==========
     if (bb) {
         f.bb_width = (bb.width / bb.mid * 100).toFixed(2) + '%';
         const squeeze = bb.width < atr * 1.3;
@@ -398,33 +560,45 @@ function scoreConfluence(id, price, candles) {
         else                                      f.bb = 'MID';
     }
 
+    // ========== CHoCH ==========
     f.choch = choch;
     if (choch === 'BULLISH') bull += 30;
     else if (choch === 'BEARISH') bear += 30;
 
+    // ========== Volume Spike ==========
     f.vol_spike = vspi;
-
-if (vspi && vwap != null) {
-    if (choch === 'BULLISH' && price > vwap)
-        bull += 5;
-    else if (choch === 'BEARISH' && price < vwap)
-        bear += 5;
-}
+    if (vspi && vwap != null) {
+        if (choch === 'BULLISH' && price > vwap)
+            bull += 5;
+        else if (choch === 'BEARISH' && price < vwap)
+            bear += 5;
+    }
 
     const MAX = 98;
     let direction = null, score = 0;
     const diff = Math.abs(bull - bear);
-    if (bull > bear && diff >= 8) {
+    
+    // Determine direction with ADX filter validation (will be re-checked at L3)
+    if (bull > bear && diff >= 8 && adx >= ADX_MIN_STRONG && plusDI > minusDI) {
         direction = 'buy';
         score = Math.min(98, Math.round((bull / MAX) * 98 + bull * 0.15));
-    } else if (bear > bull && diff >= 8) {
+    } else if (bear > bull && diff >= 8 && adx >= ADX_MIN_STRONG && minusDI > plusDI) {
         direction = 'sell';
         score = Math.min(98, Math.round((bear / MAX) * 98 + bear * 0.15));
+    } else if (bull > bear && diff >= 8 && adx >= ADX_BLOCK && adx < ADX_MIN_STRONG) {
+        // Weak ADX but still above block threshold - lower score
+        direction = 'buy';
+        score = Math.min(70, Math.round((bull / MAX) * 70 + bull * 0.1));
+        f.adx_warning = 'WEAK';
+    } else if (bear > bull && diff >= 8 && adx >= ADX_BLOCK && adx < ADX_MIN_STRONG) {
+        direction = 'sell';
+        score = Math.min(70, Math.round((bear / MAX) * 70 + bear * 0.1));
+        f.adx_warning = 'WEAK';
     } else {
         score = Math.round(Math.max(bull, bear) / 2);
     }
 
-    return { score, factors: f, direction, bull, bear, rsi, macd, ema9, ema21, vwap, atr };
+    return { score, factors: f, direction, bull, bear, rsi, macd, ema9, ema21, vwap, atr, adx, plusDI, minusDI, adxStatus };
 }
 
 // ================================================================
@@ -506,7 +680,7 @@ function seedCandles(id, base) {
 }
 
 // ================================================================
-//  EXECUTE LOCK SIGNAL — DENGAN REGIME ADAPTIVE SL
+//  EXECUTE LOCK SIGNAL — WITH ADX VALIDATION + REGIME ADAPTIVE SL
 // ================================================================
 function executeLockSignal(id, direction, livePrice, score) {
     const s = state[id];
@@ -515,6 +689,34 @@ function executeLockSignal(id, direction, livePrice, score) {
     
     const atr = marketData[id].atr || (id === 'xau' ? 3.5 : 350);
     const closedCandles = getClosedCandles(id);
+    
+    // ========== FINAL ADX VALIDATION BEFORE LOCK ==========
+    if (closedCandles.length >= 28) {
+        const closes = closedCandles.map(c => c.close);
+        const highs = closedCandles.map(c => c.high);
+        const lows = closedCandles.map(c => c.low);
+        const adxData = calcADX(closes, highs, lows, ADX_PERIOD);
+        
+        // ADX GATE: minimal 25 untuk lolos signal
+        if (adxData.adx < ADX_MIN_STRONG) {
+            showToast(`${id.toUpperCase()} REJECTED: ADX ${Math.round(adxData.adx)} < 25`);
+            resetSignal(id);
+            return;
+        }
+        
+        // DI must match signal direction
+        if (direction === 'buy' && adxData.plusDI <= adxData.minusDI) {
+            showToast(`${id.toUpperCase()} REJECTED: +DI (${Math.round(adxData.plusDI)}) <= -DI (${Math.round(adxData.minusDI)})`);
+            resetSignal(id);
+            return;
+        }
+        if (direction === 'sell' && adxData.minusDI <= adxData.plusDI) {
+            showToast(`${id.toUpperCase()} REJECTED: -DI (${Math.round(adxData.minusDI)}) <= +DI (${Math.round(adxData.plusDI)})`);
+            resetSignal(id);
+            return;
+        }
+    }
+    // ================================================================
     
     // ========== MARKET REGIME DETECTION untuk Adaptive SL ==========
     let regimeMultiplier = 1.0;
@@ -538,13 +740,13 @@ function executeLockSignal(id, direction, livePrice, score) {
         
         if (directional >= 0.35 && bbWidth > (id === 'xau' ? 0.004 : 0.006)) {
             regime = upMoves > downMoves ? 'TRENDING_UP' : 'TRENDING_DOWN';
-            regimeMultiplier = 1.3;  // Trending → SL lebih longgar (+30%)
+            regimeMultiplier = 1.3;
         } else if (bbWidth < (id === 'xau' ? 0.003 : 0.004)) {
             regime = 'SQUEEZE';
-            regimeMultiplier = 0.7;  // Squeeze → SL lebih ketat (-30%)
+            regimeMultiplier = 0.7;
         } else {
             regime = 'RANGING';
-            regimeMultiplier = 0.85; // Ranging → SL sedikit lebih ketat (-15%)
+            regimeMultiplier = 0.85;
         }
     }
     // ================================================================
@@ -567,11 +769,11 @@ function executeLockSignal(id, direction, livePrice, score) {
     throttledSaveState(id); pendingSignalData[id] = true; throttledUpdateUI(id);
     document.getElementById(`signal-bar-${id}`)?.classList.remove('confirm-wait');
     if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-    showToast(`${id.toUpperCase()} ${direction.toUpperCase()} @ ${entry.toFixed(2)} | ${regime} | SL:${slD.toFixed(2)}`);
+    showToast(`${id.toUpperCase()} ${direction.toUpperCase()} @ ${entry.toFixed(2)} | ADX:${Math.round(marketData[id].lastADX || 0)} | ${regime}`);
 }
 
 // ================================================================
-//  SIGNAL ENGINE — CORE
+//  SIGNAL ENGINE — CORE WITH ADX FILTER
 // ================================================================
 function processSignal(id, price) {
     const s = state[id]; if (!s) return;
@@ -600,26 +802,84 @@ function processSignal(id, price) {
     if (closed.length < 28)     { s.lastPrice = price; return; }
 
     const cf = scoreConfluence(id, price, closed);
+    
+    // Store ADX data for display
+    marketData[id].lastADX = cf.adx;
+    
     updateEngineBadges(id, cf);
     updateConfluenceBar(id, cf.score);
+    
+    // ========== ADX BLOCK FILTER ==========
+    // ADX <18 → BLOCK SIGNAL COMPLETELY
+    if (cf.adx < ADX_BLOCK) {
+        // Reset any pending signal if ADX too low
+        if (s.l1 || s.l2 || s.l3) {
+            resetSignal(id);
+            updateEngineBadges(id, cf);
+        }
+        s.lastPrice = price;
+        throttledSaveState(id);
+        return;
+    }
+    // =======================================
 
     const thr0 = MIN_CONFLUENCE * 0.75;
     const thr1 = MIN_CONFLUENCE * 0.85;
     const thr2 = MIN_CONFLUENCE;
 
+    // Stage 1: ADX >=18 required (already checked above)
     if (!s.l1 && cf.direction && cf.score >= thr0) {
         s.l1 = true; s.type = cf.direction; s.originPrice = price; s.tempHigh = price; s.tempLow = price;
         pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id); return;
     }
+    
+    // Stage 2: Direction must match, ADX validation re-checked
     if (s.l1 && !s.l2 && cf.direction === s.type && cf.score >= thr1) {
-        s.l2 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id); return;
+        // Additional ADX check at Stage 2
+        if (cf.adx >= ADX_MIN_STRONG) {
+            s.l2 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id);
+        } else if (cf.adx >= ADX_BLOCK) {
+            // Weak trend but still above block - allow but with warning
+            s.l2 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id);
+        } else {
+            resetSignal(id);
+        }
+        return;
     }
+    
+    // Stage 3 / L3: ADX >=25 WAJIB + DI direction must match
     if (s.l2 && !s.l3 && cf.direction === s.type && cf.score >= thr2) {
-        s.l3 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id);
-        startConfirmationDelay(id, cf.direction, price, cf); return;
+        // ========== ADX GATE SEBELUM L3 ==========
+        if (cf.adx >= ADX_MIN_STRONG) {
+            // Validate DI direction matches signal
+            if ((cf.direction === 'buy' && cf.plusDI > cf.minusDI) ||
+                (cf.direction === 'sell' && cf.minusDI > cf.plusDI)) {
+                s.l3 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id);
+                startConfirmationDelay(id, cf.direction, price, cf);
+                return;
+            } else {
+                // DI mismatch - reject
+                resetSignal(id);
+                const st = document.getElementById(`signal-text-${id}`);
+                if (st) { st.innerText = 'DI MISMATCH'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1500); }
+                showToast(`${id.toUpperCase()} REJECTED: DI mismatch for ${cf.direction.toUpperCase()}`);
+                return;
+            }
+        } else {
+            // ADX <25 - reject at L3
+            resetSignal(id);
+            const st = document.getElementById(`signal-text-${id}`);
+            if (st) { st.innerText = 'ADX TOO LOW'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1500); }
+            showToast(`${id.toUpperCase()} REJECTED: ADX ${Math.round(cf.adx)} < 25 at L3`);
+            return;
+        }
+        // ========================================
     }
+    
+    // Direction change detection
     if (s.l1 && !s.confirmed && cf.direction && cf.direction !== s.type && cf.score > thr2 * 0.9) {
-        resetSignal(id); return;
+        resetSignal(id);
+        return;
     }
     s.lastPrice = price; throttledSaveState(id);
 }
@@ -640,13 +900,24 @@ function startConfirmationDelay(id, direction, entryPrice, cf) {
         if (!pendingConfirmation[id]) return;
         const closed = getClosedCandles(id);
         const lp = id === 'xau' ? xauCurrentPrice : (marketData[id].price || state[id].lastPrice || 0);
-        const cf2 = closed.length >= 28 ? scoreConfluence(id, lp, closed) : { score: 0, direction: null };
-        if (cf2.score >= MIN_CONFLUENCE && cf2.direction === direction) {
+        const cf2 = closed.length >= 28 ? scoreConfluence(id, lp, closed) : { score: 0, direction: null, adx: 0, plusDI: 0, minusDI: 0 };
+        
+        // Re-validate ADX before final execution
+        const adxValid = cf2.adx >= ADX_MIN_STRONG;
+        const diValid = (direction === 'buy' && cf2.plusDI > cf2.minusDI) ||
+                        (direction === 'sell' && cf2.minusDI > cf2.plusDI);
+        
+        if (cf2.score >= MIN_CONFLUENCE && cf2.direction === direction && adxValid && diValid) {
             executeLockSignal(id, direction, lp, cf2.score);
         } else {
             resetSignal(id);
+            let reason = '';
+            if (!adxValid) reason = `ADX ${Math.round(cf2.adx)} < 25`;
+            else if (!diValid) reason = 'DI mismatch';
+            else reason = 'Confluence drop';
             const st = document.getElementById(`signal-text-${id}`);
-            if (st) { st.innerText = 'REJECT'; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1500); }
+            if (st) { st.innerText = `REJECT: ${reason}`; st.style.color = 'var(--danger)'; setTimeout(() => updateSignalUIOnly(id), 1500); }
+            showToast(`${id.toUpperCase()} SIGNAL REJECTED: ${reason}`);
         }
         pendingConfirmation[id] = null;
     }, CONFIRMATION_WAIT_MS);
@@ -742,21 +1013,22 @@ function updateSignalUIOnly(id) {
 }
 
 function updateEngineBadges(id, cf) {
+    // ADX Badge
+    const adxStatus = getADXStatus(cf.adx);
+    const adxEl = document.getElementById(`eb-adx-${id}`);
+    if (adxEl) {
+        adxEl.className = `ebadge ${adxStatus.cls}`;
+        adxEl.textContent = adxStatus.text;
+    }
+    
     const badges = [
-        {
-    id: `eb-rsi-${id}`,
-    val: cf.factors.rsi_sig || 'RSI',
-    cls:
-        cf.factors.rsi_sig === 'BULL' ? 'bull' :
-        cf.factors.rsi_sig === 'BEAR' ? 'bear' :
-        'neutral'
-},
-        { id: `eb-macd-${id}`,  val: cf.factors.macd_sig || 'MACD', cls: (cf.factors.macd_sig||'').startsWith('BULL') ? 'bull' : (cf.factors.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral' },
-        { id: `eb-ema-${id}`,   val: cf.factors.ema_cross|| 'EMA',  cls: cf.factors.ema_cross === 'BULL' ? 'bull' : cf.factors.ema_cross === 'BEAR' ? 'bear' : 'off' },
-        { id: `eb-vwap-${id}`,  val: cf.factors.vwap     || 'VWAP', cls: cf.factors.vwap === 'ABOVE' ? 'bull' : cf.factors.vwap === 'BELOW' ? 'bear' : 'neutral' },
-        { id: `eb-bb-${id}`,    val: cf.factors.bb       || 'BB',   cls: cf.factors.bb === 'AT_LOWER' ? 'bull' : cf.factors.bb === 'AT_UPPER' ? 'bear' : cf.factors.bb === 'SQUEEZE' ? 'active' : 'neutral' },
-        { id: `eb-choch-${id}`, val: cf.factors.choch    || 'CHOCH',cls: cf.factors.choch === 'BULLISH' ? 'bull' : cf.factors.choch === 'BEARISH' ? 'bear' : 'off' },
-        { id: `eb-vol-${id}`,   val: cf.factors.vol_spike ? 'SPIKE' : 'NORM', cls: cf.factors.vol_spike ? 'active' : 'off' },
+        { id: `eb-rsi-${id}`, val: cf.factors.rsi_sig || 'RSI', cls: cf.factors.rsi_sig === 'BULL' ? 'bull' : cf.factors.rsi_sig === 'BEAR' ? 'bear' : 'neutral' },
+        { id: `eb-macd-${id}`, val: cf.factors.macd_sig || 'MACD', cls: (cf.factors.macd_sig||'').startsWith('BULL') ? 'bull' : (cf.factors.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral' },
+        { id: `eb-ema-${id}`, val: cf.factors.ema_cross|| 'EMA', cls: cf.factors.ema_cross === 'BULL' ? 'bull' : cf.factors.ema_cross === 'BEAR' ? 'bear' : 'off' },
+        { id: `eb-vwap-${id}`, val: cf.factors.vwap || 'VWAP', cls: cf.factors.vwap === 'ABOVE' ? 'bull' : cf.factors.vwap === 'BELOW' ? 'bear' : 'neutral' },
+        { id: `eb-bb-${id}`, val: cf.factors.bb || 'BB', cls: cf.factors.bb === 'AT_LOWER' ? 'bull' : cf.factors.bb === 'AT_UPPER' ? 'bear' : cf.factors.bb === 'SQUEEZE' ? 'active' : 'neutral' },
+        { id: `eb-choch-${id}`, val: cf.factors.choch || 'CHOCH', cls: cf.factors.choch === 'BULLISH' ? 'bull' : cf.factors.choch === 'BEARISH' ? 'bear' : 'off' },
+        { id: `eb-vol-${id}`, val: cf.factors.vol_spike ? 'SPIKE' : 'NORM', cls: cf.factors.vol_spike ? 'active' : 'off' },
     ];
     for (const b of badges) { const el = document.getElementById(b.id); if (el) { el.className = `ebadge ${b.cls}`; el.textContent = b.val; } }
     const sc = document.getElementById(`eb-score-${id}`);
@@ -815,7 +1087,7 @@ function handleHistoryPanelTap(id) {
 }
 
 // ================================================================
-//  CARD HTML
+//  CARD HTML (with ADX badge added)
 // ================================================================
 function buildCardHTML(id, label) {
     const isActive = activePairId === id ? 'active' : '';
@@ -844,6 +1116,7 @@ function buildCardHTML(id, label) {
           <span id="signal-text-${id}">IDLE</span>
         </div>
         <div class="engine-badge-row">
+          <span class="ebadge off" id="eb-adx-${id}">ADX:--</span>
           <span class="ebadge off" id="eb-rsi-${id}">RSI</span>
           <span class="ebadge off" id="eb-macd-${id}">MACD</span>
           <span class="ebadge off" id="eb-ema-${id}">EMA</span>
@@ -851,6 +1124,7 @@ function buildCardHTML(id, label) {
           <span class="ebadge off" id="eb-bb-${id}">BB</span>
           <span class="ebadge off" id="eb-choch-${id}">CHoCH</span>
           <span class="ebadge off" id="eb-vol-${id}">VOL</span>
+          <span class="ebadge score" id="eb-score-${id}">CF:0</span>
         </div>
         <div class="confluence-panel">
           <span class="confluence-label">STRENGTH</span>
