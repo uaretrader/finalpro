@@ -347,11 +347,11 @@ function scoreConfluence(id, price, candles) {
     f.rsi = rsi.toFixed(1);
 
     if (rsi > 55) {
-        bull += 3;
+        bull += 6;
         f.rsi_sig = 'BULL';
     }
     else if (rsi < 45) {
-        bear += 3;
+        bear += 6;
         f.rsi_sig = 'BEAR';
     }
     else {
@@ -361,30 +361,37 @@ function scoreConfluence(id, price, candles) {
 
     if (macd !== null) {
         f.macd_hist = macd.hist.toFixed(5);
-        if (macd.hist > 0 && macd.line > 0)      { bull += 6; f.macd_sig = 'BULL'; }
-        else if (macd.hist > 0)                  { bull +=  4; f.macd_sig = 'BULL_X'; }
-        else if (macd.hist < 0 && macd.line < 0) { bear += 6; f.macd_sig = 'BEAR'; }
-        else if (macd.hist < 0)                  { bear +=  4; f.macd_sig = 'BEAR_X'; }
+        if (macd.hist > 0 && macd.line > 0)      { bull += 4; f.macd_sig = 'BULL'; }
+        else if (macd.hist > 0)                  { bull +=  2; f.macd_sig = 'BULL_X'; }
+        else if (macd.hist < 0 && macd.line < 0) { bear += 4; f.macd_sig = 'BEAR'; }
+        else if (macd.hist < 0)                  { bear +=  2; f.macd_sig = 'BEAR_X'; }
         else f.macd_sig = 'FLAT';
     }
 
     if (ema9 && ema21) {
         f.ema_cross = ema9 > ema21 ? 'BULL' : 'BEAR';
-        ema9 > ema21 ? bull += 25 : bear += 25;
+        ema9 > ema21 ? bull += 15 : bear += 15;
     }
 
     if (ema50) {
-        const tol = atr * 0.12;
-        if (price > ema50 + tol)      { bull += 12; f.ema50 = 'ABOVE'; }
-        else if (price < ema50 - tol) { bear += 12; f.ema50 = 'BELOW'; }
-        else f.ema50 = 'AT';
+    const tol = atr * 0.12;
+
+    if (price > ema50 + tol) {
+        f.ema50 = 'ABOVE';
     }
+    else if (price < ema50 - tol) {
+        f.ema50 = 'BELOW';
+    }
+    else {
+        f.ema50 = 'AT';
+    }
+}
 
     if (vwap) {
         const tol = atr * 0.15;
         f.vwap_dist = (price - vwap).toFixed(2);
-        if (price > vwap + tol)      { bull += 15; f.vwap = 'ABOVE'; }
-        else if (price < vwap - tol) { bear += 15; f.vwap = 'BELOW'; }
+        if (price > vwap + tol)      { bull += 22; f.vwap = 'ABOVE'; }
+        else if (price < vwap - tol) { bear += 22; f.vwap = 'BELOW'; }
         else f.vwap = 'AT';
     }
 
@@ -399,32 +406,56 @@ function scoreConfluence(id, price, candles) {
     }
 
     f.choch = choch;
-    if (choch === 'BULLISH') bull += 30;
-    else if (choch === 'BEARISH') bear += 30;
+    if (choch === 'BULLISH') bull += 38;
+    else if (choch === 'BEARISH') bear += 38;
 
     f.vol_spike = vspi;
 
 if (vspi && vwap != null) {
     if (choch === 'BULLISH' && price > vwap)
-        bull += 5;
+        bull += 8;
     else if (choch === 'BEARISH' && price < vwap)
-        bear += 5;
+        bear += 8;
 }
 
-    const MAX = 98;
-    let direction = null, score = 0;
-    const diff = Math.abs(bull - bear);
-    if (bull > bear && diff >= 8) {
-        direction = 'buy';
-        score = Math.min(98, Math.round((bull / MAX) * 98 + bull * 0.15));
-    } else if (bear > bull && diff >= 8) {
-        direction = 'sell';
-        score = Math.min(98, Math.round((bear / MAX) * 98 + bear * 0.15));
-    } else {
-        score = Math.round(Math.max(bull, bear) / 2);
-    }
+    f.bull = bull;
+f.bear = bear;
 
-    return { score, factors: f, direction, bull, bear, rsi, macd, ema9, ema21, vwap, atr };
+const diff = Math.abs(bull - bear);
+
+let direction = null;
+
+if (bull > bear && diff >= 12) {
+    direction = 'buy';
+}
+else if (bear > bull && diff >= 12) {
+    direction = 'sell';
+}
+
+const raw = Math.max(bull, bear);
+
+let score = Math.min(100, raw);
+
+if (!direction) {
+    score = Math.round(raw / 2);
+}
+
+f.direction = direction;
+f.score = score;
+
+return {
+    score,
+    factors: f,
+    direction,
+    bull,
+    bear,
+    rsi,
+    macd,
+    ema9,
+    ema21,
+    vwap,
+    atr
+};
 }
 
 // ================================================================
@@ -771,7 +802,7 @@ function updateEngineBadges(id, cf) {
 function updateConfluenceBar(id, score) {
     const fill = document.getElementById(`cf-fill-${id}`); const txt = document.getElementById(`cf-txt-${id}`);
     if (!fill || !txt) return;
-    const pct = Math.min(98, Math.max(0, score));
+    const pct = Math.min(100, Math.max(0, score));
     fill.style.width = pct + '%';
     fill.style.background = pct >= MIN_CONFLUENCE ? 'var(--emerald)' : pct >= MIN_CONFLUENCE * 0.7 ? 'var(--gold)' : 'var(--crimson)';
     txt.textContent = Math.round(pct);
