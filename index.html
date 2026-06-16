@@ -223,7 +223,7 @@ const MACRO_MIN = 35;   // 35 menit context
 const MICRO_MIN = 10;   // 7.5 menit micro context
 
 // ── Signal score threshold ────────────────────────────────────────
-const MACRO_BIAS_MIN   = 70;   // minimum macro bias score
+const MACRO_BIAS_MIN   = 72;   // minimum macro bias score
 const ADX_MIN          = 18;   // minimum ADX untuk trend valid
 
 // ================================================================
@@ -598,9 +598,9 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     // Apakah harga berada di zona menarik untuk entry searah bias?
     let inZone = false;
     let zoneType = 'NONE';
-    // snapDist dikurangi 0.35 → 0.25 agar engine masuk lebih dalam
+    // snapDist dikurangi 0.35 → 0.40 agar engine masuk lebih dalam
     // ke zona pullback, bukan di tepi zona — mengurangi retrace rate
-    const snapDist = macroATR * 0.25;
+    const snapDist = macroATR * 0.40;
 
     if (bias === 'BULL') {
         // Untuk BUY: harga harus sudah turun mendekati zona support
