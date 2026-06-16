@@ -598,7 +598,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     // Apakah harga berada di zona menarik untuk entry searah bias?
     let inZone = false;
     let zoneType = 'NONE';
-    const snapDist = macroATR * 0.20; // toleransi jarak ke zona kunci
+    const snapDist = macroATR * 0.45; // toleransi jarak ke zona kunci
 
     if (bias === 'BULL') {
         // Untuk BUY: harga harus sudah turun mendekati zona support
