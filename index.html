@@ -598,7 +598,9 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     // Apakah harga berada di zona menarik untuk entry searah bias?
     let inZone = false;
     let zoneType = 'NONE';
-    const snapDist = macroATR * 0.35; // toleransi jarak ke zona kunci
+    // snapDist dikurangi 0.35 → 0.25 agar engine masuk lebih dalam
+    // ke zona pullback, bukan di tepi zona — mengurangi retrace rate
+    const snapDist = macroATR * 0.25;
 
     if (bias === 'BULL') {
         // Untuk BUY: harga harus sudah turun mendekati zona support
@@ -659,7 +661,9 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     }
 
     // Minimum quality untuk ready
-    const ready = quality >= 55 && inZone;
+    // Dinaikkan 55 → 65 untuk mengurangi retrace rate
+    // Engine hanya entry jika konfirmasi micro benar-benar kuat
+    const ready = quality >= 65 && inZone;
 
     return { ready, direction, quality, factors: f, zoneType };
 }
@@ -889,7 +893,9 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     }
 
     // Floor SL distance minimum
-    const minSL = id === 'xau' ? 9 : 160;
+    // XAU: 14 pips — dinaikkan dari 9, lebih aman dari noise intraday
+    // BTC: 180 pips — dinaikkan dari 160, lebih presisi struktural
+    const minSL = id === 'xau' ? 14 : 180;
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.8, minSL);
 
@@ -918,6 +924,8 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     throttledSaveState(id);
     pendingSignalData[id] = true;
     throttledUpdateUI(id);
+    // Fix: tampilkan macro score di STRENGTH bar saat signal dikunci
+    updateConfluenceBar(id, macroScore);
     document.getElementById(`signal-bar-${id}`)?.classList.remove('confirm-wait');
     if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
     showToast(`${id.toUpperCase()} ${direction.toUpperCase()} @ ${entry.toFixed(2)} | ZONE:${zoneType} | SL:${slD.toFixed(2)}`);
@@ -941,6 +949,8 @@ function processSignal(id, price) {
         if (price < s.tempLow)  s.tempLow  = price;
 
         updateTracker(id, price);
+        // Fix: pertahankan STRENGTH bar dengan score saat entry dikunci
+        if (s.confluenceScore > 0) updateConfluenceBar(id, s.confluenceScore);
 
         const hitTP = (s.type === 'buy'  && price >= s.tp) ||
                       (s.type === 'sell' && price <= s.tp);
@@ -975,7 +985,7 @@ function processSignal(id, price) {
 
         // ── Retrace buffer — exit jika kembali ke entry sebelum BE ─
         if (!s.breakevenArmed) {
-            const buf = id === 'xau' ? 8.5 : 130;
+            const buf = id === 'xau' ? 12.5 : 140;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) {
                 recordSignalResult(id, 'retrace'); resetSignal(id); return;
             }
@@ -1045,8 +1055,9 @@ function processSignal(id, price) {
         return;
     }
 
-    if (s.l2 && !s.l3 && micro.ready && micro.quality >= 60) {
+    if (s.l2 && !s.l3 && micro.ready && micro.quality >= 65) {
         // Stage 3: Kualitas micro cukup tinggi → start confirmation
+        // Threshold dinaikkan 60 → 65, konsisten dengan ready threshold
         s.l3 = true;
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
