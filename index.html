@@ -602,8 +602,8 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 
     if (bias === 'BULL') {
         // Untuk BUY: harga harus sudah turun mendekati zona support
-        const nearVWAP = vwap && price <= vwap + snapDist && price >= vwap - snapDist * 0.8;
-        const nearEMA  = ema21 && price <= ema21 + snapDist && price >= ema21 - snapDist * 0.8;
+        const nearVWAP = vwap && price <= vwap + snapDist && price >= vwap - snapDist * 0.4;
+        const nearEMA  = ema21 && price <= ema21 + snapDist && price >= ema21 - snapDist * 0.4;
         // Atau: harga sudah pullback dari puncak (RSI turun dari overbought)
         const rsiPullback = rsi !== null && rsi < 48;
         // Atau: micro candle membuat lower low tapi macro masih bullish
