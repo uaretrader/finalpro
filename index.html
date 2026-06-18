@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
-<title>URADVISOR v11.1 — PRECISION ENGINE</title>
+<title>URADVISOR v11.0 — BLUE CHART ENGINE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -165,7 +165,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <header>
     <div class="brand">
         <h1>ur<span>advisor</span></h1>
-        <div class="brand-sub">URA V11.1</div>
+        <div class="brand-sub">URA V11.0</div>
     </div>
     <div class="header-right">
         <div class="sys-status">
@@ -180,9 +180,8 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <div id="terminals"></div>
 
 <footer>
-    PRECISION ENGINE V11.1 · HTF FILTER 300S · MACRO BIAS 60S · MICRO ENTRY 15S · TOP-DOWN<br>
-    ADX GATE · STRUCTURAL SL · DYNAMIC BREAKEVEN · HTF BLOCKS COUNTER-TREND · RR≥1.8<br>
-    FIX: FLAT SEED · REAL-DATA FLUSH · NO FALSE BIAS AT STARTUP
+    BLUE CHART ENGINE v11 · BC TREND/STRUCT/ZONE · MACRO 60s · MICRO 15s<br>
+    LIQUIDITY SWEEP · ORDER FLOW · SMC ENTRY · RSI DIVERGENCE · RR≥1.8
 </footer>
 </div>
 <div id="toast"></div>
@@ -192,50 +191,43 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 'use strict';
 
 // ================================================================
-//  URADVISOR PRECISION ENGINE v11.0
-//  Architecture : Triple Timeframe
-//                 HTF (300s) + MACRO (60s) + MICRO (15s)
-//  Target       : Intraday 5–15 menit | XAU + BTC
+//  URADVISOR — BLUE CHART ENGINE v11.0
+//  Method  : Blue Chart (BC) — Smart Money Concepts
 //
-//  HTF Layer    → Higher Timeframe Filter (35 candle = ~175 menit)
-//                 Membaca konteks trend 3–4 jam ke belakang
-//                 EMA 9/21/50, MACD, VWAP, Market Structure
-//                 GATEKEEPER: hanya izinkan arah searah HTF trend
+//  MACRO (60s) — Institutional Bias Layer:
+//    BC TREND  → EMA 21/50/200 alignment + slope filter
+//    BC STRUCT → BOS / CHoCH market structure detection
+//    BC ZONE   → Supply & Demand zone proximity scoring
+//    BC FLOW   → Volume-weighted order flow delta
 //
-//  MACRO Layer  → membaca BIAS & TREND (35 candle = ~35 menit)
-//                 EMA 9/21, MACD, VWAP, ADX, Market Structure
+//  MICRO (15s) — Precision Entry Layer:
+//    BC MOM    → RSI + MACD momentum at key level
+//    BC LIQUID → Liquidity sweep (equal H/L taken & reversed)
+//    BC DIVERG → RSI divergence at swing extremes
 //
-//  MICRO Layer  → mendeteksi PULLBACK ke zona kunci
-//                 RSI extreme, price rejection, volume spike
-//
-//  Entry Logic  → HTF trend → MACRO bias → MICRO pullback → ENTRY
-//                 Top-Down Analysis: besar ke kecil
-//
-//  Prinsip      → "Never trade against the higher timeframe"
+//  BC SCORE  → Weighted confluence 0–100
+//  Entry     → After liquidity sweep into SD zone,
+//               confirm with macro HTF bias alignment
 // ================================================================
 
-const LS_SCHEMA_VERSION    = 6;
+const LS_SCHEMA_VERSION    = 7;
 const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-const XAU_OFFSET           = -1.25;
+const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
 const CONFIRMATION_WAIT_MS = 4000;
-const COOLDOWN_AFTER_SL_MS = 15000;
-const RR_RATIO             = 1.4;
+const COOLDOWN_AFTER_SL_MS = 20000;
+const RR_RATIO             = 1.8;
 
-// ── Dual Timeframe Candle Durations ──────────────────────────────
-const MACRO_DUR = { xau: 60000,  btc: 60000  };  // 60 detik
-const MICRO_DUR = { xau: 15000,  btc: 15000  };  // 15 detik
+// ── Blue Chart Timeframe Durations ────────────────────────────────
+const MACRO_DUR = { xau: 60000, btc: 60000 };   // 60s HTF
+const MICRO_DUR = { xau: 15000, btc: 15000 };   // 15s LTF
 
-// ── Higher Timeframe Filter (Layer 3) ────────────────────────────
-const HTF_DUR   = { xau: 300000, btc: 300000 };  // 300 detik = 5 menit
-const HTF_MIN   = 35;   // 35 candle × 5 menit = 175 menit (~3 jam konteks)
+// ── Candle minimums ───────────────────────────────────────────────
+const MACRO_MIN = 35;   // ~35 min HTF context
+const MICRO_MIN = 10;   // ~2.5 min LTF context
 
-// ── Minimum candle requirements ──────────────────────────────────
-const MACRO_MIN = 35;   // 35 menit context
-const MICRO_MIN = 10;   // 2.5 menit micro context
-
-// ── Signal score threshold ────────────────────────────────────────
-const MACRO_BIAS_MIN   = 70;   // minimum macro bias score
-const ADX_MIN          = 18;   // minimum ADX untuk trend valid
+// ── Blue Chart Score thresholds ───────────────────────────────────
+const BC_SCORE_MIN = 68;   // minimum BC SCORE for valid bias
+const ADX_MIN      = 16;   // minimum ADX (trend gate)
 
 // ================================================================
 //  SCHEMA MIGRATION
@@ -259,7 +251,7 @@ function showToast(msg) {
     el.textContent = msg;
     el.classList.add('show');
     if (_tt) clearTimeout(_tt);
-    _tt = setTimeout(() => el.classList.remove('show'), 2400);
+    _tt = setTimeout(() => el.classList.remove('show'), 2600);
 }
 
 // ================================================================
@@ -274,7 +266,13 @@ function calcEMA(arr, period) {
     return e;
 }
 
-function calcRSI(closes, period = 14) {
+function calcSMA(arr, period) {
+    if (!arr || arr.length < period) return null;
+    return arr.slice(-period).reduce((a, b) => a + b, 0) / period;
+}
+
+function calcRSI(closes, period) {
+    period = period || 14;
     if (!closes || closes.length < period + 1) return null;
     const r = closes.slice(-(period + 1));
     let g = 0, l = 0;
@@ -287,7 +285,8 @@ function calcRSI(closes, period = 14) {
     return 100 - 100 / (1 + ag / al);
 }
 
-function calcMACD(closes, fast = 12, slow = 26, sig = 9) {
+function calcMACD(closes, fast, slow, sig) {
+    fast = fast || 12; slow = slow || 26; sig = sig || 9;
     if (!closes || closes.length < slow + sig + 2) return null;
     const ef = calcEMA(closes, fast);
     const es = calcEMA(closes, slow);
@@ -305,27 +304,8 @@ function calcMACD(closes, fast = 12, slow = 26, sig = 9) {
     return { line: macdLine, signal: sigLine, hist: macdLine - (sigLine || 0) };
 }
 
-function calcBollinger(closes, period = 20, std = 2) {
-    if (!closes || closes.length < period) return null;
-    const sl = closes.slice(-period);
-    const mean = sl.reduce((a, b) => a + b, 0) / period;
-    const sd = Math.sqrt(sl.reduce((a, b) => a + (b - mean) ** 2, 0) / period);
-    return { upper: mean + std * sd, lower: mean - std * sd, mid: mean, width: 2 * std * sd };
-}
-
-function calcVWAP(candles) {
-    if (!candles || candles.length < 5) return null;
-    const sl = candles.slice(-Math.min(90, candles.length));
-    let cumTP = 0, cumV = 0;
-    for (const c of sl) {
-        const tp = (c.high + c.low + c.close) / 3;
-        cumTP += tp * c.volume;
-        cumV  += c.volume;
-    }
-    return cumV > 0 ? cumTP / cumV : null;
-}
-
-function calcATR(candles, period = 14) {
+function calcATR(candles, period) {
+    period = period || 14;
     if (!candles || candles.length < period + 1) return null;
     const trs = [];
     for (let i = 1; i < candles.length; i++) {
@@ -338,14 +318,14 @@ function calcATR(candles, period = 14) {
     return trs.slice(-period).reduce((a, b) => a + b, 0) / period;
 }
 
-// ── ADX ──────────────────────────────────────────────────────────
-function calcADX(candles, period = 14) {
+function calcADX(candles, period) {
+    period = period || 14;
     if (!candles || candles.length < period * 2 + 2) return null;
     const c = candles.slice(-(period * 2 + 2));
     const dmP = [], dmM = [], tr = [];
     for (let i = 1; i < c.length; i++) {
-        const up   = c[i].high  - c[i-1].high;
-        const dn   = c[i-1].low - c[i].low;
+        const up = c[i].high  - c[i-1].high;
+        const dn = c[i-1].low - c[i].low;
         dmP.push(up > dn && up > 0 ? up : 0);
         dmM.push(dn > up && dn > 0 ? dn : 0);
         tr.push(Math.max(
@@ -374,330 +354,496 @@ function calcADX(candles, period = 14) {
     return dxArr.slice(-period).reduce((a,b) => a+b, 0) / period;
 }
 
-// ── Market Structure: HH/HL atau LH/LL ───────────────────────────
-function detectStructure(candles) {
-    if (!candles || candles.length < 20) return 'UNCLEAR';
-    const rc = candles.slice(-20);
-    const h1 = rc.slice(0, 10), h2 = rc.slice(10);
-    const fH = Math.max(...h1.map(c => c.high));
-    const fL = Math.min(...h1.map(c => c.low));
-    const sH = Math.max(...h2.map(c => c.high));
-    const sL = Math.min(...h2.map(c => c.low));
-    if (sH > fH && sL > fL) return 'BULLISH';  // HH + HL
-    if (sH < fH && sL < fL) return 'BEARISH';  // LH + LL
-    return 'UNCLEAR';
-}
+// ================================================================
+//  BLUE CHART INDICATOR 1: BC TREND
+//  EMA 21/50/200 alignment + slope analysis
+//  Bullish: 21 > 50 > 200 AND 21 sloping up
+//  Bearish: 21 < 50 < 200 AND 21 sloping down
+// ================================================================
+function calcBCTrend(closes, atr) {
+    const n = closes.length;
+    const ema21  = calcEMA(closes, Math.min(21, n - 1));
+    const ema50  = calcEMA(closes, Math.min(50, n - 1));
+    const ema200 = n >= 200 ? calcEMA(closes, 200) : calcEMA(closes, Math.min(n - 1, 100));
+    if (!ema21 || !ema50 || !ema200) return { trend: 'NEUTRAL', score: 0, ema21, ema50, ema200 };
 
-// ── Volume spike ─────────────────────────────────────────────────
-function detectVolSpike(candles, lb = 10) {
-    if (!candles || candles.length < lb + 1) return false;
-    const avg = candles.slice(-lb-1, -1).reduce((a,c) => a+c.volume, 0) / lb;
-    return candles[candles.length-1].volume > avg * 1.5;
-}
+    // Slope of EMA21 over last 5 bars
+    const ema21Prev = calcEMA(closes.slice(0, -5), Math.min(21, n - 6));
+    const slope21 = ema21Prev ? (ema21 - ema21Prev) / (atr || 1) : 0;
 
-// ── Candle rejection (pin bar / engulfing signal) ─────────────────
-// Mendeteksi apakah candle terakhir menolak level kunci
-function detectRejection(candles) {
-    if (!candles || candles.length < 2) return 'NONE';
-    const c = candles[candles.length - 1];
-    const body   = Math.abs(c.close - c.open);
-    const range  = c.high - c.low;
-    if (range === 0) return 'NONE';
-    const upperWick = c.high - Math.max(c.open, c.close);
-    const lowerWick = Math.min(c.open, c.close) - c.low;
-    // Bullish rejection: lower wick panjang, close di atas midpoint
-    if (lowerWick > body * 1.5 && lowerWick > upperWick * 1.8 && c.close > (c.high+c.low)/2)
-        return 'BULLISH';
-    // Bearish rejection: upper wick panjang, close di bawah midpoint
-    if (upperWick > body * 1.5 && upperWick > lowerWick * 1.8 && c.close < (c.high+c.low)/2)
-        return 'BEARISH';
-    return 'NONE';
+    const strongBull = ema21 > ema50 && ema50 > ema200 && slope21 > 0;
+    const weakBull   = ema21 > ema50 && ema50 > ema200 && slope21 <= 0;
+    const crossBull  = ema21 > ema50 && ema21 < ema200;
+    const strongBear = ema21 < ema50 && ema50 < ema200 && slope21 < 0;
+    const weakBear   = ema21 < ema50 && ema50 < ema200 && slope21 >= 0;
+    const crossBear  = ema21 < ema50 && ema21 > ema200;
+
+    let trend = 'NEUTRAL', score = 0;
+    if (strongBull)      { trend = 'STRONG_BULL'; score = 30; }
+    else if (weakBull)   { trend = 'BULL';         score = 22; }
+    else if (crossBull)  { trend = 'BULL_X';       score = 14; }
+    else if (strongBear) { trend = 'STRONG_BEAR';  score = -30; }
+    else if (weakBear)   { trend = 'BEAR';          score = -22; }
+    else if (crossBear)  { trend = 'BEAR_X';        score = -14; }
+
+    return { trend, score, ema21, ema50, ema200, slope21 };
 }
 
 // ================================================================
-//  MACRO LAYER SCORER
-//  Input  : macro candles (60 detik)
-//  Output : { bias:'BULL'|'BEAR'|'NEUTRAL', score:0-100, factors:{} }
-//
-//  Indikator:
-//   EMA 9/21 cross    → arah trend utama    (bobot 28)
-//   EMA 21/50 filter  → konfirmasi trend    (bobot 15)
-//   MACD              → momentum            (bobot 20)
-//   VWAP              → fair value          (bobot 18)
-//   ADX               → kekuatan trend      (modifier)
-//   Market Structure  → HH/HL atau LH/LL   (bobot 14)
-//   BB Width          → kondisi volatilitas (modifier)
+//  BLUE CHART INDICATOR 2: BC STRUCT
+//  Break of Structure (BOS) and Change of Character (CHoCH)
+//  Identifies last 3 significant swing highs/lows
+//  BOS BULL: price closes above last swing high → bullish continuation
+//  CHoCH:    in downtrend, price closes above last lower high → reversal
+// ================================================================
+function calcBCStruct(candles) {
+    if (!candles || candles.length < 20) return { struct: 'UNCLEAR', bos: null, choch: false, swingHighs: [], swingLows: [] };
+
+    const rc = candles.slice(-30);
+    const swingHighs = [], swingLows = [];
+
+    // Detect swing points (3-bar pivot)
+    for (let i = 2; i < rc.length - 1; i++) {
+        if (rc[i].high > rc[i-1].high && rc[i].high > rc[i-2].high &&
+            rc[i].high > rc[i+1].high) {
+            swingHighs.push({ idx: i, price: rc[i].high });
+        }
+        if (rc[i].low < rc[i-1].low && rc[i].low < rc[i-2].low &&
+            rc[i].low < rc[i+1].low) {
+            swingLows.push({ idx: i, price: rc[i].low });
+        }
+    }
+
+    const lastClose = rc[rc.length - 1].close;
+    const lastHigh  = rc[rc.length - 1].high;
+    const lastLow   = rc[rc.length - 1].low;
+    let struct = 'UNCLEAR', bos = null, choch = false, score = 0;
+
+    if (swingHighs.length >= 2 && swingLows.length >= 2) {
+        const sh1 = swingHighs[swingHighs.length - 1];
+        const sh2 = swingHighs[swingHighs.length - 2];
+        const sl1 = swingLows[swingLows.length - 1];
+        const sl2 = swingLows[swingLows.length - 2];
+
+        const higherHighs = sh1.price > sh2.price;
+        const higherLows  = sl1.price > sl2.price;
+        const lowerHighs  = sh1.price < sh2.price;
+        const lowerLows   = sl1.price < sl2.price;
+
+        // BOS detection: price breaks last swing high/low
+        if (lastClose > sh1.price) {
+            struct = 'BOS_BULL'; bos = 'BULL'; score = 20;
+        } else if (lastClose < sl1.price) {
+            struct = 'BOS_BEAR'; bos = 'BEAR'; score = -20;
+        } else if (higherHighs && higherLows) {
+            struct = 'BULLISH'; score = 15;
+        } else if (lowerHighs && lowerLows) {
+            struct = 'BEARISH'; score = -15;
+        }
+
+        // CHoCH: reversal signal
+        if (lowerHighs && lowerLows && lastClose > sh1.price) {
+            struct = 'CHOCH_BULL'; choch = true; bos = 'BULL'; score = 20;
+        } else if (higherHighs && higherLows && lastClose < sl1.price) {
+            struct = 'CHOCH_BEAR'; choch = true; bos = 'BEAR'; score = -20;
+        }
+    }
+
+    return { struct, bos, choch, swingHighs, swingLows, score, lastClose };
+}
+
+// ================================================================
+//  BLUE CHART INDICATOR 3: BC ZONE
+//  Supply & Demand zone detection
+//  Demand zone: area below current price where strong bullish candles originated
+//  Supply zone: area above current price where strong bearish candles originated
+// ================================================================
+function calcBCZone(candles, price, atr) {
+    if (!candles || candles.length < 15) return { zone: 'NONE', proximity: 0, score: 0 };
+    const rc = candles.slice(-25);
+    const tol = atr * 0.5;
+
+    // Find impulsive candles (large body, > 1.5x average body)
+    const bodies = rc.map(c => Math.abs(c.close - c.open));
+    const avgBody = bodies.reduce((a,b) => a+b, 0) / bodies.length;
+
+    const demandZones = [], supplyZones = [];
+
+    for (let i = 0; i < rc.length - 1; i++) {
+        const body = Math.abs(rc[i].close - rc[i].open);
+        if (body < avgBody * 1.4) continue;
+
+        if (rc[i].close > rc[i].open) {
+            // Bullish impulse → demand zone at base of candle
+            demandZones.push({ top: rc[i].open, bot: rc[i].low });
+        } else {
+            // Bearish impulse → supply zone at base of candle
+            supplyZones.push({ bot: rc[i].open, top: rc[i].high });
+        }
+    }
+
+    // Check if price is in/near a demand zone (for buy)
+    let nearDemand = false, demandDist = Infinity;
+    for (const dz of demandZones) {
+        if (price >= dz.bot - tol && price <= dz.top + tol) {
+            nearDemand = true;
+            demandDist = 0;
+        } else {
+            const d = Math.min(Math.abs(price - dz.top), Math.abs(price - dz.bot));
+            if (d < demandDist) demandDist = d;
+        }
+    }
+
+    // Check if price is in/near a supply zone (for sell)
+    let nearSupply = false, supplyDist = Infinity;
+    for (const sz of supplyZones) {
+        if (price >= sz.bot - tol && price <= sz.top + tol) {
+            nearSupply = true;
+            supplyDist = 0;
+        } else {
+            const d = Math.min(Math.abs(price - sz.bot), Math.abs(price - sz.top));
+            if (d < supplyDist) supplyDist = d;
+        }
+    }
+
+    let zone = 'NONE', score = 0, proximity = 0;
+    if (nearDemand) { zone = 'DEMAND'; score = 15; proximity = 100; }
+    else if (nearSupply) { zone = 'SUPPLY'; score = -15; proximity = 100; }
+    else if (demandDist < atr * 1.5) { zone = 'NEAR_DEMAND'; score = 8; proximity = Math.round((1 - demandDist/(atr*1.5))*100); }
+    else if (supplyDist < atr * 1.5) { zone = 'NEAR_SUPPLY'; score = -8; proximity = Math.round((1 - supplyDist/(atr*1.5))*100); }
+
+    return { zone, score, proximity, demandZones, supplyZones };
+}
+
+// ================================================================
+//  BLUE CHART INDICATOR 4: BC FLOW
+//  Volume-weighted order flow (buying vs selling pressure)
+//  Uses candle anatomy to estimate delta
+// ================================================================
+function calcBCFlow(candles, lookback) {
+    lookback = lookback || 10;
+    if (!candles || candles.length < lookback) return { flow: 'NEUTRAL', delta: 0, score: 0 };
+    const rc = candles.slice(-lookback);
+
+    let buyVol = 0, sellVol = 0;
+    for (const c of rc) {
+        const range = c.high - c.low;
+        if (range === 0) continue;
+        const upperWick = c.high - Math.max(c.open, c.close);
+        const lowerWick = Math.min(c.open, c.close) - c.low;
+        const bodyUp = c.close > c.open ? c.close - c.open : 0;
+        const bodyDn = c.close < c.open ? c.open - c.close : 0;
+
+        // Estimate buy/sell volume from candle anatomy
+        const v = c.volume || 1;
+        buyVol  += v * (lowerWick + bodyUp) / range;
+        sellVol += v * (upperWick + bodyDn) / range;
+    }
+
+    const total = buyVol + sellVol;
+    const delta = total > 0 ? (buyVol - sellVol) / total : 0; // -1 to +1
+
+    let flow = 'NEUTRAL', score = 0;
+    if (delta > 0.20)       { flow = 'BUY_PRESSURE';   score = 12; }
+    else if (delta > 0.08)  { flow = 'MILD_BUY';       score = 7;  }
+    else if (delta < -0.20) { flow = 'SELL_PRESSURE';  score = -12; }
+    else if (delta < -0.08) { flow = 'MILD_SELL';      score = -7; }
+
+    return { flow, delta: parseFloat(delta.toFixed(3)), score };
+}
+
+// ================================================================
+//  BLUE CHART INDICATOR 5: BC LIQUID (Liquidity Sweep)
+//  Detect when price sweeps equal highs/lows (liquidity grab)
+//  and immediately reverses — highest quality entry signal
+// ================================================================
+function calcBCLiquid(candles, atr) {
+    if (!candles || candles.length < 8) return { sweep: 'NONE', quality: 0 };
+    const rc = candles.slice(-8);
+    const tol = atr * 0.25; // tolerance for "equal" highs/lows
+
+    // Find equal highs (within tolerance) in first 6 bars
+    const refBars = rc.slice(0, 6);
+    const maxHigh = Math.max(...refBars.map(c => c.high));
+    const minLow  = Math.min(...refBars.map(c => c.low));
+
+    // Count how many bars touched near the level
+    const eqHighCount = refBars.filter(c => Math.abs(c.high - maxHigh) < tol).length;
+    const eqLowCount  = refBars.filter(c => Math.abs(c.low  - minLow)  < tol).length;
+
+    const last2 = rc.slice(-2);
+    const lastBar = rc[rc.length - 1];
+
+    // Bullish sweep: price swept below equal lows and closed back above
+    if (eqLowCount >= 2) {
+        const swept = last2.some(c => c.low < minLow - tol * 0.3);
+        const recovered = lastBar.close > minLow;
+        const pinBar = (Math.min(lastBar.open, lastBar.close) - lastBar.low) >
+                       Math.abs(lastBar.close - lastBar.open) * 1.2;
+        if (swept && recovered) {
+            return { sweep: 'BULL_SWEEP', quality: pinBar ? 90 : 70, level: minLow };
+        }
+    }
+
+    // Bearish sweep: price swept above equal highs and closed back below
+    if (eqHighCount >= 2) {
+        const swept = last2.some(c => c.high > maxHigh + tol * 0.3);
+        const recovered = lastBar.close < maxHigh;
+        const pinBar = (lastBar.high - Math.max(lastBar.open, lastBar.close)) >
+                       Math.abs(lastBar.close - lastBar.open) * 1.2;
+        if (swept && recovered) {
+            return { sweep: 'BEAR_SWEEP', quality: pinBar ? 90 : 70, level: maxHigh };
+        }
+    }
+
+    return { sweep: 'NONE', quality: 0 };
+}
+
+// ================================================================
+//  BLUE CHART INDICATOR 6: BC DIVERG (RSI Divergence)
+//  Compare RSI slope vs price slope over swing points
+//  Bullish divergence: price LL but RSI HL → buy signal
+//  Bearish divergence: price HH but RSI LH → sell signal
+// ================================================================
+function calcBCDiverg(candles, closes, rsi) {
+    if (!candles || candles.length < 14 || rsi === null) return { diverg: 'NONE', strength: 0 };
+
+    const n = closes.length;
+    if (n < 14) return { diverg: 'NONE', strength: 0 };
+
+    // RSI series for last 10 bars
+    const rsiSeries = [];
+    for (let i = n - 10; i <= n - 1; i++) {
+        const r = calcRSI(closes.slice(0, i + 1), Math.min(9, i));
+        if (r !== null) rsiSeries.push({ price: closes[i], rsi: r, idx: i });
+    }
+    if (rsiSeries.length < 6) return { diverg: 'NONE', strength: 0 };
+
+    const mid = Math.floor(rsiSeries.length / 2);
+    const first = rsiSeries.slice(0, mid);
+    const second = rsiSeries.slice(mid);
+
+    const firstLow   = Math.min(...first.map(r => r.price));
+    const secondLow  = Math.min(...second.map(r => r.price));
+    const firstRSIAtLow  = first.find(r => r.price === firstLow)?.rsi  || 50;
+    const secondRSIAtLow = second.find(r => r.price === secondLow)?.rsi || 50;
+
+    const firstHigh  = Math.max(...first.map(r => r.price));
+    const secondHigh = Math.max(...second.map(r => r.price));
+    const firstRSIAtHigh  = first.find(r => r.price === firstHigh)?.rsi  || 50;
+    const secondRSIAtHigh = second.find(r => r.price === secondHigh)?.rsi || 50;
+
+    let diverg = 'NONE', strength = 0;
+
+    // Bullish divergence: price made lower low but RSI made higher low
+    if (secondLow < firstLow && secondRSIAtLow > firstRSIAtLow && rsi < 45) {
+        const rsiGain = secondRSIAtLow - firstRSIAtLow;
+        strength = Math.min(100, rsiGain * 3);
+        diverg = 'BULL_DIV';
+    }
+    // Bearish divergence: price made higher high but RSI made lower high
+    else if (secondHigh > firstHigh && secondRSIAtHigh < firstRSIAtHigh && rsi > 55) {
+        const rsiDrop = firstRSIAtHigh - secondRSIAtHigh;
+        strength = Math.min(100, rsiDrop * 3);
+        diverg = 'BEAR_DIV';
+    }
+
+    return { diverg, strength };
+}
+
+// ================================================================
+//  BC MACRO BIAS SCORER
+//  Combines: BC TREND + BC STRUCT + BC ZONE + BC FLOW + MACD + ADX
+//  Output: { bias, score, factors, valid }
 // ================================================================
 function scoreMacroBias(id, price, macroCandles) {
     const f = {};
     if (macroCandles.length < MACRO_MIN) return { bias: 'NEUTRAL', score: 0, factors: f, valid: false };
 
     const closes = macroCandles.map(c => c.close);
-    const atr    = calcATR(macroCandles) || (id === 'xau' ? 2.5 : 280);
+    const atr    = calcATR(macroCandles) || (id === 'xau' ? 3.0 : 300);
+    const adx    = calcADX(macroCandles, 14);
+    const macd   = calcMACD(closes);
 
-    const ema9  = calcEMA(closes, 9);
-    const ema21 = calcEMA(closes, 21);
-    const ema50 = calcEMA(closes, Math.min(50, closes.length - 1));
-    const macd  = calcMACD(closes);
-    const vwap  = calcVWAP(macroCandles);
-    const adx   = calcADX(macroCandles, 14);
-    const str   = detectStructure(macroCandles);
-    const bb    = calcBollinger(closes, 20, 2);
-
-    f.atr = atr; f.vwap = vwap; f.structure = str;
+    f.atr = atr;
     f.adx = adx ? adx.toFixed(1) : null;
-
-    // ── ADX Gate ─────────────────────────────────────────────────
-    // Market terlalu choppy → tidak ada bias yang valid
-    if (adx !== null && adx < ADX_MIN) {
-        f.adx_class = 'CHOPPY';
-        return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx };
-    }
-    const adxBoost = adx !== null
-        ? (adx >= 35 ? 1.15 : adx >= 25 ? 1.05 : adx >= 18 ? 0.92 : 0.75)
-        : 0.85;
-    f.adx_class = adx !== null
-        ? (adx >= 35 ? 'STRONG' : adx >= 25 ? 'TREND' : adx >= 18 ? 'MILD' : 'CHOPPY')
+    f.adx_class = adx
+        ? (adx >= 35 ? 'STRONG' : adx >= 25 ? 'TREND' : adx >= 16 ? 'MILD' : 'CHOPPY')
         : 'UNKNOWN';
 
-    let bull = 0, bear = 0;
-
-    // ── EMA 9/21 Cross (bobot 28) ─────────────────────────────────
-    if (ema9 && ema21) {
-        f.ema_cross = ema9 > ema21 ? 'BULL' : 'BEAR';
-        ema9 > ema21 ? bull += 28 : bear += 28;
+    // ADX gate: too choppy → no valid bias
+    if (adx !== null && adx < ADX_MIN) {
+        return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, atr };
     }
 
-    // ── EMA 21 vs Price (bobot 10) ────────────────────────────────
-    if (ema21) {
-        const tol = atr * 0.10;
-        if (price > ema21 + tol)      { bull += 10; f.ema21_pos = 'ABOVE'; }
-        else if (price < ema21 - tol) { bear += 10; f.ema21_pos = 'BELOW'; }
-        else f.ema21_pos = 'AT';
-    }
+    const adxMult = adx !== null
+        ? (adx >= 35 ? 1.18 : adx >= 25 ? 1.08 : adx >= 16 ? 0.93 : 0.75)
+        : 0.85;
 
-    // ── EMA50 filter (bobot 8) ────────────────────────────────────
-    if (ema50) {
-        const tol = atr * 0.10;
-        if (price > ema50 + tol)      { bull += 8; f.ema50 = 'ABOVE'; }
-        else if (price < ema50 - tol) { bear += 8; f.ema50 = 'BELOW'; }
-        else f.ema50 = 'AT';
-    }
+    // ── 1. BC TREND (weight: max 30 points) ──────────────────────
+    const bcTrend = calcBCTrend(closes, atr);
+    f.bc_trend = bcTrend.trend;
+    f.ema21    = bcTrend.ema21;
+    f.ema50    = bcTrend.ema50;
 
-    // ── MACD (bobot 20) ───────────────────────────────────────────
+    // ── 2. BC STRUCT (weight: max 20 points) ─────────────────────
+    const bcStruct = calcBCStruct(macroCandles);
+    f.bc_struct = bcStruct.struct;
+    f.bc_bos    = bcStruct.bos;
+
+    // ── 3. BC ZONE (weight: max 15 points) ───────────────────────
+    const bcZone = calcBCZone(macroCandles, price, atr);
+    f.bc_zone = bcZone.zone;
+
+    // ── 4. BC FLOW (weight: max 12 points) ───────────────────────
+    const bcFlow = calcBCFlow(macroCandles, 12);
+    f.bc_flow = bcFlow.flow;
+
+    // ── 5. MACD (weight: max 15 points) ──────────────────────────
+    let macdScore = 0, macdSig = 'FLAT';
     if (macd !== null) {
         f.macd_hist = macd.hist.toFixed(5);
-        if (macd.hist > 0 && macd.line > 0)      { bull += 20; f.macd_sig = 'BULL'; }
-        else if (macd.hist > 0)                  { bull += 13; f.macd_sig = 'BULL_X'; }
-        else if (macd.hist < 0 && macd.line < 0) { bear += 20; f.macd_sig = 'BEAR'; }
-        else if (macd.hist < 0)                  { bear += 13; f.macd_sig = 'BEAR_X'; }
-        else f.macd_sig = 'FLAT';
+        if (macd.hist > 0 && macd.line > 0)      { macdScore = 15; macdSig = 'BULL'; }
+        else if (macd.hist > 0)                  { macdScore = 10; macdSig = 'BULL_X'; }
+        else if (macd.hist < 0 && macd.line < 0) { macdScore = -15; macdSig = 'BEAR'; }
+        else if (macd.hist < 0)                  { macdScore = -10; macdSig = 'BEAR_X'; }
+        f.macd_sig = macdSig;
     }
 
-    // ── VWAP (bobot 18) ───────────────────────────────────────────
-    let vwapDir = 'NEUTRAL';
-    if (vwap) {
-        const tol = atr * 0.12;
-        f.vwap_dist = (price - vwap).toFixed(2);
-        if (price > vwap + tol)      { bull += 18; f.vwap_pos = 'ABOVE'; vwapDir = 'BULL'; }
-        else if (price < vwap - tol) { bear += 18; f.vwap_pos = 'BELOW'; vwapDir = 'BEAR'; }
-        else f.vwap_pos = 'AT';
+    // ── Score Assembly ────────────────────────────────────────────
+    // All scores are signed: positive = bull, negative = bear
+    const rawBull =
+        Math.max(0,  bcTrend.score) +
+        Math.max(0,  bcStruct.score) +
+        Math.max(0,  bcZone.score) +
+        Math.max(0,  bcFlow.score) +
+        Math.max(0,  macdScore);
 
-        // ── VWAP Distance Filter ──────────────────────────────────
-        // Jika harga terlalu jauh dari VWAP → entry beresiko (overbought/oversold macro)
-        const distATR = Math.abs(price - vwap) / atr;
-        f.vwap_atr_dist = distATR.toFixed(2);
-        if (distATR > 3.5) {
-            // Terlalu jauh — bias tidak valid untuk entry baru
-            return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, vwap, atr, reason: 'VWAP_OVEREXTENDED' };
-        }
+    const rawBear =
+        Math.max(0, -bcTrend.score) +
+        Math.max(0, -bcStruct.score) +
+        Math.max(0, -bcZone.score) +
+        Math.max(0, -bcFlow.score) +
+        Math.max(0, -macdScore);
+
+    // Apply ADX multiplier
+    let bull = Math.round(rawBull * adxMult);
+    let bear = Math.round(rawBear * adxMult);
+
+    // Conflict penalty: if trend and structure disagree
+    const trendBull = bcTrend.score > 0;
+    const trendBear = bcTrend.score < 0;
+    const structBull = bcStruct.score > 0;
+    const structBear = bcStruct.score < 0;
+    if ((trendBull && structBear) || (trendBear && structBull)) {
+        bull = Math.round(bull * 0.65);
+        bear = Math.round(bear * 0.65);
+        f.conflict = 'TREND_STRUCT';
     }
 
-    // ── Market Structure HH/HL atau LH/LL (bobot 14) ─────────────
-    if (str === 'BULLISH')       bull += 14;
-    else if (str === 'BEARISH')  bear += 14;
-    else { bull = Math.round(bull * 0.90); bear = Math.round(bear * 0.90); }
-
-    // ── Bollinger Band Width modifier ─────────────────────────────
-    if (bb) {
-        const bbPct = bb.width / bb.mid;
-        if (bbPct < 0.003) {
-            // Squeeze — market mau breakout tapi arah belum jelas, kurangi confidence
-            bull = Math.round(bull * 0.82);
-            bear = Math.round(bear * 0.82);
-            f.bb_state = 'SQUEEZE';
-        } else {
-            f.bb_state = 'NORMAL';
-        }
-    }
-
-    // ── Apply ADX boost ───────────────────────────────────────────
-    bull = Math.round(bull * adxBoost);
-    bear = Math.round(bear * adxBoost);
-
-    // ── Conflict check: indikator wajib harus searah ──────────────
-    // Untuk bias BULL: EMA cross, MACD, VWAP harus tidak berlawanan semua
-    const emaBull  = f.ema_cross === 'BULL';
-    const macdBull = (f.macd_sig || '').startsWith('BULL');
-    const macdBear = (f.macd_sig || '').startsWith('BEAR');
-    const emaBear  = f.ema_cross === 'BEAR';
-
-    // Jika EMA dan MACD berlawanan arah → konflik besar → kurangi drastis
-    if (emaBull && macdBear) { bull = Math.round(bull * 0.6); bear = Math.round(bear * 0.6); f.conflict = 'EMA_MACD'; }
-    if (emaBear && macdBull) { bull = Math.round(bull * 0.6); bear = Math.round(bear * 0.6); f.conflict = 'EMA_MACD'; }
-
-    // ── Determine bias ────────────────────────────────────────────
-    const MAX  = 100;
+    // ── Bias determination ────────────────────────────────────────
+    const MAX  = 72; // max possible raw score (30+20+15+12+15 = 92, normalized)
     const diff = Math.abs(bull - bear);
-    let bias   = 'NEUTRAL';
-    let score  = 0;
+    let bias = 'NEUTRAL', score = 0;
 
-    if (bull > bear && diff >= 12) {
+    if (bull > bear && diff >= 10) {
         bias  = 'BULL';
-        score = Math.min(100, Math.round((bull / MAX) * 100 + bull * 0.12));
-    } else if (bear > bull && diff >= 12) {
+        score = Math.min(100, Math.round((bull / MAX) * 100));
+    } else if (bear > bull && diff >= 10) {
         bias  = 'BEAR';
-        score = Math.min(100, Math.round((bear / MAX) * 100 + bear * 0.12));
+        score = Math.min(100, Math.round((bear / MAX) * 100));
     } else {
-        score = Math.round(Math.max(bull, bear) * 0.5);
+        score = Math.round(Math.max(bull, bear) * 0.55);
     }
 
-    const valid = score >= MACRO_BIAS_MIN && bias !== 'NEUTRAL';
-    return { bias, score, factors: f, valid, adx, vwap, atr, ema21, ema9, bull, bear };
+    const valid = score >= BC_SCORE_MIN && bias !== 'NEUTRAL';
+    return { bias, score, factors: f, valid, adx, atr, ema21: bcTrend.ema21, bcZone };
 }
 
 // ================================================================
-//  MICRO LAYER SCORER
-//  Input  : micro candles (15 detik) + macro bias context
-//  Output : { ready: bool, direction:'buy'|'sell'|null, quality:0-100 }
-//
-//  Logic  : Mendeteksi apakah harga sedang pullback ke zona kunci
-//           dan siap untuk entry searah MACRO bias
-//
-//  FIX: Signal BUY hanya valid jika harga berada DI BAWAH atau
-//       TEPAT di zona support (VWAP/EMA21), bukan di atasnya.
-//       Signal SELL hanya valid jika harga berada DI ATAS atau
-//       TEPAT di zona resistance (VWAP/EMA21), bukan di bawahnya.
-//
-//  Zona entry ideal (BUY):
-//   — Harga berada di zona support (AT/BELOW VWAP atau EMA21)
-//   — RSI micro < 45 (pullback territory)
-//   — Candle rejection bullish di zona tersebut
-//   — Volume spike sebagai trigger final
-//
-//  Zona entry ideal (SELL):
-//   — Harga berada di zona resistance (AT/ABOVE VWAP atau EMA21)
-//   — RSI micro > 55 (pullback territory)
-//   — Candle rejection bearish di zona tersebut
-//   — Volume spike sebagai trigger final
+//  BC MICRO ENTRY SCORER
+//  Combines: BC MOM + BC LIQUID + BC DIVERG + Volume spike
+//  Entry only when macro bias is aligned
 // ================================================================
 function scoreMicroEntry(id, price, microCandles, macroBias) {
     const f = {};
     if (microCandles.length < MICRO_MIN) return { ready: false, direction: null, quality: 0, factors: f };
     if (!macroBias || !macroBias.valid) return { ready: false, direction: null, quality: 0, factors: f };
 
-    const closes  = microCandles.map(c => c.close);
-    const rsi     = calcRSI(closes, Math.min(9, closes.length - 1));
-    const rejection = detectRejection(microCandles);
-    const volSpike  = detectVolSpike(microCandles, 8);
-    const microATR  = calcATR(microCandles, Math.min(10, microCandles.length - 1))
-                      || macroBias.atr * 0.3;
+    const closes   = microCandles.map(c => c.close);
+    const microATR = calcATR(microCandles, Math.min(10, microCandles.length - 1))
+                     || macroBias.atr * 0.3;
+    const rsi9     = calcRSI(closes, Math.min(9, closes.length - 1));
+    const microMACD = calcMACD(closes, 5, 13, 4);
 
-    f.rsi      = rsi ? rsi.toFixed(1) : null;
-    f.rejection = rejection;
-    f.vol_spike = volSpike;
+    f.rsi = rsi9 ? rsi9.toFixed(1) : null;
 
-    const { bias, vwap, ema21, atr: macroATR } = macroBias;
+    const { bias, ema21: macroEMA21, atr: macroATR, bcZone } = macroBias;
     const direction = bias === 'BULL' ? 'buy' : 'sell';
 
-    // ── Zona Pullback Detection ───────────────────────────────────
-    // FIX: Zona entry harus memastikan arah yang benar:
-    //   BUY  → harga harus AT atau BELOW support (VWAP/EMA21)
-    //           agar entry di bawah harga aktif saat pullback ke support
-    //   SELL → harga harus AT atau ABOVE resistance (VWAP/EMA21)
-    //           agar entry di atas harga aktif saat rally ke resistance
-    let inZone = false;
-    let zoneType = 'NONE';
-    let zonePrice = 0; // harga zona aktual untuk entry kalkulasi
-    const snapDist = macroATR * 0.30; // toleransi jarak ke zona kunci
+    // ── BC LIQUID: Liquidity sweep (40 pts) ───────────────────────
+    const bcLiquid = calcBCLiquid(microCandles, microATR);
+    f.bc_liquid = bcLiquid.sweep;
+    const liquidScore = bcLiquid.sweep === 'BULL_SWEEP' && direction === 'buy'  ? 40 :
+                        bcLiquid.sweep === 'BEAR_SWEEP' && direction === 'sell' ? 40 : 0;
 
-    if (bias === 'BULL') {
-        // BUY: harga harus berada AT atau BELOW zona support
-        // Harga tidak boleh di atas zona (berarti belum pullback ke support)
-        const nearVWAP = vwap
-            && price <= vwap + snapDist * 0.15   // hanya sedikit di atas vwap (noise tolerance)
-            && price >= vwap - snapDist;          // tidak terlalu jauh di bawah
-        const nearEMA  = ema21
-            && price <= ema21 + snapDist * 0.15  // hanya sedikit di atas ema21
-            && price >= ema21 - snapDist;         // tidak terlalu jauh di bawah
-        // RSI pullback: harga sudah turun cukup dari puncak
-        const rsiPullback = rsi !== null && rsi < 45;
-        // Micro dip: candle micro membuat lower low → harga sedang turun ke support
-        const microDip = microCandles.length >= 4 &&
-            microCandles[microCandles.length-1].low < microCandles[microCandles.length-3].low &&
-            price < microCandles[microCandles.length-3].close; // harga di bawah candle 3x lalu
-
-        if (nearVWAP)      { inZone = true; zoneType = 'VWAP';    zonePrice = vwap; }
-        else if (nearEMA)  { inZone = true; zoneType = 'EMA21';   zonePrice = ema21; }
-        else if (rsiPullback && microDip) { inZone = true; zoneType = 'RSI_DIP'; zonePrice = price; }
-
-    } else if (bias === 'BEAR') {
-        // SELL: harga harus berada AT atau ABOVE zona resistance
-        // Harga tidak boleh di bawah zona (berarti belum rally ke resistance)
-        const nearVWAP = vwap
-            && price >= vwap - snapDist * 0.15   // hanya sedikit di bawah vwap (noise tolerance)
-            && price <= vwap + snapDist;          // tidak terlalu jauh di atas
-        const nearEMA  = ema21
-            && price >= ema21 - snapDist * 0.15  // hanya sedikit di bawah ema21
-            && price <= ema21 + snapDist;         // tidak terlalu jauh di atas
-        // RSI rally: harga sudah naik cukup dari lembah
-        const rsiPullback = rsi !== null && rsi > 55;
-        // Micro rip: candle micro membuat higher high → harga sedang naik ke resistance
-        const microRip  = microCandles.length >= 4 &&
-            microCandles[microCandles.length-1].high > microCandles[microCandles.length-3].high &&
-            price > microCandles[microCandles.length-3].close; // harga di atas candle 3x lalu
-
-        if (nearVWAP)      { inZone = true; zoneType = 'VWAP';    zonePrice = vwap; }
-        else if (nearEMA)  { inZone = true; zoneType = 'EMA21';   zonePrice = ema21; }
-        else if (rsiPullback && microRip) { inZone = true; zoneType = 'RSI_RIP'; zonePrice = price; }
+    // ── BC MOM: RSI momentum (25 pts) ────────────────────────────
+    let momScore = 0, rsiSig = 'NEUTRAL';
+    if (rsi9 !== null) {
+        if (direction === 'buy') {
+            if (rsi9 < 32)       { momScore = 25; rsiSig = 'OVERSOLD'; }
+            else if (rsi9 < 45)  { momScore = 18; rsiSig = 'PULLBACK'; }
+            else if (rsi9 < 55)  { momScore = 8;  rsiSig = 'MILD'; }
+            else                 { momScore = 0;  rsiSig = 'HIGH'; }
+        } else {
+            if (rsi9 > 68)       { momScore = 25; rsiSig = 'OVERBOUGHT'; }
+            else if (rsi9 > 55)  { momScore = 18; rsiSig = 'PULLBACK'; }
+            else if (rsi9 > 45)  { momScore = 8;  rsiSig = 'MILD'; }
+            else                 { momScore = 0;  rsiSig = 'LOW'; }
+        }
     }
+    f.rsi_sig = rsiSig;
 
-    f.in_zone   = inZone;
-    f.zone_type = zoneType;
-    f.zone_price = zonePrice;
+    // ── BC DIVERG: RSI divergence (20 pts) ───────────────────────
+    const bcDiv = calcBCDiverg(microCandles, closes, rsi9);
+    f.bc_diverg = bcDiv.diverg;
+    const divergScore = (bcDiv.diverg === 'BULL_DIV' && direction === 'buy')  ? 20 :
+                        (bcDiv.diverg === 'BEAR_DIV' && direction === 'sell') ? 20 : 0;
 
-    // ── Quality Score ─────────────────────────────────────────────
-    let quality = 0;
-
-    if (inZone) quality += 40;
-
-    // RSI konfirmasi pullback
-    if (bias === 'BULL') {
-        if (rsi !== null && rsi < 40)      { quality += 25; f.rsi_sig = 'DEEP_PB'; }
-        else if (rsi !== null && rsi < 48) { quality += 15; f.rsi_sig = 'PULLBACK'; }
-        else { f.rsi_sig = 'HIGH'; }
+    // ── Zone proximity check (15 pts) ────────────────────────────
+    let zoneScore = 0, zoneType = 'NONE';
+    const snapDist = macroATR * 0.30;
+    if (direction === 'buy') {
+        const nearEMA = macroEMA21 && price <= macroEMA21 + snapDist && price >= macroEMA21 - snapDist * 0.6;
+        const inDemand = bcZone && (bcZone.zone === 'DEMAND' || bcZone.zone === 'NEAR_DEMAND');
+        if (nearEMA) { zoneScore = 15; zoneType = 'EMA21'; }
+        else if (inDemand) { zoneScore = 15; zoneType = 'DEMAND'; }
+        else if (rsi9 !== null && rsi9 < 42) { zoneScore = 8; zoneType = 'RSI_PB'; }
     } else {
-        if (rsi !== null && rsi > 60)      { quality += 25; f.rsi_sig = 'DEEP_PB'; }
-        else if (rsi !== null && rsi > 52) { quality += 15; f.rsi_sig = 'PULLBACK'; }
-        else { f.rsi_sig = 'LOW'; }
+        const nearEMA = macroEMA21 && price >= macroEMA21 - snapDist && price <= macroEMA21 + snapDist * 0.6;
+        const inSupply = bcZone && (bcZone.zone === 'SUPPLY' || bcZone.zone === 'NEAR_SUPPLY');
+        if (nearEMA) { zoneScore = 15; zoneType = 'EMA21'; }
+        else if (inSupply) { zoneScore = 15; zoneType = 'SUPPLY'; }
+        else if (rsi9 !== null && rsi9 > 58) { zoneScore = 8; zoneType = 'RSI_PB'; }
+    }
+    f.zone_type = zoneType;
+
+    // ── MACD micro momentum bonus ─────────────────────────────────
+    let microMACD_bonus = 0;
+    if (microMACD) {
+        if (direction === 'buy'  && microMACD.hist > 0) microMACD_bonus = 5;
+        if (direction === 'sell' && microMACD.hist < 0) microMACD_bonus = 5;
     }
 
-    // Candle rejection di zona
-    if (bias === 'BULL' && rejection === 'BULLISH') quality += 20;
-    if (bias === 'BEAR' && rejection === 'BEARISH') quality += 20;
+    const quality = Math.min(100, liquidScore + momScore + divergScore + zoneScore + microMACD_bonus);
+    f.quality = quality;
+    f.in_zone = zoneScore > 0 || liquidScore > 0;
 
-    // Volume spike sebagai trigger
-    if (volSpike) quality += 15;
+    // Entry gate: need minimum quality AND some zone/liquidity evidence
+    const hasLiquidOrZone = liquidScore > 0 || zoneScore >= 8;
+    const ready = quality >= 50 && hasLiquidOrZone;
 
-    // Tidak boleh terlalu jauh dari zona
-    if (!inZone && quality < 30) {
-        return { ready: false, direction, quality, factors: f, zoneType: 'NONE', zonePrice: 0 };
-    }
-
-    // Minimum quality untuk ready
-    const ready = quality >= 55 && inZone;
-
-    return { ready, direction, quality, factors: f, zoneType, zonePrice };
+    return { ready, direction, quality, factors: f, zoneType };
 }
 
 // ================================================================
@@ -707,20 +853,15 @@ function createFreshState() {
     return {
         v: LS_SCHEMA_VERSION,
         lastPrice: 0,
-        // Macro bias
         macroBias: 'NEUTRAL', macroScore: 0, macroValid: false,
-        // Signal stages
         l1: false, l2: false, l3: false,
         confirmed: false, confirmedAt: 0,
         resetInProgress: false,
         warmupUntil: 0, cooldownUntil: 0,
-        // Trade
         type: 'none', entry: 0, sl: 0, tp: 0,
         tempHigh: 0, tempLow: 0,
         originPrice: 0, confluenceScore: 0,
-        // Entry zone
         entryZone: 'NONE',
-        // Breakeven
         breakevenArmed: false
     };
 }
@@ -769,52 +910,34 @@ function recordSignalResult(id, type) {
 // ================================================================
 //  GLOBAL STATE VARS
 // ================================================================
-let state             = { xau: null, btc: null };
-let wsStatus          = { xau: false, btc: false };
-let activePairId      = localStorage.getItem('ura_active_pair') || 'xau';
-let performanceStats  = {};
+let state              = { xau: null, btc: null };
+let wsStatus           = { xau: false, btc: false };
+let activePairId       = localStorage.getItem('ura_active_pair') || 'xau';
+let performanceStats   = {};
 let pendingConfirmation = { xau: null, btc: null };
-let tapCounters       = { xau: 0, btc: 0 };
-let tapTimers         = { xau: null, btc: null };
-let historyTapCounters= { xau: 0, btc: 0 };
-let historyTapTimers  = { xau: null, btc: null };
-const TAP_TIMEOUT     = 500;
-let pendingPriceData  = { xau: null, btc: null };
-let pendingSignalData = { xau: false, btc: false };
-let rafPending        = { xau: false, btc: false };
-let pendingSaveData   = { xau: null, btc: null };
-let pendingSaveTimer  = { xau: null, btc: null };
-const SAVE_INTERVAL   = 1200;
+let tapCounters        = { xau: 0, btc: 0 };
+let tapTimers          = { xau: null, btc: null };
+let historyTapCounters = { xau: 0, btc: 0 };
+let historyTapTimers   = { xau: null, btc: null };
+const TAP_TIMEOUT      = 500;
+let pendingPriceData   = { xau: null, btc: null };
+let pendingSignalData  = { xau: false, btc: false };
+let rafPending         = { xau: false, btc: false };
+let pendingSaveData    = { xau: null, btc: null };
+let pendingSaveTimer   = { xau: null, btc: null };
+const SAVE_INTERVAL    = 1200;
 let signalDebounceTimer = { xau: null, btc: null };
 const SIGNAL_DEBOUNCE_MS = 15;
 
-// ── Triple Timeframe Candle Store ────────────────────────────────
+// ── Dual Timeframe Candle Store ───────────────────────────────────
 let marketData = {
-    xau: {
-        htf:   { candles: [], current: null, start: 0 },
-        macro: { candles: [], current: null, start: 0 },
-        micro: { candles: [], current: null, start: 0 },
-        atr: 0, price: 0,
-        realMacroCount: 0,   // jumlah candle macro NYATA (bukan seed)
-        realHTFCount:   0,   // jumlah candle HTF NYATA
-        seedFlushed:    false
-    },
-    btc: {
-        htf:   { candles: [], current: null, start: 0 },
-        macro: { candles: [], current: null, start: 0 },
-        micro: { candles: [], current: null, start: 0 },
-        atr: 0, price: 0,
-        realMacroCount: 0,
-        realHTFCount:   0,
-        seedFlushed:    false
-    }
+    xau: { macro: { candles: [], current: null, start: 0 },
+           micro: { candles: [], current: null, start: 0 }, atr: 0, price: 0 },
+    btc: { macro: { candles: [], current: null, start: 0 },
+           micro: { candles: [], current: null, start: 0 }, atr: 0, price: 0 }
 };
 
-// ── Current macro bias cache (updated per macro candle close) ─────
 let macroBiasCache = { xau: null, btc: null };
-
-// ── HTF trend cache (updated per HTF candle close ~5 menit) ───────
-let htfTrendCache  = { xau: null, btc: null };
 
 // ================================================================
 //  DUAL TIMEFRAME CANDLE ENGINE
@@ -829,7 +952,7 @@ function buildTFCandle(tf, dur, maxCandles, price) {
         }
         tf.current = { open: price, high: price, low: price, close: price, volume: 1, closed: false };
         tf.start = now;
-        return true; // new candle opened
+        return true;
     } else {
         tf.current.high   = Math.max(tf.current.high, price);
         tf.current.low    = Math.min(tf.current.low,  price);
@@ -841,41 +964,16 @@ function buildTFCandle(tf, dur, maxCandles, price) {
 
 function buildCandles(id, price) {
     const md = marketData[id];
-    const htfNew   = buildTFCandle(md.htf,   HTF_DUR[id],   60,  price);
     const macroNew = buildTFCandle(md.macro, MACRO_DUR[id], 120, price);
     buildTFCandle(md.micro, MICRO_DUR[id], 80, price);
     md.price = price;
 
-    // Hitung candle NYATA (candle yang ditutup setelah app berjalan live)
-    if (htfNew)   md.realHTFCount++;
-    if (macroNew) md.realMacroCount++;
-
-    // ── Flush seed candles setelah data nyata cukup ───────────────
-    // Begitu MACRO_MIN candle nyata terkumpul, buang semua seed lama.
-    // Ini memastikan engine bekerja dari data real-market sepenuhnya.
-    if (!md.seedFlushed && md.realMacroCount >= MACRO_MIN) {
-        // Pertahankan hanya candle nyata (MACRO_MIN candle terakhir)
-        md.macro.candles = md.macro.candles.slice(-md.realMacroCount);
-        md.htf.candles   = md.htf.candles.slice(-Math.max(md.realHTFCount, 1));
-        md.seedFlushed   = true;
-        // Invalidate cache agar dihitung ulang dari data bersih
-        macroBiasCache[id] = null;
-        htfTrendCache[id]  = null;
-    }
-
-    // Update ATR dari macro (lebih stabil)
     const mc = md.macro.candles.filter(c => c.closed);
     if (mc.length >= 15) {
         md.atr = calcATR(mc, 14) || md.atr;
     }
 
-    // Re-compute HTF trend hanya saat candle HTF baru tutup (~5 menit)
-    const hc = md.htf.candles.filter(c => c.closed);
-    if (htfNew && hc.length >= HTF_MIN) {
-        htfTrendCache[id] = scoreHTFTrend(id, price, hc);
-    }
-
-    // Re-compute macro bias hanya saat candle macro baru tutup
+    // Re-score macro bias only when macro candle closes
     if (macroNew && mc.length >= MACRO_MIN) {
         macroBiasCache[id] = scoreMacroBias(id, price, mc);
     }
@@ -883,290 +981,90 @@ function buildCandles(id, price) {
 
 function getMacroCandles(id) { return marketData[id].macro.candles.filter(c => c.closed); }
 function getMicroCandles(id) { return marketData[id].micro.candles.filter(c => c.closed); }
-function getHTFCandles(id)   { return marketData[id].htf.candles.filter(c => c.closed);   }
 
 // ================================================================
-//  HTF TREND SCORER — Layer Ketiga (Higher Timeframe Filter)
-//  Input  : HTF candles (5 menit per candle)
-//  Output : { trend:'BULL'|'BEAR'|'NEUTRAL', strength:0-100,
-//             valid:bool, allowBuy:bool, allowSell:bool }
-//
-//  Tujuan : Membaca konteks trend 3–4 jam ke belakang
-//           Mencegah engine entry melawan trend besar
-//           Kasus screenshot: downtrend 20 jam → blok BUY
-//
-//  Indikator (sengaja sederhana & robust):
-//   EMA 9/21 cross  → arah trend primer         (bobot 30)
-//   EMA 21/50 slope → konfirmasi trend sekunder  (bobot 20)
-//   MACD            → momentum HTF               (bobot 25)
-//   Market Structure→ HH/HL atau LH/LL di HTF   (bobot 25)
+//  SEED CANDLES — realistic dual TF initialization
 // ================================================================
-function scoreHTFTrend(id, price, htfCandles) {
-    const f = {};
-    if (!htfCandles || htfCandles.length < HTF_MIN) {
-        return { trend: 'NEUTRAL', strength: 0, valid: false,
-                 allowBuy: false, allowSell: false, factors: f };
-    }
+function seedCandles(id, base) {
+    const isXau = id === 'xau';
+    const step  = isXau ? 1.2 : 120;
+    const nMacro = 55, nMicro = 20;
 
-    const closes = htfCandles.map(c => c.close);
-    const ema9   = calcEMA(closes, 9);
-    const ema21  = calcEMA(closes, 21);
-    const ema50  = calcEMA(closes, Math.min(50, closes.length - 1));
-    const macd   = calcMACD(closes);
-    const str    = detectStructure(htfCandles);
-
-    f.structure = str;
-
-    let bull = 0, bear = 0;
-
-    // ── EMA 9/21 Cross (bobot 30) ─────────────────────────────────
-    if (ema9 && ema21) {
-        f.htf_ema = ema9 > ema21 ? 'BULL' : 'BEAR';
-        ema9 > ema21 ? bull += 30 : bear += 30;
-    }
-
-    // ── EMA 21 vs EMA 50 slope (bobot 20) ────────────────────────
-    // Konfirmasi apakah medium-term EMA mendukung arah
-    if (ema21 && ema50) {
-        f.htf_ema50 = ema21 > ema50 ? 'BULL' : 'BEAR';
-        ema21 > ema50 ? bull += 20 : bear += 20;
-    }
-
-    // ── EMA 21 vs Price filter ────────────────────────────────────
-    // Harga di atas/bawah EMA21 HTF = momentum konfirmasi
-    if (ema21) {
-        if (price > ema21)      { bull += 5; f.htf_price_ema = 'ABOVE'; }
-        else if (price < ema21) { bear += 5; f.htf_price_ema = 'BELOW'; }
-    }
-
-    // ── MACD HTF (bobot 25) ───────────────────────────────────────
-    if (macd) {
-        f.htf_macd = macd.hist > 0 ? (macd.line > 0 ? 'BULL' : 'BULL_X')
-                                   : (macd.line < 0 ? 'BEAR' : 'BEAR_X');
-        if (macd.hist > 0 && macd.line > 0)      bull += 25;
-        else if (macd.hist > 0)                  bull += 15;
-        else if (macd.hist < 0 && macd.line < 0) bear += 25;
-        else if (macd.hist < 0)                  bear += 15;
-    }
-
-    // ── Market Structure HTF (bobot 25) ──────────────────────────
-    if (str === 'BULLISH')      { bull += 25; }
-    else if (str === 'BEARISH') { bear += 25; }
-    else {
-        // Struktur tidak jelas → potong kepercayaan
-        bull = Math.round(bull * 0.80);
-        bear = Math.round(bear * 0.80);
-    }
-
-    // ── Tentukan trend & strength ─────────────────────────────────
-    const total = bull + bear;
-    const diff  = Math.abs(bull - bear);
-    let trend    = 'NEUTRAL';
-    let strength = 0;
-
-    if (bull > bear && diff >= 20) {
-        trend    = 'BULL';
-        strength = Math.min(100, Math.round((bull / 105) * 100));
-    } else if (bear > bull && diff >= 20) {
-        trend    = 'BEAR';
-        strength = Math.min(100, Math.round((bear / 105) * 100));
-    } else {
-        // Terlalu berimbang → market tidak punya arah HTF yang jelas
-        strength = Math.round(Math.max(bull, bear) / 105 * 60);
-    }
-
-    // ── Gate Logic ────────────────────────────────────────────────
-    // valid = HTF punya trend yang cukup jelas
-    // allowBuy  = HTF tidak sedang bearish (boleh BUY)
-    // allowSell = HTF tidak sedang bullish (boleh SELL)
-    //
-    // Aturan:
-    // HTF BULL   → allowBuy=true,  allowSell=false
-    // HTF BEAR   → allowBuy=false, allowSell=true
-    // HTF NEUTRAL→ allowBuy=false, allowSell=false (terlalu ambiguous)
-    const valid     = strength >= 45 && trend !== 'NEUTRAL';
-    const allowBuy  = trend === 'BULL'   && strength >= 45;
-    const allowSell = trend === 'BEAR'   && strength >= 45;
-
-    f.bull = bull; f.bear = bear; f.strength = strength;
-
-    return { trend, strength, valid, allowBuy, allowSell, factors: f };
-}
-
-// ================================================================
-//  SEED CANDLES — FLAT/NEUTRAL seed (v11.1 fix)
-//
-//  Bug lama: seed candle punya drift acak → EMA/MACD/ADX terbiaskan
-//  → sinyal SELL muncul di pasar bullish (atau sebaliknya).
-//
-//  Fix: seed dibuat FLAT (hanya noise sangat kecil). Ini membuat:
-//   • EMA9 ≈ EMA21 ≈ harga saat ini   (tidak ada cross palsu)
-//   • MACD hist ≈ 0                   (tidak ada momentum palsu)
-//   • ADX rendah                      (tidak ada trend palsu)
-//   • Struktur market: UNCLEAR        (tidak bullish/bearish palsu)
-//
-//  Seed hanya sebagai placeholder agar engine tidak crash karena
-//  kekurangan candle. Engine akan beralih ke data nyata begitu
-//  MACRO_MIN candle nyata terkumpul (± 35 menit).
-// ================================================================
-function seedCandles(id, basePrice) {
-    const isXau    = id === 'xau';
-    const base     = basePrice;
-    const step     = isXau ? 0.5 : 50;
-    const noiseScale = 0.04; // noise sangat kecil, hampir flat
-
-    const nHTF   = HTF_MIN + 5;
-    const nMacro = MACRO_MIN + 5;
-    const nMicro = MICRO_MIN + 3;
-
-    marketData[id].htf.candles   = [];
     marketData[id].macro.candles = [];
     marketData[id].micro.candles = [];
-    marketData[id].htf.current   = null;
-    marketData[id].macro.current = null;
-    marketData[id].micro.current = null;
-    marketData[id].realMacroCount = 0;
-    marketData[id].realHTFCount   = 0;
-    marketData[id].seedFlushed    = false;
 
-    // HTF seed — flat, hanya noise sangat kecil
-    for (let i = 0; i < nHTF; i++) {
-        const noise = (Math.random() - 0.5) * step * noiseScale;
-        const open  = base + noise;
-        const close = base + (Math.random() - 0.5) * step * noiseScale;
-        const hi    = Math.max(open, close) + Math.random() * step * noiseScale * 0.5;
-        const lo    = Math.min(open, close) - Math.random() * step * noiseScale * 0.5;
-        marketData[id].htf.candles.push({
-            open, high: hi, low: lo, close,
-            volume: 200 + Math.floor(Math.random() * 400), closed: true
-        });
-    }
-
+    let price = base;
     for (let i = 0; i < nMacro; i++) {
-        const noise = (Math.random() - 0.5) * step * noiseScale;
-        const open  = base + noise;
-        const close = base + (Math.random() - 0.5) * step * noiseScale;
-        const hi    = Math.max(open, close) + Math.random() * step * noiseScale * 0.5;
-        const lo    = Math.min(open, close) - Math.random() * step * noiseScale * 0.5;
+        const drift = (Math.random() - 0.48) * step * 0.05;
+        price += drift;
+        const open  = price;
+        const close = open + (Math.random() - 0.48) * step * 0.28;
+        const hi    = Math.max(open, close) + Math.random() * step * 0.12;
+        const lo    = Math.min(open, close) - Math.random() * step * 0.12;
         marketData[id].macro.candles.push({
             open, high: hi, low: lo, close,
             volume: 60 + Math.floor(Math.random() * 120), closed: true
         });
-        // TIDAK ada price = close; seed flat tidak drifting
+        price = close;
     }
 
-    // Micro seed — flat, hanya noise sangat kecil
     for (let i = 0; i < nMicro; i++) {
-        const noise = (Math.random() - 0.5) * step * noiseScale;
-        const open  = base + noise;
-        const close = base + (Math.random() - 0.5) * step * noiseScale;
-        const hi    = Math.max(open, close) + Math.random() * step * noiseScale * 0.5;
-        const lo    = Math.min(open, close) - Math.random() * step * noiseScale * 0.5;
+        const open  = price + (Math.random() - 0.5) * step * 0.07;
+        const close = open  + (Math.random() - 0.48) * step * 0.09;
+        const hi    = Math.max(open, close) + Math.random() * step * 0.04;
+        const lo    = Math.min(open, close) - Math.random() * step * 0.04;
         marketData[id].micro.candles.push({
             open, high: hi, low: lo, close,
             volume: 20 + Math.floor(Math.random() * 50), closed: true
         });
+        price = close;
     }
 
-    // ATR seed: gunakan nilai default (flat candle → ATR mendekati nol,
-    // tidak berguna). Engine akan hitung ATR nyata dari real candles.
-    marketData[id].atr = isXau ? 2.5 : 280;
+    const mc = getMacroCandles(id);
+    if (mc.length >= 15) {
+        marketData[id].atr = calcATR(mc, 14) || (isXau ? 3.0 : 300);
+    }
 }
 
 // ================================================================
-//  EXECUTE LOCK SIGNAL — Entry di zona pullback
-//
-//  FIX: Entry dihitung dari zona level (VWAP/EMA21) bukan live price:
-//   BUY  → entry = min(livePrice, zonePrice)  → selalu ≤ harga aktif
-//   SELL → entry = max(livePrice, zonePrice)  → selalu ≥ harga aktif
-//
-//  Ini memastikan:
-//   • Signal BUY: entry position DI BAWAH harga aktif (support zone)
-//   • Signal SELL: entry position DI ATAS harga aktif (resistance zone)
+//  EXECUTE LOCK SIGNAL
 // ================================================================
-function executeLockSignal(id, direction, livePrice, macroScore, zoneType, mb) {
+function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     const s = state[id];
-    const curPrice = livePrice > 0 ? livePrice : (s.lastPrice || 0);
-    if (curPrice <= 0) return;
+    const entry = livePrice > 0 ? livePrice : (s.lastPrice || 0);
+    if (entry <= 0) return;
 
-    const atr = marketData[id].atr || (id === 'xau' ? 2.5 : 280);
-
-    // ── Hitung Entry Level dari Zona ─────────────────────────────
-    // FIX UTAMA: pastikan BUY entry ≤ harga aktif, SELL entry ≥ harga aktif
-    let entry = curPrice;
-
-    if (mb) {
-        const zp = mb.zonePrice || 0;
-        const zpVWAP  = mb.vwap  || 0;
-        const zpEMA21 = mb.ema21 || 0;
-
-        // Dapatkan zona price berdasarkan tipe zona
-        let resolvedZonePrice = 0;
-        if (zoneType === 'VWAP'  && zpVWAP  > 0) resolvedZonePrice = zpVWAP;
-        else if (zoneType === 'EMA21' && zpEMA21 > 0) resolvedZonePrice = zpEMA21;
-        else if (zp > 0) resolvedZonePrice = zp;
-
-        if (direction === 'buy') {
-            // BUY: entry harus ≤ harga aktif (di support zone atau di bawah)
-            if (resolvedZonePrice > 0 && resolvedZonePrice <= curPrice) {
-                // Zona support ada di bawah harga aktif → gunakan zona price
-                entry = resolvedZonePrice;
-            } else {
-                // Fallback: gunakan harga aktif (pullaback sudah sampai)
-                entry = curPrice;
-            }
-            // Hard constraint: entry tidak boleh melebihi harga aktif untuk BUY
-            entry = Math.min(entry, curPrice);
-        } else {
-            // SELL: entry harus ≥ harga aktif (di resistance zone atau di atas)
-            if (resolvedZonePrice > 0 && resolvedZonePrice >= curPrice) {
-                // Zona resistance ada di atas harga aktif → gunakan zona price
-                entry = resolvedZonePrice;
-            } else {
-                // Fallback: gunakan harga aktif (rally sudah sampai)
-                entry = curPrice;
-            }
-            // Hard constraint: entry tidak boleh lebih rendah dari harga aktif untuk SELL
-            entry = Math.max(entry, curPrice);
-        }
-    }
-
-    // ── SL Placement — structural, bukan hanya ATR flat ──────────
-    // SL ditempatkan di bawah/atas zona entry untuk memberi ruang
-    // yang lebih tepat sesuai struktur micro
+    const atr = marketData[id].atr || (id === 'xau' ? 3.0 : 300);
     const microCandles = getMicroCandles(id);
     let structuralSL = 0;
 
     if (microCandles.length >= 5) {
         const recent = microCandles.slice(-5);
         if (direction === 'buy') {
-            // SL di bawah low terendah 5 micro candle terakhir
             const lowestLow = Math.min(...recent.map(c => c.low));
-            structuralSL = lowestLow - atr * 0.15; // sedikit buffer
+            structuralSL = lowestLow - atr * 0.12;
         } else {
-            // SL di atas high tertinggi 5 micro candle terakhir
             const highestHigh = Math.max(...recent.map(c => c.high));
-            structuralSL = highestHigh + atr * 0.15;
+            structuralSL = highestHigh + atr * 0.12;
         }
     }
 
-    // Floor SL distance minimum
-    const minSL = id === 'xau' ? 8.6 : 190;
+    const minSL = id === 'xau' ? 8.0 : 160;
     let slD = Math.abs(entry - structuralSL);
-    if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.8, minSL);
+    if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
     const tpD = slD * RR_RATIO;
 
     s.l3 = true; s.confirmed = true;
-    s.confirmedAt = Date.now();
-    s.warmupUntil = Date.now() + 3000;
-    s.type        = direction;
-    s.entry       = entry;
-    s.originPrice = entry;
-    s.tempHigh    = entry;
-    s.tempLow     = entry;
+    s.confirmedAt   = Date.now();
+    s.warmupUntil   = Date.now() + 3000;
+    s.type          = direction;
+    s.entry         = entry;
+    s.originPrice   = entry;
+    s.tempHigh      = entry;
+    s.tempLow       = entry;
     s.confluenceScore = macroScore;
-    s.entryZone   = zoneType || 'ZONE';
+    s.entryZone     = zoneType || 'BC_ZONE';
     s.breakevenArmed = false;
 
     if (direction === 'buy') {
@@ -1182,21 +1080,20 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType, mb) {
     throttledUpdateUI(id);
     document.getElementById(`signal-bar-${id}`)?.classList.remove('confirm-wait');
     if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-    showToast(`${id.toUpperCase()} ${direction.toUpperCase()} @ ${entry.toFixed(2)} | ZONE:${zoneType} | SL:${slD.toFixed(2)}`);
+    showToast(`${id.toUpperCase()} ${direction.toUpperCase()} @ ${entry.toFixed(2)} | ${zoneType} | SL:${slD.toFixed(2)}`);
 }
 
 // ================================================================
-//  SIGNAL ENGINE — CORE (Dual TF Logic)
+//  SIGNAL ENGINE — CORE
 // ================================================================
 function processSignal(id, price) {
     const s = state[id];
     if (!s) return;
     if (Date.now() < (s.cooldownUntil || 0)) return;
 
-    // Build both timeframes
     buildCandles(id, price);
 
-    // ── OPEN TRADE MANAGEMENT ─────────────────────────────────────
+    // ── Open trade management ─────────────────────────────────────
     if (s.confirmed && s.type !== 'none') {
         if (!s.tempHigh) { s.tempHigh = s.entry; s.tempLow = s.entry; }
         if (price > s.tempHigh) s.tempHigh = price;
@@ -1211,7 +1108,6 @@ function processSignal(id, price) {
 
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
         if (hitSL) {
-            // Cek apakah ini breakeven atau SL sesungguhnya
             const result = s.breakevenArmed ? 'be' : 'sl';
             if (result === 'sl') state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
             recordSignalResult(id, result);
@@ -1219,15 +1115,11 @@ function processSignal(id, price) {
             return;
         }
 
-        // ── Dynamic Breakeven ─────────────────────────────────────
-        // Jika harga sudah bergerak 50% menuju TP, geser SL ke entry
+        // Dynamic breakeven: move SL to entry after 50% toward TP
         if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
-            const tpDist  = Math.abs(s.tp - s.entry);
-            const priceMoved = s.type === 'buy'
-                ? price - s.entry
-                : s.entry - price;
-            if (priceMoved >= tpDist * 0.5) {
-                // Geser SL ke entry (breakeven)
+            const tpDist = Math.abs(s.tp - s.entry);
+            const moved  = s.type === 'buy' ? price - s.entry : s.entry - price;
+            if (moved >= tpDist * 0.5) {
                 s.sl = s.entry;
                 s.breakevenArmed = true;
                 throttledSaveState(id);
@@ -1235,7 +1127,7 @@ function processSignal(id, price) {
             }
         }
 
-        // ── Retrace buffer — exit jika kembali ke entry sebelum BE ─
+        // Retrace buffer exit
         if (!s.breakevenArmed) {
             const buf = id === 'xau' ? 2.5 : 80;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) {
@@ -1253,80 +1145,39 @@ function processSignal(id, price) {
 
     const macroCandles = getMacroCandles(id);
     const microCandles = getMicroCandles(id);
-    const htfCandles   = getHTFCandles(id);
     if (macroCandles.length < MACRO_MIN) { s.lastPrice = price; return; }
     if (microCandles.length < MICRO_MIN) { s.lastPrice = price; return; }
 
-    // ── HTF GATE — Layer Ketiga ───────────────────────────────────
-    // Evaluasi trend HTF. Jika sudah ada cache gunakan itu,
-    // jika belum atau candle HTF belum cukup, hitung langsung.
-    let htfTrend = htfTrendCache[id];
-    if (!htfTrend && htfCandles.length >= HTF_MIN) {
-        htfTrend = scoreHTFTrend(id, price, htfCandles);
-        htfTrendCache[id] = htfTrend;
-    }
-
-    // Jika HTF belum punya data cukup → gunakan mode permisif
-    // (biarkan engine jalan dengan dual TF saja)
-    // Jika HTF sudah valid → terapkan gate secara ketat
-    const htfReady = htfTrend && htfCandles.length >= HTF_MIN;
-
-    // ── Get macro bias (dari cache, di-update tiap close macro) ───
+    // Get macro bias (cached, updated per macro candle close)
     let macroBias = macroBiasCache[id];
     if (!macroBias) {
         macroBias = scoreMacroBias(id, price, macroCandles);
         macroBiasCache[id] = macroBias;
     }
 
-    // Update engine badges dengan macro data
     updateEngineBadges(id, macroBias);
     updateConfluenceBar(id, macroBias.score);
 
-    // ── MACRO bias tidak valid → idle ─────────────────────────────
     if (!macroBias.valid) {
         if (s.l1 || s.l2) resetSignal(id);
         s.lastPrice = price;
         return;
     }
 
-    // ── HTF GATE CHECK ────────────────────────────────────────────
-    // Jika HTF sudah ready, periksa apakah arah macro diizinkan
-    // Ini mencegah BUY di tengah downtrend besar (kasus screenshot)
-    if (htfReady && htfTrend) {
-        const macroDirBuy  = macroBias.bias === 'BULL';
-        const macroDirSell = macroBias.bias === 'BEAR';
-
-        const blocked = (macroDirBuy  && !htfTrend.allowBuy)  ||
-                        (macroDirSell && !htfTrend.allowSell);
-
-        if (blocked) {
-            // Arah macro berlawanan dengan HTF trend → blok signal
-            if (s.l1 || s.l2) resetSignal(id);
-            // Update badge untuk tampilkan status HTF
-            updateHTFBadge(id, htfTrend, true);
-            s.lastPrice = price;
-            return;
-        }
-        updateHTFBadge(id, htfTrend, false);
-    }
-
-    // ── MICRO entry scoring ───────────────────────────────────────
     const micro = scoreMicroEntry(id, price, microCandles, macroBias);
 
-    // Stage machine: l1 = macro valid, l2 = micro in zone, l3 = confirmed
     if (!s.l1) {
-        // Stage 1: Macro bias terdeteksi kuat
         s.l1 = true;
         s.type = macroBias.bias === 'BULL' ? 'buy' : 'sell';
         s.macroScore = macroBias.score;
-        s.macroBias = macroBias.bias;
+        s.macroBias  = macroBias.bias;
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
         throttledSaveState(id);
         return;
     }
 
-    // Jika macro bias berbalik → reset
+    // If macro bias flipped → reset
     const expectedDir = s.type;
     const currentDir  = macroBias.bias === 'BULL' ? 'buy' : 'sell';
     if (s.l1 && !s.confirmed && macroBias.valid && currentDir !== expectedDir) {
@@ -1335,7 +1186,6 @@ function processSignal(id, price) {
     }
 
     if (s.l1 && !s.l2 && micro.ready) {
-        // Stage 2: Micro sudah di zona pullback
         s.l2 = true;
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
@@ -1343,18 +1193,15 @@ function processSignal(id, price) {
         return;
     }
 
-    if (s.l2 && !s.l3 && micro.ready && micro.quality >= 60) {
-        // Stage 3: Kualitas micro cukup tinggi → start confirmation
+    if (s.l2 && !s.l3 && micro.ready && micro.quality >= 58) {
         s.l3 = true;
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
         throttledSaveState(id);
-        // Teruskan macroBias ke startConfirmationDelay agar entry dihitung dari zona
-        startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType, micro.zonePrice, macroBias);
+        startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType);
         return;
     }
 
-    // Jika sudah l2 tapi micro keluar dari zona → turun ke l1
     if (s.l2 && !s.l3 && !micro.ready && !micro.factors.in_zone) {
         s.l2 = false;
         pendingSignalData[id] = true;
@@ -1373,10 +1220,9 @@ function updateSignal(id, price) {
     }, SIGNAL_DEBOUNCE_MS);
 }
 
-// ── startConfirmationDelay — menerima macroBias untuk kalkulasi entry ──
-function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType, zonePrice, macroBias) {
+function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType) {
     if (pendingConfirmation[id]) cancelPendingConfirmation(id);
-    pendingConfirmation[id] = { direction, entryPrice, macroScore, zoneType, zonePrice, macroBias };
+    pendingConfirmation[id] = { direction, entryPrice, macroScore, zoneType };
     const sb = document.getElementById(`signal-bar-${id}`);
     if (sb) sb.classList.add('confirm-wait');
     document.getElementById(`l3-${id}`)?.classList.add('confirm-pending');
@@ -1396,10 +1242,7 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType,
                 && mi2.ready;
 
             if (stillValid) {
-                // Gunakan mb2 (macroBias terbaru) untuk entry zone kalkulasi
-                // Tambahkan zonePrice dari micro scorer ke mb2 untuk digunakan executeLockSignal
-                const mbWithZone = { ...mb2, zonePrice: mi2.zonePrice || zonePrice || 0 };
-                executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType, mbWithZone);
+                executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType);
             } else {
                 resetSignal(id);
                 const st = document.getElementById(`signal-text-${id}`);
@@ -1473,7 +1316,8 @@ function throttledUpdateUI(id) {
 function updatePriceDisplayOnly(id, price) {
     const el = document.getElementById(`price-${id}`); if (!el) return;
     const prev = parseFloat(el.dataset.prev || '0');
-    el.innerText = price.toFixed(2); el.dataset.prev = price;
+    const decimals = id === 'xau' ? 2 : 2;
+    el.innerText = price.toFixed(decimals); el.dataset.prev = price;
     if (prev !== 0 && prev !== price) {
         el.style.color = price > prev ? 'var(--success)' : 'var(--danger)';
         clearTimeout(el._ct);
@@ -1522,7 +1366,7 @@ function updateSignalUIOnly(id) {
         } else if (s.l3) {
             st.innerText = 'LOCKED'; st.style.color = 'var(--accent)';
         } else if (s.l2) {
-            st.innerText = 'PULLBACK'; st.style.color = 'var(--accent)';
+            st.innerText = 'SWEEP'; st.style.color = 'var(--accent)';
         } else if (s.l1) {
             st.innerText = 'BIAS'; st.style.color = 'var(--amber)';
         } else {
@@ -1541,46 +1385,46 @@ function updateEngineBadges(id, mb) {
 
     const badges = [
         {
-            id: `eb-rsi-${id}`,
-            val: f.rsi_sig || 'RSI',
-            cls: f.rsi_sig === 'DEEP_PB' ? 'active' :
-                 f.rsi_sig === 'PULLBACK' ? 'bull' :
-                 f.rsi_sig === 'HIGH' || f.rsi_sig === 'LOW' ? 'bear' : 'neutral'
+            id: `eb-trend-${id}`,
+            val: f.bc_trend ? f.bc_trend.replace('STRONG_','S-') : 'TRD',
+            cls: (f.bc_trend||'').includes('BULL') ? 'bull' :
+                 (f.bc_trend||'').includes('BEAR') ? 'bear' : 'neutral'
+        },
+        {
+            id: `eb-struct-${id}`,
+            val: f.bc_struct ? f.bc_struct.replace('_BULL','↑').replace('_BEAR','↓') : 'STR',
+            cls: (f.bc_struct||'').includes('BULL') || f.bc_struct === 'BULLISH' ? 'bull' :
+                 (f.bc_struct||'').includes('BEAR') || f.bc_struct === 'BEARISH' ? 'bear' :
+                 f.bc_struct === 'CHOCH_BULL' || f.bc_struct === 'CHOCH_BEAR' ? 'active' : 'off'
+        },
+        {
+            id: `eb-zone-${id}`,
+            val: f.bc_zone || 'ZNE',
+            cls: f.bc_zone === 'DEMAND' || f.bc_zone === 'NEAR_DEMAND' ? 'bull' :
+                 f.bc_zone === 'SUPPLY' || f.bc_zone === 'NEAR_SUPPLY' ? 'bear' : 'off'
+        },
+        {
+            id: `eb-flow-${id}`,
+            val: f.bc_flow ? f.bc_flow.replace('_PRESSURE','').replace('MILD_','M-') : 'FLW',
+            cls: (f.bc_flow||'').includes('BUY')  ? 'bull' :
+                 (f.bc_flow||'').includes('SELL') ? 'bear' : 'neutral'
         },
         {
             id: `eb-macd-${id}`,
-            val: f.macd_sig || 'MACD',
+            val: f.macd_sig || 'MOM',
             cls: (f.macd_sig||'').startsWith('BULL') ? 'bull' :
                  (f.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral'
         },
         {
-            id: `eb-ema-${id}`,
-            val: f.ema_cross || 'EMA',
-            cls: f.ema_cross === 'BULL' ? 'bull' :
-                 f.ema_cross === 'BEAR' ? 'bear' : 'off'
-        },
-        {
-            id: `eb-vwap-${id}`,
-            val: f.vwap_pos || 'VWAP',
-            cls: f.vwap_pos === 'ABOVE' ? 'bull' :
-                 f.vwap_pos === 'BELOW' ? 'bear' : 'neutral'
-        },
-        {
-            id: `eb-bb-${id}`,
-            val: f.bb_state || 'BB',
-            cls: f.bb_state === 'SQUEEZE' ? 'active' : 'neutral'
-        },
-        {
-            id: `eb-choch-${id}`,
-            val: f.structure || 'STR',
-            cls: f.structure === 'BULLISH' ? 'bull' :
-                 f.structure === 'BEARISH' ? 'bear' : 'off'
-        },
-        {
-            id: `eb-vol-${id}`,
+            id: `eb-adx-${id}`,
             val: f.adx_class || 'ADX',
             cls: f.adx_class === 'STRONG' || f.adx_class === 'TREND' ? 'bull' :
                  f.adx_class === 'CHOPPY' ? 'bear' : 'neutral'
+        },
+        {
+            id: `eb-conflict-${id}`,
+            val: f.conflict ? 'CONFLICT' : (f.bc_bos ? 'BOS:'+f.bc_bos : 'ALIGN'),
+            cls: f.conflict ? 'bear' : f.bc_bos ? 'active' : 'off'
         }
     ];
 
@@ -1592,30 +1436,9 @@ function updateEngineBadges(id, mb) {
     const sc = document.getElementById(`eb-score-${id}`);
     if (sc) {
         const sv = Math.round(mb.score || 0);
-        sc.textContent = `BIAS:${sv}`;
+        sc.textContent = `BC:${sv}`;
         sc.className = 'ebadge score';
-        sc.style.color = mb.valid ? 'var(--emerald)' : sv >= MACRO_BIAS_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
-    }
-}
-
-// ── HTF Badge Update ──────────────────────────────────────────────
-// Menampilkan status HTF trend di badge ADX (reuse slot yang ada)
-// blocked = true artinya HTF sedang memblok arah macro
-function updateHTFBadge(id, htf, blocked) {
-    if (!htf) return;
-    const el = document.getElementById(`eb-vol-${id}`);
-    if (!el) return;
-    const t = htf.trend;
-    const s = Math.round(htf.strength || 0);
-    if (blocked) {
-        // HTF memblok signal — tampilkan peringatan merah
-        el.className   = 'ebadge bear';
-        el.textContent = `HTF:${t === 'BULL' ? '▲' : t === 'BEAR' ? '▼' : '—'}BLK`;
-    } else {
-        // HTF searah — tampilkan konfirmasi hijau
-        el.className   = t === 'BULL' ? 'ebadge bull' :
-                         t === 'BEAR' ? 'ebadge bear' : 'ebadge neutral';
-        el.textContent = `HTF:${t === 'BULL' ? '▲' : t === 'BEAR' ? '▼' : '~'}${s}`;
+        sc.style.color = mb.valid ? 'var(--emerald)' : sv >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
     }
 }
 
@@ -1625,11 +1448,11 @@ function updateConfluenceBar(id, score) {
     if (!fill || !txt) return;
     const pct = Math.min(100, Math.max(0, score));
     fill.style.width = pct + '%';
-    fill.style.background = pct >= MACRO_BIAS_MIN ? 'var(--emerald)' :
-                             pct >= MACRO_BIAS_MIN * 0.7 ? 'var(--gold)' : 'var(--crimson)';
+    fill.style.background = pct >= BC_SCORE_MIN ? 'var(--emerald)' :
+                             pct >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--crimson)';
     txt.textContent = Math.round(pct);
-    txt.style.color = pct >= MACRO_BIAS_MIN ? 'var(--emerald)' :
-                      pct >= MACRO_BIAS_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
+    txt.style.color = pct >= BC_SCORE_MIN ? 'var(--emerald)' :
+                      pct >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
 }
 
 function updatePerformanceUI(id) {
@@ -1638,7 +1461,6 @@ function updatePerformanceUI(id) {
     const rt = document.getElementById(`stats-retrace-${id}`);
     const sl = document.getElementById(`stats-sl-${id}`);
     const wr = document.getElementById(`stats-winrate-${id}`);
-    const dr = document.getElementById(`draw-rate-${id}`);
     if (tp) tp.innerText = s.tpHits;
     if (rt) { rt.innerText = s.retraceResets + (s.breakevenHits||0); rt.style.color = 'var(--teal)'; }
     if (sl) sl.innerText = s.slHits;
@@ -1647,15 +1469,14 @@ function updatePerformanceUI(id) {
         wr.style.color = s.winrate >= 65 ? 'var(--emerald)' :
                          s.winrate >= 50 ? 'var(--gold)' : 'var(--crimson)';
     }
-    if (dr) { dr.innerText = `${s.drawrate||0}%`; dr.style.color = 'var(--teal)'; }
 }
 
 function updateFeedBadge(id, status) {
     const el = document.getElementById(`feed-badge-${id}`); if (!el) return;
     el.className = 'feed-badge';
-    if (status === 'ok')           { el.textContent = '● WS';   el.classList.add('ok'); }
-    else if (status === 'fallback'){ el.textContent = '⚡ REST'; el.classList.add('fallback'); }
-    else                           { el.textContent = '✕ ERR';  el.classList.add('err'); }
+    if (status === 'ok')            { el.textContent = '● WS';   el.classList.add('ok'); }
+    else if (status === 'fallback') { el.textContent = '⚡ REST'; el.classList.add('fallback'); }
+    else                            { el.textContent = '✕ ERR';  el.classList.add('err'); }
 }
 
 function updateGlobalPulse() {
@@ -1693,7 +1514,7 @@ function handleHistoryPanelTap(id) {
 }
 
 // ================================================================
-//  CARD HTML
+//  CARD HTML — Blue Chart badge labels
 // ================================================================
 function buildCardHTML(id, label) {
     const isActive = activePairId === id ? 'active' : '';
@@ -1722,16 +1543,16 @@ function buildCardHTML(id, label) {
           <span id="signal-text-${id}">IDLE</span>
         </div>
         <div class="engine-badge-row">
-          <span class="ebadge off" id="eb-rsi-${id}">RSI</span>
-          <span class="ebadge off" id="eb-macd-${id}">MACD</span>
-          <span class="ebadge off" id="eb-ema-${id}">EMA</span>
-          <span class="ebadge off" id="eb-vwap-${id}">VWAP</span>
-          <span class="ebadge off" id="eb-bb-${id}">BB</span>
-          <span class="ebadge off" id="eb-choch-${id}">STR</span>
-          <span class="ebadge off" id="eb-vol-${id}">ADX</span>
+          <span class="ebadge off" id="eb-trend-${id}">TRD</span>
+          <span class="ebadge off" id="eb-struct-${id}">STR</span>
+          <span class="ebadge off" id="eb-zone-${id}">ZNE</span>
+          <span class="ebadge off" id="eb-flow-${id}">FLW</span>
+          <span class="ebadge off" id="eb-macd-${id}">MOM</span>
+          <span class="ebadge off" id="eb-adx-${id}">ADX</span>
+          <span class="ebadge off" id="eb-conflict-${id}">ALIGN</span>
         </div>
         <div class="confluence-panel">
-          <span class="confluence-label">STRENGTH</span>
+          <span class="confluence-label">BC SCORE</span>
           <div class="confluence-bar-wrap"><div class="confluence-bar-fill" id="cf-fill-${id}" style="width:0%"></div></div>
           <span class="confluence-score-txt" id="cf-txt-${id}">0</span>
         </div>
@@ -1767,48 +1588,71 @@ window.copyValue = (id, type) => {
 };
 
 // ================================================================
-//  WEBSOCKETS
+//  PRICE FEEDS
+//  XAUUSD: Primary WS → Binance XAUUSDT Futures (raw, no offset)
+//          Fallback 1 → Binance XAUUSDT Futures REST
+//          Fallback 2 → Binance XAUUSDT Spot REST
+//          Fallback 3 → metals.live spot gold (most accurate for MT5)
+//  BTCUSD: Primary WS → Binance BTCUSDT Trade
+//          Fallback   → Binance BTCUSDT REST
 // ================================================================
 let xauWs = null, xauReconnectTimer = null, xauReconnectAttempts = 0;
 let xauFetchRetryTimer = null, xauCurrentPrice = 0, xauLastHeartbeat = Date.now();
-const XAU_REST = [
-    'https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT',
-    'https://api.binance.com/api/v3/ticker/price?symbol=XAUUSDT'
+
+// XAU REST sources — ordered by MT5 accuracy
+const XAU_REST_SOURCES = [
+    // metals.live: spot gold price, closest to MT5 XAUUSD broker feed
+    { url: 'https://api.metals.live/v1/spot/gold',
+      parse: (d) => {
+          if (Array.isArray(d)) {
+              const g = d.find(x => x.gold !== undefined);
+              return g ? parseFloat(g.gold) : null;
+          }
+          return d && d.gold ? parseFloat(d.gold) : null;
+      }
+    },
+    // Binance XAUUSDT perpetual futures — very close to spot
+    { url: 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT',
+      parse: (d) => d?.price ? parseFloat(d.price) : null
+    },
+    // Binance XAUUSDT spot
+    { url: 'https://api.binance.com/api/v3/ticker/price?symbol=XAUUSDT',
+      parse: (d) => d?.price ? parseFloat(d.price) : null
+    }
 ];
 let xauRestIdx = 0;
 
-function updateXAUDisplay(price) {
-    if (!price || isNaN(price) || price <= 0) return;
-    xauCurrentPrice = price; xauLastHeartbeat = Date.now();
-    pendingPriceData.xau = price; pendingSignalData.xau = true;
-    throttledUpdateUI('xau'); updateSignal('xau', price);
-    wsStatus.xau = true; updateGlobalPulse();
+function updateXAUDisplay(price, feedStatus) {
+    if (!price || isNaN(price) || price < 100 || price > 20000) return;
+    xauCurrentPrice = price;
+    xauLastHeartbeat = Date.now();
+    pendingPriceData.xau = price;
+    pendingSignalData.xau = true;
+    throttledUpdateUI('xau');
+    updateSignal('xau', price);
+    wsStatus.xau = true;
+    updateGlobalPulse();
     const el = document.getElementById('ws-status-xau');
     if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; }
-    updateFeedBadge('xau', 'ok');
+    if (feedStatus) updateFeedBadge('xau', feedStatus);
 }
 
 async function xauFetchRestPrice() {
-    for (let i = 0; i < XAU_REST.length; i++) {
+    for (let i = 0; i < XAU_REST_SOURCES.length; i++) {
+        const src = XAU_REST_SOURCES[(xauRestIdx + i) % XAU_REST_SOURCES.length];
         try {
             const ctrl = new AbortController();
             const tid  = setTimeout(() => ctrl.abort(), 7000);
-            const resp = await fetch(XAU_REST[(xauRestIdx + i) % XAU_REST.length], { signal: ctrl.signal });
+            const resp = await fetch(src.url, { signal: ctrl.signal });
             clearTimeout(tid);
+            if (!resp.ok) continue;
             const data = await resp.json();
-            if (data?.price) {
-                const p = parseFloat(data.price) + XAU_OFFSET;
-                if (p > 0 && p !== xauCurrentPrice) {
-                    xauCurrentPrice = p; xauLastHeartbeat = Date.now();
-                    pendingPriceData.xau = p; pendingSignalData.xau = true;
-                    throttledUpdateUI('xau'); updateSignal('xau', p);
-                    wsStatus.xau = true; updateGlobalPulse();
-                    const el = document.getElementById('ws-status-xau');
-                    if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; }
-                    updateFeedBadge('xau', 'fallback');
-                    xauRestIdx = (xauRestIdx + i) % XAU_REST.length;
-                    return true;
-                }
+            const p = src.parse(data);
+            if (p && p > 100 && !isNaN(p)) {
+                const useFeed = i === 0 ? 'ok' : 'fallback';
+                updateXAUDisplay(p, useFeed);
+                xauRestIdx = (xauRestIdx + i) % XAU_REST_SOURCES.length;
+                return true;
             }
         } catch(e) {}
     }
@@ -1820,39 +1664,83 @@ function initXAUWebSocket() {
     if (xauWs) { try { xauWs.close(); } catch(e) {} xauWs = null; }
     if (xauReconnectTimer) clearTimeout(xauReconnectTimer);
     try {
-        xauWs = new WebSocket('wss://fstream.binance.com/ws/xauusdt@trade');
+        xauWs = new WebSocket(XAU_WS_URL);
         const wst = setTimeout(() => {
             if (xauWs && xauWs.readyState !== WebSocket.OPEN) {
                 try { xauWs.close(); } catch(e) {} xauWs = null;
-                updateFeedBadge('xau','fallback');
-                if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000);
+                updateFeedBadge('xau', 'fallback');
+                if (!xauFetchRetryTimer)
+                    xauFetchRetryTimer = setInterval(() => xauFetchRestPrice(), 2000);
             }
-        }, 5000);
-        xauWs.onopen    = () => { clearTimeout(wst); xauReconnectAttempts = 0; if (xauFetchRetryTimer) { clearInterval(xauFetchRetryTimer); xauFetchRetryTimer = null; } updateFeedBadge('xau','ok'); updateGlobalPulse(); };
-        xauWs.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.p) { const p = parseFloat(d.p) + XAU_OFFSET; if (!isNaN(p) && p > 0 && p !== xauCurrentPrice) updateXAUDisplay(p); } } catch(err) {} };
-        xauWs.onclose   = () => { const delay = Math.min(1000 * Math.pow(1.5, xauReconnectAttempts), 15000); xauReconnectAttempts++; xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay); updateFeedBadge('xau','fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); };
-        xauWs.onerror   = () => { updateFeedBadge('xau','fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); };
-    } catch(err) { updateFeedBadge('xau','fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(async () => { await xauFetchRestPrice(); }, 3000); }
+        }, 6000);
+        xauWs.onopen = () => {
+            clearTimeout(wst);
+            xauReconnectAttempts = 0;
+            if (xauFetchRetryTimer) { clearInterval(xauFetchRetryTimer); xauFetchRetryTimer = null; }
+            updateFeedBadge('xau', 'ok');
+            updateGlobalPulse();
+        };
+        xauWs.onmessage = (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                if (d.p) {
+                    const p = parseFloat(d.p);
+                    if (!isNaN(p) && p > 100 && p !== xauCurrentPrice)
+                        updateXAUDisplay(p, 'ok');
+                }
+            } catch(err) {}
+        };
+        xauWs.onclose = () => {
+            const delay = Math.min(1000 * Math.pow(1.6, xauReconnectAttempts), 20000);
+            xauReconnectAttempts++;
+            xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay);
+            updateFeedBadge('xau', 'fallback');
+            if (!xauFetchRetryTimer)
+                xauFetchRetryTimer = setInterval(() => xauFetchRestPrice(), 2000);
+        };
+        xauWs.onerror = () => {
+            updateFeedBadge('xau', 'fallback');
+            if (!xauFetchRetryTimer)
+                xauFetchRetryTimer = setInterval(() => xauFetchRestPrice(), 2000);
+        };
+    } catch(err) {
+        updateFeedBadge('xau', 'fallback');
+        if (!xauFetchRetryTimer)
+            xauFetchRetryTimer = setInterval(() => xauFetchRestPrice(), 2000);
+    }
 }
 
 let btcWs = null, btcReconnectTimer = null, btcReconnectAttempts = 0, btcFetchRetryTimer = null;
 
 async function btcFetchRestPrice() {
-    try {
-        const resp = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
-        const data = await resp.json();
-        if (data?.price) {
-            const p = parseFloat(data.price);
-            if (p > 0 && !isNaN(p)) {
-                pendingPriceData.btc = p; pendingSignalData.btc = true;
-                throttledUpdateUI('btc'); updateSignal('btc', p);
-                wsStatus.btc = true; updateGlobalPulse();
-                updateFeedBadge('btc','fallback');
-                return true;
+    const urls = [
+        'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
+        'https://fapi.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT'
+    ];
+    for (const url of urls) {
+        try {
+            const ctrl = new AbortController();
+            const tid  = setTimeout(() => ctrl.abort(), 7000);
+            const resp = await fetch(url, { signal: ctrl.signal });
+            clearTimeout(tid);
+            if (!resp.ok) continue;
+            const data = await resp.json();
+            if (data?.price) {
+                const p = parseFloat(data.price);
+                if (p > 1000 && !isNaN(p)) {
+                    pendingPriceData.btc = p;
+                    pendingSignalData.btc = true;
+                    throttledUpdateUI('btc');
+                    updateSignal('btc', p);
+                    wsStatus.btc = true;
+                    updateGlobalPulse();
+                    updateFeedBadge('btc', 'fallback');
+                    return true;
+                }
             }
-        }
-    } catch(e) {}
-    updateFeedBadge('btc','err');
+        } catch(e) {}
+    }
+    updateFeedBadge('btc', 'err');
     return false;
 }
 
@@ -1864,15 +1752,58 @@ function initBTCWebSocket() {
         const wst = setTimeout(() => {
             if (btcWs && btcWs.readyState !== WebSocket.OPEN) {
                 try { btcWs.close(); } catch(e) {} btcWs = null;
-                updateFeedBadge('btc','fallback'); wsStatus.btc = false;
-                if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(async () => { await btcFetchRestPrice(); }, 3000);
+                updateFeedBadge('btc', 'fallback');
+                wsStatus.btc = false;
+                if (!btcFetchRetryTimer)
+                    btcFetchRetryTimer = setInterval(() => btcFetchRestPrice(), 3000);
             }
-        }, 6000);
-        btcWs.onopen    = () => { clearTimeout(wst); btcReconnectAttempts = 0; wsStatus.btc = true; if (btcFetchRetryTimer) { clearInterval(btcFetchRetryTimer); btcFetchRetryTimer = null; } const el = document.getElementById('ws-status-btc'); if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; } updateFeedBadge('btc','ok'); updateGlobalPulse(); updateSignalUIOnly('btc'); };
-        btcWs.onmessage = (e) => { try { const d = JSON.parse(e.data); const p = parseFloat(d.p); if (p && p > 0 && !isNaN(p)) { pendingPriceData.btc = p; pendingSignalData.btc = true; throttledUpdateUI('btc'); updateSignal('btc', p); } } catch(err) {} };
-        btcWs.onclose   = () => { wsStatus.btc = false; updateFeedBadge('btc','fallback'); updateGlobalPulse(); updateSignalUIOnly('btc'); const delay = Math.min(1000 * Math.pow(2, btcReconnectAttempts), 30000); btcReconnectAttempts++; btcReconnectTimer = setTimeout(() => initBTCWebSocket(), delay); if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(async () => { await btcFetchRestPrice(); }, 3000); };
-        btcWs.onerror   = () => { wsStatus.btc = false; updateFeedBadge('btc','fallback'); updateGlobalPulse(); if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(async () => { await btcFetchRestPrice(); }, 3000); };
-    } catch(err) { wsStatus.btc = false; updateFeedBadge('btc','err'); setTimeout(() => initBTCWebSocket(), 5000); }
+        }, 7000);
+        btcWs.onopen = () => {
+            clearTimeout(wst);
+            btcReconnectAttempts = 0;
+            wsStatus.btc = true;
+            if (btcFetchRetryTimer) { clearInterval(btcFetchRetryTimer); btcFetchRetryTimer = null; }
+            const el = document.getElementById('ws-status-btc');
+            if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; }
+            updateFeedBadge('btc', 'ok');
+            updateGlobalPulse();
+            updateSignalUIOnly('btc');
+        };
+        btcWs.onmessage = (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                const p = parseFloat(d.p);
+                if (p && p > 1000 && !isNaN(p)) {
+                    pendingPriceData.btc = p;
+                    pendingSignalData.btc = true;
+                    throttledUpdateUI('btc');
+                    updateSignal('btc', p);
+                }
+            } catch(err) {}
+        };
+        btcWs.onclose = () => {
+            wsStatus.btc = false;
+            updateFeedBadge('btc', 'fallback');
+            updateGlobalPulse();
+            updateSignalUIOnly('btc');
+            const delay = Math.min(1000 * Math.pow(2, btcReconnectAttempts), 30000);
+            btcReconnectAttempts++;
+            btcReconnectTimer = setTimeout(() => initBTCWebSocket(), delay);
+            if (!btcFetchRetryTimer)
+                btcFetchRetryTimer = setInterval(() => btcFetchRestPrice(), 3000);
+        };
+        btcWs.onerror = () => {
+            wsStatus.btc = false;
+            updateFeedBadge('btc', 'fallback');
+            updateGlobalPulse();
+            if (!btcFetchRetryTimer)
+                btcFetchRetryTimer = setInterval(() => btcFetchRestPrice(), 3000);
+        };
+    } catch(err) {
+        wsStatus.btc = false;
+        updateFeedBadge('btc', 'err');
+        setTimeout(() => initBTCWebSocket(), 5000);
+    }
 }
 
 function switchPair() {
@@ -1890,19 +1821,24 @@ function switchPair() {
 // ================================================================
 function init() {
     checkAndMigrateSchema();
-    state.xau = loadState('xau'); state.btc = loadState('btc');
+    state.xau = loadState('xau');
+    state.btc = loadState('btc');
     performanceStats.xau = loadPerformanceStats('xau');
     performanceStats.btc = loadPerformanceStats('btc');
-    updateWinrateAndDrawrate('xau'); updateWinrateAndDrawrate('btc');
+    updateWinrateAndDrawrate('xau');
+    updateWinrateAndDrawrate('btc');
 
     document.getElementById('terminals').innerHTML =
-        buildCardHTML('xau','XAUUSD') + buildCardHTML('btc','BTCUSD');
+        buildCardHTML('xau', 'XAUUSD') + buildCardHTML('btc', 'BTCUSD');
 
     const bindTap = (el, handler) => {
-        if (!el) return; let lastTap = 0;
+        if (!el) return;
+        let lastTap = 0;
         const h = (e) => {
             e.preventDefault();
-            const now = Date.now(); if (now - lastTap < 80) return; lastTap = now;
+            const now = Date.now();
+            if (now - lastTap < 80) return;
+            lastTap = now;
             handler();
         };
         el.addEventListener('touchstart', h, { passive: false });
@@ -1915,7 +1851,8 @@ function init() {
 
     const btn = document.getElementById('switchPairBtn');
     if (btn) {
-        const nb = btn.cloneNode(true); btn.parentNode.replaceChild(nb, btn);
+        const nb = btn.cloneNode(true);
+        btn.parentNode.replaceChild(nb, btn);
         const ds = function(e) {
             e.preventDefault(); e.stopPropagation();
             nb.classList.add('btn-highlight');
@@ -1929,43 +1866,51 @@ function init() {
     updateSignalUIOnly('xau'); updateSignalUIOnly('btc');
     updatePerformanceUI('xau'); updatePerformanceUI('btc');
 
-    // Seed candles dengan harga realistis
-    seedCandles('xau', 3300); seedCandles('btc', 105000);
+    // Seed with realistic base prices
+    seedCandles('xau', 3300);
+    seedCandles('btc', 105000);
 
-    // Fix seed saat harga real pertama kali datang
+    // Re-seed with real price on first data
     let seedFixed = { xau: false, btc: false };
     const fixSeed = (id, price) => {
         if (seedFixed[id]) return;
         const mc = getMacroCandles(id);
         const first = mc[0]?.close || 0;
-        if (first > 0 && Math.abs(first - price) / price > 0.05) {
+        if (first > 0 && Math.abs(first - price) / price > 0.04) {
             seedCandles(id, price);
             macroBiasCache[id] = null;
-            htfTrendCache[id]  = null; // invalidate HTF cache juga
         }
         seedFixed[id] = true;
     };
 
-    initXAUWebSocket(); xauFetchRestPrice();
-    initBTCWebSocket(); btcFetchRestPrice();
+    // Start price feeds
+    initXAUWebSocket();
+    xauFetchRestPrice();   // immediate first fetch
+    initBTCWebSocket();
+    btcFetchRestPrice();
     updateGlobalPulse();
 
+    // Heartbeat loop: re-fetch if stale, fix seeds
     setInterval(() => {
-        if (!seedFixed.xau && xauCurrentPrice > 0)    fixSeed('xau', xauCurrentPrice);
+        if (!seedFixed.xau && xauCurrentPrice > 0)     fixSeed('xau', xauCurrentPrice);
         if (!seedFixed.btc && marketData.btc.price > 0) fixSeed('btc', marketData.btc.price);
-        if (Date.now() - xauLastHeartbeat > 8000) xauFetchRestPrice();
+        if (Date.now() - xauLastHeartbeat > 6000)       xauFetchRestPrice();
         updateGlobalPulse();
     }, 3000);
 
+    // Aggressive REST fallback every 2s if WS drops
     setInterval(() => {
         if (!xauWs || xauWs.readyState !== WebSocket.OPEN) xauFetchRestPrice();
         if (!btcWs || btcWs.readyState !== WebSocket.OPEN) btcFetchRestPrice();
     }, 2000);
 
+    // Re-sync on tab visibility
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
-            xauFetchRestPrice(); btcFetchRestPrice();
-            updateSignalUIOnly('xau'); updateSignalUIOnly('btc');
+            xauFetchRestPrice();
+            btcFetchRestPrice();
+            updateSignalUIOnly('xau');
+            updateSignalUIOnly('btc');
             updateGlobalPulse();
         }
     });
