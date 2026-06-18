@@ -216,7 +216,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 
 const LS_SCHEMA_VERSION    = 6;
 const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-const XAU_OFFSET           = -1.72;
+const XAU_OFFSET           = -1.65;
 const CONFIRMATION_WAIT_MS = 4000;
 const COOLDOWN_AFTER_SL_MS = 15000;
 const RR_RATIO             = 1.4;
@@ -574,14 +574,19 @@ function scoreMacroBias(id, price, macroCandles) {
 //  Logic  : Mendeteksi apakah harga sedang pullback ke zona kunci
 //           dan siap untuk entry searah MACRO bias
 //
+//  FIX: Signal BUY hanya valid jika harga berada DI BAWAH atau
+//       TEPAT di zona support (VWAP/EMA21), bukan di atasnya.
+//       Signal SELL hanya valid jika harga berada DI ATAS atau
+//       TEPAT di zona resistance (VWAP/EMA21), bukan di bawahnya.
+//
 //  Zona entry ideal (BUY):
-//   — Harga mendekati VWAP macro atau EMA21 macro dari atas
+//   — Harga berada di zona support (AT/BELOW VWAP atau EMA21)
 //   — RSI micro < 45 (pullback territory)
 //   — Candle rejection bullish di zona tersebut
 //   — Volume spike sebagai trigger final
 //
 //  Zona entry ideal (SELL):
-//   — Harga mendekati VWAP macro atau EMA21 macro dari bawah
+//   — Harga berada di zona resistance (AT/ABOVE VWAP atau EMA21)
 //   — RSI micro > 55 (pullback territory)
 //   — Candle rejection bearish di zona tersebut
 //   — Volume spike sebagai trigger final
@@ -606,40 +611,60 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const direction = bias === 'BULL' ? 'buy' : 'sell';
 
     // ── Zona Pullback Detection ───────────────────────────────────
-    // Apakah harga berada di zona menarik untuk entry searah bias?
+    // FIX: Zona entry harus memastikan arah yang benar:
+    //   BUY  → harga harus AT atau BELOW support (VWAP/EMA21)
+    //           agar entry di bawah harga aktif saat pullback ke support
+    //   SELL → harga harus AT atau ABOVE resistance (VWAP/EMA21)
+    //           agar entry di atas harga aktif saat rally ke resistance
     let inZone = false;
     let zoneType = 'NONE';
+    let zonePrice = 0; // harga zona aktual untuk entry kalkulasi
     const snapDist = macroATR * 0.30; // toleransi jarak ke zona kunci
 
     if (bias === 'BULL') {
-        // Untuk BUY: harga harus sudah turun mendekati zona support
-        const nearVWAP = vwap && price <= vwap + snapDist && price >= vwap - snapDist * 0.5;
-        const nearEMA  = ema21 && price <= ema21 + snapDist && price >= ema21 - snapDist * 0.5;
-        // Atau: harga sudah pullback dari puncak (RSI turun dari overbought)
-        const rsiPullback = rsi !== null && rsi < 48;
-        // Atau: micro candle membuat lower low tapi macro masih bullish
+        // BUY: harga harus berada AT atau BELOW zona support
+        // Harga tidak boleh di atas zona (berarti belum pullback ke support)
+        const nearVWAP = vwap
+            && price <= vwap + snapDist * 0.15   // hanya sedikit di atas vwap (noise tolerance)
+            && price >= vwap - snapDist;          // tidak terlalu jauh di bawah
+        const nearEMA  = ema21
+            && price <= ema21 + snapDist * 0.15  // hanya sedikit di atas ema21
+            && price >= ema21 - snapDist;         // tidak terlalu jauh di bawah
+        // RSI pullback: harga sudah turun cukup dari puncak
+        const rsiPullback = rsi !== null && rsi < 45;
+        // Micro dip: candle micro membuat lower low → harga sedang turun ke support
         const microDip = microCandles.length >= 4 &&
-            microCandles[microCandles.length-1].low < microCandles[microCandles.length-3].low;
+            microCandles[microCandles.length-1].low < microCandles[microCandles.length-3].low &&
+            price < microCandles[microCandles.length-3].close; // harga di bawah candle 3x lalu
 
-        if (nearVWAP)      { inZone = true; zoneType = 'VWAP'; }
-        else if (nearEMA)  { inZone = true; zoneType = 'EMA21'; }
-        else if (rsiPullback && microDip) { inZone = true; zoneType = 'RSI_DIP'; }
+        if (nearVWAP)      { inZone = true; zoneType = 'VWAP';    zonePrice = vwap; }
+        else if (nearEMA)  { inZone = true; zoneType = 'EMA21';   zonePrice = ema21; }
+        else if (rsiPullback && microDip) { inZone = true; zoneType = 'RSI_DIP'; zonePrice = price; }
 
     } else if (bias === 'BEAR') {
-        // Untuk SELL: harga harus sudah naik mendekati zona resistance
-        const nearVWAP = vwap && price >= vwap - snapDist && price <= vwap + snapDist * 0.5;
-        const nearEMA  = ema21 && price >= ema21 - snapDist && price <= ema21 + snapDist * 0.5;
-        const rsiPullback = rsi !== null && rsi > 52;
+        // SELL: harga harus berada AT atau ABOVE zona resistance
+        // Harga tidak boleh di bawah zona (berarti belum rally ke resistance)
+        const nearVWAP = vwap
+            && price >= vwap - snapDist * 0.15   // hanya sedikit di bawah vwap (noise tolerance)
+            && price <= vwap + snapDist;          // tidak terlalu jauh di atas
+        const nearEMA  = ema21
+            && price >= ema21 - snapDist * 0.15  // hanya sedikit di bawah ema21
+            && price <= ema21 + snapDist;         // tidak terlalu jauh di atas
+        // RSI rally: harga sudah naik cukup dari lembah
+        const rsiPullback = rsi !== null && rsi > 55;
+        // Micro rip: candle micro membuat higher high → harga sedang naik ke resistance
         const microRip  = microCandles.length >= 4 &&
-            microCandles[microCandles.length-1].high > microCandles[microCandles.length-3].high;
+            microCandles[microCandles.length-1].high > microCandles[microCandles.length-3].high &&
+            price > microCandles[microCandles.length-3].close; // harga di atas candle 3x lalu
 
-        if (nearVWAP)      { inZone = true; zoneType = 'VWAP'; }
-        else if (nearEMA)  { inZone = true; zoneType = 'EMA21'; }
-        else if (rsiPullback && microRip) { inZone = true; zoneType = 'RSI_RIP'; }
+        if (nearVWAP)      { inZone = true; zoneType = 'VWAP';    zonePrice = vwap; }
+        else if (nearEMA)  { inZone = true; zoneType = 'EMA21';   zonePrice = ema21; }
+        else if (rsiPullback && microRip) { inZone = true; zoneType = 'RSI_RIP'; zonePrice = price; }
     }
 
-    f.in_zone  = inZone;
+    f.in_zone   = inZone;
     f.zone_type = zoneType;
+    f.zone_price = zonePrice;
 
     // ── Quality Score ─────────────────────────────────────────────
     let quality = 0;
@@ -666,13 +691,13 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 
     // Tidak boleh terlalu jauh dari zona
     if (!inZone && quality < 30) {
-        return { ready: false, direction, quality, factors: f, zoneType: 'NONE' };
+        return { ready: false, direction, quality, factors: f, zoneType: 'NONE', zonePrice: 0 };
     }
 
     // Minimum quality untuk ready
     const ready = quality >= 55 && inZone;
 
-    return { ready, direction, quality, factors: f, zoneType };
+    return { ready, direction, quality, factors: f, zoneType, zonePrice };
 }
 
 // ================================================================
@@ -976,27 +1001,30 @@ function scoreHTFTrend(id, price, htfCandles) {
 //
 //  Fix: seed dibuat FLAT (hanya noise sangat kecil). Ini membuat:
 //   • EMA9 ≈ EMA21 ≈ harga saat ini   (tidak ada cross palsu)
-//   • MACD ≈ 0                          (tidak ada momentum palsu)
-//   • ADX < ADX_MIN (18)               → scoreMacroBias valid:false
-//   → Engine tetap IDLE sampai 35 menit data nyata terkumpul.
+//   • MACD hist ≈ 0                   (tidak ada momentum palsu)
+//   • ADX rendah                      (tidak ada trend palsu)
+//   • Struktur market: UNCLEAR        (tidak bullish/bearish palsu)
 //
-//  Setelah MACRO_MIN candle nyata, buildCandles() mem-flush seed ini
-//  dan engine hanya menggunakan data real-market.
+//  Seed hanya sebagai placeholder agar engine tidak crash karena
+//  kekurangan candle. Engine akan beralih ke data nyata begitu
+//  MACRO_MIN candle nyata terkumpul (± 35 menit).
 // ================================================================
-function seedCandles(id, base) {
-    const isXau  = id === 'xau';
-    const step   = isXau ? 0.8 : 80;
-    // Noise sangat kecil supaya indicator tidak NaN (div-by-zero safe)
-    const noiseScale = isXau ? 0.002 : 0.001;
+function seedCandles(id, basePrice) {
+    const isXau    = id === 'xau';
+    const base     = basePrice;
+    const step     = isXau ? 0.5 : 50;
+    const noiseScale = 0.04; // noise sangat kecil, hampir flat
 
-    const nHTF   = 50;
-    const nMacro = 55;
-    const nMicro = 20;
+    const nHTF   = HTF_MIN + 5;
+    const nMacro = MACRO_MIN + 5;
+    const nMicro = MICRO_MIN + 3;
 
     marketData[id].htf.candles   = [];
     marketData[id].macro.candles = [];
     marketData[id].micro.candles = [];
-    // Reset counter real candle (seed baru, belum ada data nyata)
+    marketData[id].htf.current   = null;
+    marketData[id].macro.current = null;
+    marketData[id].micro.current = null;
     marketData[id].realMacroCount = 0;
     marketData[id].realHTFCount   = 0;
     marketData[id].seedFlushed    = false;
@@ -1047,13 +1075,61 @@ function seedCandles(id, base) {
 
 // ================================================================
 //  EXECUTE LOCK SIGNAL — Entry di zona pullback
+//
+//  FIX: Entry dihitung dari zona level (VWAP/EMA21) bukan live price:
+//   BUY  → entry = min(livePrice, zonePrice)  → selalu ≤ harga aktif
+//   SELL → entry = max(livePrice, zonePrice)  → selalu ≥ harga aktif
+//
+//  Ini memastikan:
+//   • Signal BUY: entry position DI BAWAH harga aktif (support zone)
+//   • Signal SELL: entry position DI ATAS harga aktif (resistance zone)
 // ================================================================
-function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
+function executeLockSignal(id, direction, livePrice, macroScore, zoneType, mb) {
     const s = state[id];
-    const entry = livePrice > 0 ? livePrice : (s.lastPrice || 0);
-    if (entry <= 0) return;
+    const curPrice = livePrice > 0 ? livePrice : (s.lastPrice || 0);
+    if (curPrice <= 0) return;
 
     const atr = marketData[id].atr || (id === 'xau' ? 2.5 : 280);
+
+    // ── Hitung Entry Level dari Zona ─────────────────────────────
+    // FIX UTAMA: pastikan BUY entry ≤ harga aktif, SELL entry ≥ harga aktif
+    let entry = curPrice;
+
+    if (mb) {
+        const zp = mb.zonePrice || 0;
+        const zpVWAP  = mb.vwap  || 0;
+        const zpEMA21 = mb.ema21 || 0;
+
+        // Dapatkan zona price berdasarkan tipe zona
+        let resolvedZonePrice = 0;
+        if (zoneType === 'VWAP'  && zpVWAP  > 0) resolvedZonePrice = zpVWAP;
+        else if (zoneType === 'EMA21' && zpEMA21 > 0) resolvedZonePrice = zpEMA21;
+        else if (zp > 0) resolvedZonePrice = zp;
+
+        if (direction === 'buy') {
+            // BUY: entry harus ≤ harga aktif (di support zone atau di bawah)
+            if (resolvedZonePrice > 0 && resolvedZonePrice <= curPrice) {
+                // Zona support ada di bawah harga aktif → gunakan zona price
+                entry = resolvedZonePrice;
+            } else {
+                // Fallback: gunakan harga aktif (pullaback sudah sampai)
+                entry = curPrice;
+            }
+            // Hard constraint: entry tidak boleh melebihi harga aktif untuk BUY
+            entry = Math.min(entry, curPrice);
+        } else {
+            // SELL: entry harus ≥ harga aktif (di resistance zone atau di atas)
+            if (resolvedZonePrice > 0 && resolvedZonePrice >= curPrice) {
+                // Zona resistance ada di atas harga aktif → gunakan zona price
+                entry = resolvedZonePrice;
+            } else {
+                // Fallback: gunakan harga aktif (rally sudah sampai)
+                entry = curPrice;
+            }
+            // Hard constraint: entry tidak boleh lebih rendah dari harga aktif untuk SELL
+            entry = Math.max(entry, curPrice);
+        }
+    }
 
     // ── SL Placement — structural, bukan hanya ATR flat ──────────
     // SL ditempatkan di bawah/atas zona entry untuk memberi ruang
@@ -1273,7 +1349,8 @@ function processSignal(id, price) {
         pendingSignalData[id] = true;
         throttledUpdateUI(id);
         throttledSaveState(id);
-        startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType);
+        // Teruskan macroBias ke startConfirmationDelay agar entry dihitung dari zona
+        startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType, micro.zonePrice, macroBias);
         return;
     }
 
@@ -1296,9 +1373,10 @@ function updateSignal(id, price) {
     }, SIGNAL_DEBOUNCE_MS);
 }
 
-function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType) {
+// ── startConfirmationDelay — menerima macroBias untuk kalkulasi entry ──
+function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType, zonePrice, macroBias) {
     if (pendingConfirmation[id]) cancelPendingConfirmation(id);
-    pendingConfirmation[id] = { direction, entryPrice, macroScore, zoneType };
+    pendingConfirmation[id] = { direction, entryPrice, macroScore, zoneType, zonePrice, macroBias };
     const sb = document.getElementById(`signal-bar-${id}`);
     if (sb) sb.classList.add('confirm-wait');
     document.getElementById(`l3-${id}`)?.classList.add('confirm-pending');
@@ -1318,7 +1396,10 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
                 && mi2.ready;
 
             if (stillValid) {
-                executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType);
+                // Gunakan mb2 (macroBias terbaru) untuk entry zone kalkulasi
+                // Tambahkan zonePrice dari micro scorer ke mb2 untuk digunakan executeLockSignal
+                const mbWithZone = { ...mb2, zonePrice: mi2.zonePrice || zonePrice || 0 };
+                executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType, mbWithZone);
             } else {
                 resetSignal(id);
                 const st = document.getElementById(`signal-text-${id}`);
