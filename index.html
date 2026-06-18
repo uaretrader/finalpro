@@ -227,7 +227,7 @@ const CONFIRMATION_WAIT_MS = 4000;
 const PRICE_OFFSET_XAU = -2.1;   // offset XAUUSD (satuan: USD per troy oz)
 const PRICE_OFFSET_BTC = -60;   // offset BTCUSD (satuan: USD per BTC)
 const COOLDOWN_AFTER_SL_MS = 20000;
-const RR_RATIO             = 1.8;
+const RR_RATIO             = 1.4;
 
 // ── Blue Chart Timeframe Durations ────────────────────────────────
 const MACRO_DUR = { xau: 60000, btc: 60000 };   // 60s HTF
@@ -1061,7 +1061,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
         }
     }
 
-    const minSL = id === 'xau' ? 8.0 : 160;
+    const minSL = id === 'xau' ? 14 : 180;
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
@@ -1141,7 +1141,7 @@ function processSignal(id, price) {
 
         // Retrace buffer exit
         if (!s.breakevenArmed) {
-            const buf = id === 'xau' ? 2.5 : 80;
+            const buf = id === 'xau' ? 12.5 : 140;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) {
                 recordSignalResult(id, 'retrace'); resetSignal(id); return;
             }
