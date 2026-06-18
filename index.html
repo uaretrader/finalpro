@@ -214,6 +214,18 @@ const LS_SCHEMA_VERSION    = 7;
 const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
 const CONFIRMATION_WAIT_MS = 4000;
+
+// ================================================================
+//  LIVE PRICE OFFSET
+//  Tambahkan nilai offset (positif atau negatif) untuk menyesuaikan
+//  harga live sebelum diteruskan ke display dan signal engine.
+//  Contoh: PRICE_OFFSET_XAU =  2.5  → harga XAU ditambah  2.5
+//          PRICE_OFFSET_XAU = -1.0  → harga XAU dikurangi 1.0
+//          PRICE_OFFSET_BTC =  100  → harga BTC ditambah 100
+//          Set ke 0 untuk tidak menggunakan offset (default).
+// ================================================================
+const PRICE_OFFSET_XAU = -2.1;   // offset XAUUSD (satuan: USD per troy oz)
+const PRICE_OFFSET_BTC = -60;   // offset BTCUSD (satuan: USD per BTC)
 const COOLDOWN_AFTER_SL_MS = 20000;
 const RR_RATIO             = 1.8;
 
@@ -1624,6 +1636,7 @@ let xauRestIdx = 0;
 
 function updateXAUDisplay(price, feedStatus) {
     if (!price || isNaN(price) || price < 100 || price > 20000) return;
+    price = price + PRICE_OFFSET_XAU;
     xauCurrentPrice = price;
     xauLastHeartbeat = Date.now();
     pendingPriceData.xau = price;
@@ -1726,7 +1739,7 @@ async function btcFetchRestPrice() {
             if (!resp.ok) continue;
             const data = await resp.json();
             if (data?.price) {
-                const p = parseFloat(data.price);
+                const p = parseFloat(data.price) + PRICE_OFFSET_BTC;
                 if (p > 1000 && !isNaN(p)) {
                     pendingPriceData.btc = p;
                     pendingSignalData.btc = true;
@@ -1772,7 +1785,7 @@ function initBTCWebSocket() {
         btcWs.onmessage = (e) => {
             try {
                 const d = JSON.parse(e.data);
-                const p = parseFloat(d.p);
+                const p = parseFloat(d.p) + PRICE_OFFSET_BTC;
                 if (p && p > 1000 && !isNaN(p)) {
                     pendingPriceData.btc = p;
                     pendingSignalData.btc = true;
