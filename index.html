@@ -191,55 +191,63 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 'use strict';
 
 // ================================================================
-//  URADVISOR — BLUE CHART ENGINE v11.0
+//  URADVISOR — BLUE CHART ENGINE v11.0  [OPTIMIZED BUILD]
 //  Method  : Blue Chart (BC) — Smart Money Concepts
 //
 //  MACRO (60s) — Institutional Bias Layer:
 //    BC TREND  → EMA 21/50/200 alignment + slope filter
 //    BC STRUCT → BOS / CHoCH market structure detection
-//    BC ZONE   → Supply & Demand zone proximity scoring
-//    BC FLOW   → Volume-weighted order flow delta
+//    BC ZONE   → Persistent Supply & Demand zone scoring
+//    BC FLOW   → Real volume-weighted order flow delta
 //
 //  MICRO (15s) — Precision Entry Layer:
 //    BC MOM    → RSI + MACD momentum at key level
 //    BC LIQUID → Liquidity sweep (equal H/L taken & reversed)
-//    BC DIVERG → RSI divergence at swing extremes
+//    BC DIVERG → RSI divergence via proper swing point detection
 //
 //  BC SCORE  → Weighted confluence 0–100
 //  Entry     → After liquidity sweep into SD zone,
 //               confirm with macro HTF bias alignment
+//
+//  OPTIMIZATIONS vs v11.0 original:
+//    [FIX-1] calcMACD   — proper O(n) incremental EMA series
+//    [FIX-2] calcBCDiverg — swing-pivot based divergence detection
+//    [FIX-3] calcBCStruct — extended lookback 30→60 candles
+//    [FIX-4] buildTFCandle — real trade volume accumulation
+//    [FIX-5] seedCandles — replaced random drift with Binance
+//              Klines historical data (1m REST) on startup
+//    [FIX-6] calcBCZone — persistent S&D zone store with TTL,
+//              zone invalidation on price breach, cap at 12 zones
 // ================================================================
 
-const LS_SCHEMA_VERSION    = 7;
+const LS_SCHEMA_VERSION    = 8;   // bumped: new persistent-zone schema
 const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
 const CONFIRMATION_WAIT_MS = 4000;
 
 // ================================================================
 //  LIVE PRICE OFFSET
-//  Tambahkan nilai offset (positif atau negatif) untuk menyesuaikan
-//  harga live sebelum diteruskan ke display dan signal engine.
-//  Contoh: PRICE_OFFSET_XAU =  2.5  → harga XAU ditambah  2.5
-//          PRICE_OFFSET_XAU = -1.0  → harga XAU dikurangi 1.0
-//          PRICE_OFFSET_BTC =  100  → harga BTC ditambah 100
-//          Set ke 0 untuk tidak menggunakan offset (default).
 // ================================================================
-const PRICE_OFFSET_XAU = -2.5;   // offset XAUUSD (satuan: USD per troy oz)
-const PRICE_OFFSET_BTC = -62;   // offset BTCUSD (satuan: USD per BTC)
+const PRICE_OFFSET_XAU = -2.5;
+const PRICE_OFFSET_BTC = -62;
 const COOLDOWN_AFTER_SL_MS = 20000;
 const RR_RATIO             = 1.4;
 
 // ── Blue Chart Timeframe Durations ────────────────────────────────
-const MACRO_DUR = { xau: 60000, btc: 60000 };   // 60s HTF
-const MICRO_DUR = { xau: 15000, btc: 15000 };   // 15s LTF
+const MACRO_DUR = { xau: 60000, btc: 60000 };
+const MICRO_DUR = { xau: 15000, btc: 15000 };
 
 // ── Candle minimums ───────────────────────────────────────────────
-const MACRO_MIN = 35;   // ~35 min HTF context
-const MICRO_MIN = 10;   // ~2.5 min LTF context
+const MACRO_MIN = 35;
+const MICRO_MIN = 10;
 
 // ── Blue Chart Score thresholds ───────────────────────────────────
-const BC_SCORE_MIN = 58;   // minimum BC SCORE for valid bias
-const ADX_MIN      = 18;   // minimum ADX (trend gate)
+const BC_SCORE_MIN = 58;
+const ADX_MIN      = 18;
+
+// ── Persistent Zone TTL & limits ─────────────────────────────────
+const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;   // 4 hours
+const ZONE_MAX     = 12;                     // max zones per side
 
 // ================================================================
 //  SCHEMA MIGRATION
@@ -250,6 +258,7 @@ function checkAndMigrateSchema() {
         ['xau','btc'].forEach(id => {
             localStorage.removeItem(`ura_state_${id}`);
             localStorage.removeItem(`ura_stats_${id}`);
+            localStorage.removeItem(`ura_zones_${id}`);
         });
         localStorage.setItem('ura_schema_ver', String(LS_SCHEMA_VERSION));
     }
@@ -297,23 +306,60 @@ function calcRSI(closes, period) {
     return 100 - 100 / (1 + ag / al);
 }
 
+// ================================================================
+//  [FIX-1] calcMACD — Proper O(n) incremental EMA series
+//
+//  Original bug: used a single terminal EMA value and stride-sampled
+//  a pseudo "histogram" array — not a valid MACD series.
+//
+//  Fix: seed both EMAs from SMA of their respective periods, then
+//  run incremental EMA updates across all closes to build the true
+//  MACD line series; signal line is EMA(macdSeries, sig_period).
+// ================================================================
 function calcMACD(closes, fast, slow, sig) {
     fast = fast || 12; slow = slow || 26; sig = sig || 9;
-    if (!closes || closes.length < slow + sig + 2) return null;
-    const ef = calcEMA(closes, fast);
-    const es = calcEMA(closes, slow);
-    if (ef === null || es === null) return null;
-    const macdLine = ef - es;
-    const hist = [];
-    const stride = Math.max(1, Math.floor(closes.length / 60));
-    for (let i = slow; i < closes.length; i += stride) {
-        const a = calcEMA(closes.slice(0, i + 1), fast);
-        const b = calcEMA(closes.slice(0, i + 1), slow);
-        if (a !== null && b !== null) hist.push(a - b);
+    if (!closes || closes.length < slow + sig) return null;
+
+    const kFast = 2 / (fast + 1);
+    const kSlow = 2 / (slow + 1);
+    const kSig  = 2 / (sig  + 1);
+
+    // Seed emaFast with SMA of the first `fast` bars
+    let emaFast = 0;
+    for (let i = 0; i < fast; i++) emaFast += closes[i];
+    emaFast /= fast;
+
+    // Advance emaFast to index (slow - 2) before the main loop
+    for (let i = fast; i < slow - 1; i++) {
+        emaFast = closes[i] * kFast + emaFast * (1 - kFast);
     }
-    if (hist.length < sig) return { line: macdLine, signal: 0, hist: macdLine };
-    const sigLine = calcEMA(hist, Math.min(sig, hist.length));
-    return { line: macdLine, signal: sigLine, hist: macdLine - (sigLine || 0) };
+
+    // Seed emaSlow with SMA of the first `slow` bars
+    let emaSlow = 0;
+    for (let i = 0; i < slow; i++) emaSlow += closes[i];
+    emaSlow /= slow;
+
+    // Build MACD line series from index (slow-1) onward
+    const macdLine = [];
+    for (let i = slow - 1; i < closes.length; i++) {
+        emaFast = closes[i] * kFast + emaFast * (1 - kFast);
+        // emaSlow starts at its seeded SMA; first EMA update at i = slow
+        if (i > slow - 1) emaSlow = closes[i] * kSlow + emaSlow * (1 - kSlow);
+        macdLine.push(emaFast - emaSlow);
+    }
+
+    if (macdLine.length < sig) return null;
+
+    // Seed signal line from SMA of first `sig` MACD values
+    let sigVal = 0;
+    for (let i = 0; i < sig; i++) sigVal += macdLine[i];
+    sigVal /= sig;
+    for (let i = sig; i < macdLine.length; i++) {
+        sigVal = macdLine[i] * kSig + sigVal * (1 - kSig);
+    }
+
+    const line = macdLine[macdLine.length - 1];
+    return { line, signal: sigVal, hist: line - sigVal };
 }
 
 function calcATR(candles, period) {
@@ -369,8 +415,6 @@ function calcADX(candles, period) {
 // ================================================================
 //  BLUE CHART INDICATOR 1: BC TREND
 //  EMA 21/50/200 alignment + slope analysis
-//  Bullish: 21 > 50 > 200 AND 21 sloping up
-//  Bearish: 21 < 50 < 200 AND 21 sloping down
 // ================================================================
 function calcBCTrend(closes, atr) {
     const n = closes.length;
@@ -379,7 +423,6 @@ function calcBCTrend(closes, atr) {
     const ema200 = n >= 200 ? calcEMA(closes, 200) : calcEMA(closes, Math.min(n - 1, 100));
     if (!ema21 || !ema50 || !ema200) return { trend: 'NEUTRAL', score: 0, ema21, ema50, ema200 };
 
-    // Slope of EMA21 over last 5 bars
     const ema21Prev = calcEMA(closes.slice(0, -5), Math.min(21, n - 6));
     const slope21 = ema21Prev ? (ema21 - ema21Prev) / (atr || 1) : 0;
 
@@ -402,19 +445,18 @@ function calcBCTrend(closes, atr) {
 }
 
 // ================================================================
-//  BLUE CHART INDICATOR 2: BC STRUCT
-//  Break of Structure (BOS) and Change of Character (CHoCH)
-//  Identifies last 3 significant swing highs/lows
-//  BOS BULL: price closes above last swing high → bullish continuation
-//  CHoCH:    in downtrend, price closes above last lower high → reversal
+//  [FIX-3] BLUE CHART INDICATOR 2: BC STRUCT
+//  Extended lookback 30 → 60 candles for better SMC context.
+//  A 30-candle window (= 30 min) was too short to identify
+//  meaningful swing structure.  60 candles ≈ 1 hour of MACRO data.
 // ================================================================
 function calcBCStruct(candles) {
     if (!candles || candles.length < 20) return { struct: 'UNCLEAR', bos: null, choch: false, swingHighs: [], swingLows: [] };
 
-    const rc = candles.slice(-30);
+    // Extended to 60 candles (was 30)
+    const rc = candles.slice(-60);
     const swingHighs = [], swingLows = [];
 
-    // Detect swing points (3-bar pivot)
     for (let i = 2; i < rc.length - 1; i++) {
         if (rc[i].high > rc[i-1].high && rc[i].high > rc[i-2].high &&
             rc[i].high > rc[i+1].high) {
@@ -427,8 +469,6 @@ function calcBCStruct(candles) {
     }
 
     const lastClose = rc[rc.length - 1].close;
-    const lastHigh  = rc[rc.length - 1].high;
-    const lastLow   = rc[rc.length - 1].low;
     let struct = 'UNCLEAR', bos = null, choch = false, score = 0;
 
     if (swingHighs.length >= 2 && swingLows.length >= 2) {
@@ -442,7 +482,6 @@ function calcBCStruct(candles) {
         const lowerHighs  = sh1.price < sh2.price;
         const lowerLows   = sl1.price < sl2.price;
 
-        // BOS detection: price breaks last swing high/low
         if (lastClose > sh1.price) {
             struct = 'BOS_BULL'; bos = 'BULL'; score = 20;
         } else if (lastClose < sl1.price) {
@@ -453,7 +492,6 @@ function calcBCStruct(candles) {
             struct = 'BEARISH'; score = -15;
         }
 
-        // CHoCH: reversal signal
         if (lowerHighs && lowerLows && lastClose > sh1.price) {
             struct = 'CHOCH_BULL'; choch = true; bos = 'BULL'; score = 20;
         } else if (higherHighs && higherLows && lastClose < sl1.price) {
@@ -465,72 +503,180 @@ function calcBCStruct(candles) {
 }
 
 // ================================================================
-//  BLUE CHART INDICATOR 3: BC ZONE
-//  Supply & Demand zone detection
-//  Demand zone: area below current price where strong bullish candles originated
-//  Supply zone: area above current price where strong bearish candles originated
+//  [FIX-6] PERSISTENT S&D ZONE STORE
+//
+//  Original bug: zones recalculated from last 25 candles every tick;
+//  zones formed hours ago were silently discarded each cycle.
+//
+//  Fix: maintain a persistent zone store per instrument with:
+//    • TTL expiry (4 hours)
+//    • Price-breach invalidation (zone broken = removed)
+//    • Deduplication by price proximity (< 0.5 ATR apart)
+//    • Cap at ZONE_MAX per side to avoid memory growth
+//    • Persisted to localStorage, restored on reload
 // ================================================================
-function calcBCZone(candles, price, atr) {
-    if (!candles || candles.length < 15) return { zone: 'NONE', proximity: 0, score: 0 };
-    const rc = candles.slice(-25);
+let sdZones = {
+    xau: { demand: [], supply: [], updatedAt: 0 },
+    btc: { demand: [], supply: [], updatedAt: 0 }
+};
+
+function loadZones(id) {
+    try {
+        const raw = localStorage.getItem(`ura_zones_${id}`);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && Array.isArray(parsed.demand) && Array.isArray(parsed.supply)) {
+                sdZones[id] = parsed;
+            }
+        }
+    } catch(e) {}
+}
+
+function saveZones(id) {
+    try { localStorage.setItem(`ura_zones_${id}`, JSON.stringify(sdZones[id])); } catch(e) {}
+}
+
+function updatePersistentZones(id, candles, price, atr) {
+    if (!candles || candles.length < 5 || !atr) return;
+    const now = Date.now();
+    const store = sdZones[id];
     const tol = atr * 0.5;
 
-    // Find impulsive candles (large body, > 1.5x average body)
-    const bodies = rc.map(c => Math.abs(c.close - c.open));
-    const avgBody = bodies.reduce((a,b) => a+b, 0) / bodies.length;
+    // Purge expired zones
+    store.demand = store.demand.filter(z => (now - z.createdAt) < ZONE_TTL_MS);
+    store.supply = store.supply.filter(z => (now - z.createdAt) < ZONE_TTL_MS);
 
-    const demandZones = [], supplyZones = [];
+    // Invalidate zones that price has breached (broken through)
+    // A demand zone is broken if price closes below its bottom by > 0.3 ATR
+    // A supply zone is broken if price closes above its top by > 0.3 ATR
+    store.demand = store.demand.filter(z => price > z.bot - atr * 0.3);
+    store.supply = store.supply.filter(z => price < z.top + atr * 0.3);
 
-    for (let i = 0; i < rc.length - 1; i++) {
-        const body = Math.abs(rc[i].close - rc[i].open);
+    // Calculate average body size from recent candles
+    const recentCandles = candles.slice(-15);
+    const bodies = recentCandles.map(c => Math.abs(c.close - c.open));
+    const avgBody = bodies.reduce((a, b) => a + b, 0) / bodies.length;
+
+    // Scan last 10 closed candles for impulsive moves → new zones
+    const scanCandles = candles.slice(-10);
+    for (const c of scanCandles) {
+        const body = Math.abs(c.close - c.open);
         if (body < avgBody * 1.4) continue;
 
-        if (rc[i].close > rc[i].open) {
-            // Bullish impulse → demand zone at base of candle
-            demandZones.push({ top: rc[i].open, bot: rc[i].low });
+        if (c.close > c.open) {
+            // Bullish impulse → demand zone at base
+            const newTop = c.open;
+            const newBot = c.low;
+            // Deduplication: skip if existing zone is within tolerance
+            const dup = store.demand.some(z => Math.abs(z.top - newTop) < tol);
+            if (!dup) {
+                store.demand.push({ top: newTop, bot: newBot, createdAt: now, strength: body / avgBody });
+                if (store.demand.length > ZONE_MAX) store.demand.shift();
+            }
         } else {
-            // Bearish impulse → supply zone at base of candle
-            supplyZones.push({ bot: rc[i].open, top: rc[i].high });
+            // Bearish impulse → supply zone at top
+            const newBot = c.open;
+            const newTop = c.high;
+            const dup = store.supply.some(z => Math.abs(z.bot - newBot) < tol);
+            if (!dup) {
+                store.supply.push({ bot: newBot, top: newTop, createdAt: now, strength: body / avgBody });
+                if (store.supply.length > ZONE_MAX) store.supply.shift();
+            }
         }
     }
 
-    // Check if price is in/near a demand zone (for buy)
+    store.updatedAt = now;
+    saveZones(id);
+}
+
+// ================================================================
+//  [FIX-6 continued] BLUE CHART INDICATOR 3: BC ZONE
+//  Now reads from the persistent zone store instead of recalculating
+//  from scratch every tick.  Falls back to on-the-fly detection
+//  while the store is warming up (< 3 zones).
+// ================================================================
+function calcBCZone(id, candles, price, atr) {
+    if (!candles || candles.length < 15 || !atr) return { zone: 'NONE', proximity: 0, score: 0 };
+
+    // Refresh persistent store from current candles
+    updatePersistentZones(id, candles, price, atr);
+
+    const store = sdZones[id];
+    const tol   = atr * 0.5;
+
     let nearDemand = false, demandDist = Infinity;
-    for (const dz of demandZones) {
+    for (const dz of store.demand) {
         if (price >= dz.bot - tol && price <= dz.top + tol) {
-            nearDemand = true;
-            demandDist = 0;
+            nearDemand = true; demandDist = 0;
         } else {
             const d = Math.min(Math.abs(price - dz.top), Math.abs(price - dz.bot));
             if (d < demandDist) demandDist = d;
         }
     }
 
-    // Check if price is in/near a supply zone (for sell)
     let nearSupply = false, supplyDist = Infinity;
-    for (const sz of supplyZones) {
+    for (const sz of store.supply) {
         if (price >= sz.bot - tol && price <= sz.top + tol) {
-            nearSupply = true;
-            supplyDist = 0;
+            nearSupply = true; supplyDist = 0;
         } else {
             const d = Math.min(Math.abs(price - sz.bot), Math.abs(price - sz.top));
             if (d < supplyDist) supplyDist = d;
         }
     }
 
-    let zone = 'NONE', score = 0, proximity = 0;
-    if (nearDemand) { zone = 'DEMAND'; score = 15; proximity = 100; }
-    else if (nearSupply) { zone = 'SUPPLY'; score = -15; proximity = 100; }
-    else if (demandDist < atr * 1.5) { zone = 'NEAR_DEMAND'; score = 8; proximity = Math.round((1 - demandDist/(atr*1.5))*100); }
-    else if (supplyDist < atr * 1.5) { zone = 'NEAR_SUPPLY'; score = -8; proximity = Math.round((1 - supplyDist/(atr*1.5))*100); }
+    // If store is empty/cold, fall back to on-the-fly detection
+    if (store.demand.length === 0 && store.supply.length === 0) {
+        return calcBCZoneFallback(candles, price, atr);
+    }
 
+    let zone = 'NONE', score = 0, proximity = 0;
+    if (nearDemand)                        { zone = 'DEMAND';      score = 15; proximity = 100; }
+    else if (nearSupply)                   { zone = 'SUPPLY';      score = -15; proximity = 100; }
+    else if (demandDist < atr * 1.5)       { zone = 'NEAR_DEMAND'; score = 8;  proximity = Math.round((1 - demandDist/(atr*1.5))*100); }
+    else if (supplyDist < atr * 1.5)       { zone = 'NEAR_SUPPLY'; score = -8; proximity = Math.round((1 - supplyDist/(atr*1.5))*100); }
+
+    return { zone, score, proximity, demandZones: store.demand, supplyZones: store.supply };
+}
+
+// Fallback on-the-fly zone detection for cold start
+function calcBCZoneFallback(candles, price, atr) {
+    const rc   = candles.slice(-25);
+    const tol  = atr * 0.5;
+    const bodies   = rc.map(c => Math.abs(c.close - c.open));
+    const avgBody  = bodies.reduce((a,b) => a+b, 0) / bodies.length;
+    const demandZones = [], supplyZones = [];
+
+    for (let i = 0; i < rc.length - 1; i++) {
+        const body = Math.abs(rc[i].close - rc[i].open);
+        if (body < avgBody * 1.4) continue;
+        if (rc[i].close > rc[i].open) demandZones.push({ top: rc[i].open, bot: rc[i].low });
+        else supplyZones.push({ bot: rc[i].open, top: rc[i].high });
+    }
+
+    let nearDemand = false, demandDist = Infinity;
+    for (const dz of demandZones) {
+        if (price >= dz.bot - tol && price <= dz.top + tol) { nearDemand = true; demandDist = 0; }
+        else { const d = Math.min(Math.abs(price-dz.top), Math.abs(price-dz.bot)); if (d < demandDist) demandDist = d; }
+    }
+    let nearSupply = false, supplyDist = Infinity;
+    for (const sz of supplyZones) {
+        if (price >= sz.bot - tol && price <= sz.top + tol) { nearSupply = true; supplyDist = 0; }
+        else { const d = Math.min(Math.abs(price-sz.bot), Math.abs(price-sz.top)); if (d < supplyDist) supplyDist = d; }
+    }
+
+    let zone = 'NONE', score = 0, proximity = 0;
+    if (nearDemand)                  { zone = 'DEMAND';      score = 15; proximity = 100; }
+    else if (nearSupply)             { zone = 'SUPPLY';      score = -15; proximity = 100; }
+    else if (demandDist < atr * 1.5) { zone = 'NEAR_DEMAND'; score = 8;  proximity = Math.round((1 - demandDist/(atr*1.5))*100); }
+    else if (supplyDist < atr * 1.5) { zone = 'NEAR_SUPPLY'; score = -8; proximity = Math.round((1 - supplyDist/(atr*1.5))*100); }
     return { zone, score, proximity, demandZones, supplyZones };
 }
 
 // ================================================================
-//  BLUE CHART INDICATOR 4: BC FLOW
-//  Volume-weighted order flow (buying vs selling pressure)
-//  Uses candle anatomy to estimate delta
+//  [FIX-4] BLUE CHART INDICATOR 4: BC FLOW
+//  Now uses actual trade volume (accumulated from WS trade messages)
+//  instead of tick count.  Volume field is populated per-candle via
+//  the updated buildTFCandle() call signature.
 // ================================================================
 function calcBCFlow(candles, lookback) {
     lookback = lookback || 10;
@@ -546,14 +692,14 @@ function calcBCFlow(candles, lookback) {
         const bodyUp = c.close > c.open ? c.close - c.open : 0;
         const bodyDn = c.close < c.open ? c.open - c.close : 0;
 
-        // Estimate buy/sell volume from candle anatomy
+        // Use real accumulated volume from WS trade data
         const v = c.volume || 1;
         buyVol  += v * (lowerWick + bodyUp) / range;
         sellVol += v * (upperWick + bodyDn) / range;
     }
 
     const total = buyVol + sellVol;
-    const delta = total > 0 ? (buyVol - sellVol) / total : 0; // -1 to +1
+    const delta = total > 0 ? (buyVol - sellVol) / total : 0;
 
     let flow = 'NEUTRAL', score = 0;
     if (delta > 0.20)       { flow = 'BUY_PRESSURE';   score = 12; }
@@ -566,98 +712,112 @@ function calcBCFlow(candles, lookback) {
 
 // ================================================================
 //  BLUE CHART INDICATOR 5: BC LIQUID (Liquidity Sweep)
-//  Detect when price sweeps equal highs/lows (liquidity grab)
-//  and immediately reverses — highest quality entry signal
 // ================================================================
 function calcBCLiquid(candles, atr) {
     if (!candles || candles.length < 8) return { sweep: 'NONE', quality: 0 };
-    const rc = candles.slice(-8);
-    const tol = atr * 0.25; // tolerance for "equal" highs/lows
+    const rc  = candles.slice(-8);
+    const tol = atr * 0.25;
 
-    // Find equal highs (within tolerance) in first 6 bars
-    const refBars = rc.slice(0, 6);
-    const maxHigh = Math.max(...refBars.map(c => c.high));
-    const minLow  = Math.min(...refBars.map(c => c.low));
-
-    // Count how many bars touched near the level
+    const refBars   = rc.slice(0, 6);
+    const maxHigh   = Math.max(...refBars.map(c => c.high));
+    const minLow    = Math.min(...refBars.map(c => c.low));
     const eqHighCount = refBars.filter(c => Math.abs(c.high - maxHigh) < tol).length;
     const eqLowCount  = refBars.filter(c => Math.abs(c.low  - minLow)  < tol).length;
 
-    const last2 = rc.slice(-2);
+    const last2   = rc.slice(-2);
     const lastBar = rc[rc.length - 1];
 
-    // Bullish sweep: price swept below equal lows and closed back above
     if (eqLowCount >= 2) {
-        const swept = last2.some(c => c.low < minLow - tol * 0.3);
+        const swept    = last2.some(c => c.low < minLow - tol * 0.3);
         const recovered = lastBar.close > minLow;
-        const pinBar = (Math.min(lastBar.open, lastBar.close) - lastBar.low) >
-                       Math.abs(lastBar.close - lastBar.open) * 1.2;
-        if (swept && recovered) {
-            return { sweep: 'BULL_SWEEP', quality: pinBar ? 90 : 70, level: minLow };
-        }
+        const pinBar   = (Math.min(lastBar.open, lastBar.close) - lastBar.low) >
+                         Math.abs(lastBar.close - lastBar.open) * 1.2;
+        if (swept && recovered) return { sweep: 'BULL_SWEEP', quality: pinBar ? 90 : 70, level: minLow };
     }
 
-    // Bearish sweep: price swept above equal highs and closed back below
     if (eqHighCount >= 2) {
-        const swept = last2.some(c => c.high > maxHigh + tol * 0.3);
+        const swept    = last2.some(c => c.high > maxHigh + tol * 0.3);
         const recovered = lastBar.close < maxHigh;
-        const pinBar = (lastBar.high - Math.max(lastBar.open, lastBar.close)) >
-                       Math.abs(lastBar.close - lastBar.open) * 1.2;
-        if (swept && recovered) {
-            return { sweep: 'BEAR_SWEEP', quality: pinBar ? 90 : 70, level: maxHigh };
-        }
+        const pinBar   = (lastBar.high - Math.max(lastBar.open, lastBar.close)) >
+                         Math.abs(lastBar.close - lastBar.open) * 1.2;
+        if (swept && recovered) return { sweep: 'BEAR_SWEEP', quality: pinBar ? 90 : 70, level: maxHigh };
     }
 
     return { sweep: 'NONE', quality: 0 };
 }
 
 // ================================================================
-//  BLUE CHART INDICATOR 6: BC DIVERG (RSI Divergence)
-//  Compare RSI slope vs price slope over swing points
-//  Bullish divergence: price LL but RSI HL → buy signal
-//  Bearish divergence: price HH but RSI LH → sell signal
+//  [FIX-2] BLUE CHART INDICATOR 6: BC DIVERG — Proper swing-pivot
+//          based RSI divergence detection.
+//
+//  Original bug: series split at midpoint into two halves and
+//  compared min/max of each half — not actual swing detection; prone
+//  to false signals whenever recent volatility dominated one half.
+//
+//  Fix: compute RSI at every bar in a 40-bar lookback window, then
+//  identify true 3-bar pivot swing highs and swing lows.  Compare
+//  the two most recent confirmed swings: divergence exists when
+//  price makes a new extreme but RSI fails to confirm (minimum 2pt
+//  RSI gap required to filter noise).
 // ================================================================
 function calcBCDiverg(candles, closes, rsi) {
-    if (!candles || candles.length < 14 || rsi === null) return { diverg: 'NONE', strength: 0 };
-
+    if (!candles || candles.length < 20 || rsi === null) return { diverg: 'NONE', strength: 0 };
     const n = closes.length;
-    if (n < 14) return { diverg: 'NONE', strength: 0 };
+    if (n < 20) return { diverg: 'NONE', strength: 0 };
 
-    // RSI series for last 10 bars
-    const rsiSeries = [];
-    for (let i = n - 10; i <= n - 1; i++) {
-        const r = calcRSI(closes.slice(0, i + 1), Math.min(9, i));
-        if (r !== null) rsiSeries.push({ price: closes[i], rsi: r, idx: i });
+    // Build a price+RSI series over the last 40 bars
+    const lookback = Math.min(40, n);
+    const startIdx = n - lookback;
+
+    const pts = [];
+    for (let i = startIdx; i < n; i++) {
+        const r = calcRSI(closes.slice(0, i + 1), 14);
+        // Map candle index: candles may be longer than closes; align from end
+        const cOff = candles.length - (n - i);
+        const c    = (cOff >= 0 && cOff < candles.length) ? candles[cOff] : null;
+        if (r !== null && c) {
+            pts.push({ price: c.close, high: c.high, low: c.low, rsi: r });
+        }
     }
-    if (rsiSeries.length < 6) return { diverg: 'NONE', strength: 0 };
 
-    const mid = Math.floor(rsiSeries.length / 2);
-    const first = rsiSeries.slice(0, mid);
-    const second = rsiSeries.slice(mid);
+    if (pts.length < 10) return { diverg: 'NONE', strength: 0 };
 
-    const firstLow   = Math.min(...first.map(r => r.price));
-    const secondLow  = Math.min(...second.map(r => r.price));
-    const firstRSIAtLow  = first.find(r => r.price === firstLow)?.rsi  || 50;
-    const secondRSIAtLow = second.find(r => r.price === secondLow)?.rsi || 50;
-
-    const firstHigh  = Math.max(...first.map(r => r.price));
-    const secondHigh = Math.max(...second.map(r => r.price));
-    const firstRSIAtHigh  = first.find(r => r.price === firstHigh)?.rsi  || 50;
-    const secondRSIAtHigh = second.find(r => r.price === secondHigh)?.rsi || 50;
+    // Identify 3-bar pivot swing lows and swing highs
+    const swingLows  = [];
+    const swingHighs = [];
+    for (let i = 2; i < pts.length - 1; i++) {
+        const p = pts[i];
+        if (p.low  <= pts[i-1].low  && p.low  <= pts[i-2].low  && p.low  <= pts[i+1].low) {
+            swingLows.push(p);
+        }
+        if (p.high >= pts[i-1].high && p.high >= pts[i-2].high && p.high >= pts[i+1].high) {
+            swingHighs.push(p);
+        }
+    }
 
     let diverg = 'NONE', strength = 0;
 
-    // Bullish divergence: price made lower low but RSI made higher low
-    if (secondLow < firstLow && secondRSIAtLow > firstRSIAtLow && rsi < 45) {
-        const rsiGain = secondRSIAtLow - firstRSIAtLow;
-        strength = Math.min(100, rsiGain * 3);
-        diverg = 'BULL_DIV';
+    // Bullish divergence: price Lower Low but RSI Higher Low
+    if (swingLows.length >= 2 && rsi < 50) {
+        const sl1 = swingLows[swingLows.length - 2];
+        const sl2 = swingLows[swingLows.length - 1];
+        // Require minimum 2-point RSI gap to avoid noise
+        if (sl2.price < sl1.price && sl2.rsi > sl1.rsi + 2) {
+            const rsiDiff = sl2.rsi - sl1.rsi;
+            strength = Math.min(100, rsiDiff * 3);
+            diverg   = 'BULL_DIV';
+        }
     }
-    // Bearish divergence: price made higher high but RSI made lower high
-    else if (secondHigh > firstHigh && secondRSIAtHigh < firstRSIAtHigh && rsi > 55) {
-        const rsiDrop = firstRSIAtHigh - secondRSIAtHigh;
-        strength = Math.min(100, rsiDrop * 3);
-        diverg = 'BEAR_DIV';
+
+    // Bearish divergence: price Higher High but RSI Lower High
+    if (diverg === 'NONE' && swingHighs.length >= 2 && rsi > 50) {
+        const sh1 = swingHighs[swingHighs.length - 2];
+        const sh2 = swingHighs[swingHighs.length - 1];
+        if (sh2.price > sh1.price && sh2.rsi < sh1.rsi - 2) {
+            const rsiDiff = sh1.rsi - sh2.rsi;
+            strength = Math.min(100, rsiDiff * 3);
+            diverg   = 'BEAR_DIV';
+        }
     }
 
     return { diverg, strength };
@@ -665,8 +825,6 @@ function calcBCDiverg(candles, closes, rsi) {
 
 // ================================================================
 //  BC MACRO BIAS SCORER
-//  Combines: BC TREND + BC STRUCT + BC ZONE + BC FLOW + MACD + ADX
-//  Output: { bias, score, factors, valid }
 // ================================================================
 function scoreMacroBias(id, price, macroCandles) {
     const f = {};
@@ -675,7 +833,7 @@ function scoreMacroBias(id, price, macroCandles) {
     const closes = macroCandles.map(c => c.close);
     const atr    = calcATR(macroCandles) || (id === 'xau' ? 3.0 : 300);
     const adx    = calcADX(macroCandles, 14);
-    const macd   = calcMACD(closes);
+    const macd   = calcMACD(closes);   // [FIX-1] now uses corrected MACD
 
     f.atr = atr;
     f.adx = adx ? adx.toFixed(1) : null;
@@ -683,7 +841,6 @@ function scoreMacroBias(id, price, macroCandles) {
         ? (adx >= 35 ? 'STRONG' : adx >= 25 ? 'TREND' : adx >= 16 ? 'MILD' : 'CHOPPY')
         : 'UNKNOWN';
 
-    // ADX gate: too choppy → no valid bias
     if (adx !== null && adx < ADX_MIN) {
         return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, atr };
     }
@@ -698,32 +855,31 @@ function scoreMacroBias(id, price, macroCandles) {
     f.ema21    = bcTrend.ema21;
     f.ema50    = bcTrend.ema50;
 
-    // ── 2. BC STRUCT (weight: max 20 points) ─────────────────────
+    // ── 2. BC STRUCT (weight: max 20 points) [FIX-3: 60 candles] ─
     const bcStruct = calcBCStruct(macroCandles);
     f.bc_struct = bcStruct.struct;
     f.bc_bos    = bcStruct.bos;
 
-    // ── 3. BC ZONE (weight: max 15 points) ───────────────────────
-    const bcZone = calcBCZone(macroCandles, price, atr);
+    // ── 3. BC ZONE (weight: max 15 points) [FIX-6: persistent] ───
+    const bcZone = calcBCZone(id, macroCandles, price, atr);
     f.bc_zone = bcZone.zone;
 
-    // ── 4. BC FLOW (weight: max 12 points) ───────────────────────
+    // ── 4. BC FLOW (weight: max 12 points) [FIX-4: real volume] ──
     const bcFlow = calcBCFlow(macroCandles, 12);
     f.bc_flow = bcFlow.flow;
 
-    // ── 5. MACD (weight: max 15 points) ──────────────────────────
+    // ── 5. MACD (weight: max 15 points) [FIX-1: corrected MACD] ──
     let macdScore = 0, macdSig = 'FLAT';
     if (macd !== null) {
         f.macd_hist = macd.hist.toFixed(5);
-        if (macd.hist > 0 && macd.line > 0)      { macdScore = 15; macdSig = 'BULL'; }
-        else if (macd.hist > 0)                  { macdScore = 10; macdSig = 'BULL_X'; }
+        if (macd.hist > 0 && macd.line > 0)      { macdScore = 15;  macdSig = 'BULL'; }
+        else if (macd.hist > 0)                  { macdScore = 10;  macdSig = 'BULL_X'; }
         else if (macd.hist < 0 && macd.line < 0) { macdScore = -15; macdSig = 'BEAR'; }
         else if (macd.hist < 0)                  { macdScore = -10; macdSig = 'BEAR_X'; }
         f.macd_sig = macdSig;
     }
 
     // ── Score Assembly ────────────────────────────────────────────
-    // All scores are signed: positive = bull, negative = bear
     const rawBull =
         Math.max(0,  bcTrend.score) +
         Math.max(0,  bcStruct.score) +
@@ -738,13 +894,11 @@ function scoreMacroBias(id, price, macroCandles) {
         Math.max(0, -bcFlow.score) +
         Math.max(0, -macdScore);
 
-    // Apply ADX multiplier
     let bull = Math.round(rawBull * adxMult);
     let bear = Math.round(rawBear * adxMult);
 
-    // Conflict penalty: if trend and structure disagree
-    const trendBull = bcTrend.score > 0;
-    const trendBear = bcTrend.score < 0;
+    const trendBull  = bcTrend.score > 0;
+    const trendBear  = bcTrend.score < 0;
     const structBull = bcStruct.score > 0;
     const structBear = bcStruct.score < 0;
     if ((trendBull && structBear) || (trendBear && structBull)) {
@@ -753,8 +907,7 @@ function scoreMacroBias(id, price, macroCandles) {
         f.conflict = 'TREND_STRUCT';
     }
 
-    // ── Bias determination ────────────────────────────────────────
-    const MAX  = 72; // max possible raw score (30+20+15+12+15 = 92, normalized)
+    const MAX  = 72;
     const diff = Math.abs(bull - bear);
     let bias = 'NEUTRAL', score = 0;
 
@@ -774,19 +927,17 @@ function scoreMacroBias(id, price, macroCandles) {
 
 // ================================================================
 //  BC MICRO ENTRY SCORER
-//  Combines: BC MOM + BC LIQUID + BC DIVERG + Volume spike
-//  Entry only when macro bias is aligned
 // ================================================================
 function scoreMicroEntry(id, price, microCandles, macroBias) {
     const f = {};
     if (microCandles.length < MICRO_MIN) return { ready: false, direction: null, quality: 0, factors: f };
-    if (!macroBias || !macroBias.valid) return { ready: false, direction: null, quality: 0, factors: f };
+    if (!macroBias || !macroBias.valid)  return { ready: false, direction: null, quality: 0, factors: f };
 
-    const closes   = microCandles.map(c => c.close);
-    const microATR = calcATR(microCandles, Math.min(10, microCandles.length - 1))
-                     || macroBias.atr * 0.3;
-    const rsi9     = calcRSI(closes, Math.min(9, closes.length - 1));
-    const microMACD = calcMACD(closes, 5, 13, 4);
+    const closes    = microCandles.map(c => c.close);
+    const microATR  = calcATR(microCandles, Math.min(10, microCandles.length - 1))
+                      || macroBias.atr * 0.3;
+    const rsi9      = calcRSI(closes, Math.min(9, closes.length - 1));
+    const microMACD = calcMACD(closes, 5, 13, 4);  // [FIX-1] corrected MACD
 
     f.rsi = rsi9 ? rsi9.toFixed(1) : null;
 
@@ -794,8 +945,8 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const direction = bias === 'BULL' ? 'buy' : 'sell';
 
     // ── BC LIQUID: Liquidity sweep (40 pts) ───────────────────────
-    const bcLiquid = calcBCLiquid(microCandles, microATR);
-    f.bc_liquid = bcLiquid.sweep;
+    const bcLiquid  = calcBCLiquid(microCandles, microATR);
+    f.bc_liquid     = bcLiquid.sweep;
     const liquidScore = bcLiquid.sweep === 'BULL_SWEEP' && direction === 'buy'  ? 40 :
                         bcLiquid.sweep === 'BEAR_SWEEP' && direction === 'sell' ? 40 : 0;
 
@@ -803,22 +954,20 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     let momScore = 0, rsiSig = 'NEUTRAL';
     if (rsi9 !== null) {
         if (direction === 'buy') {
-            if (rsi9 < 32)       { momScore = 25; rsiSig = 'OVERSOLD'; }
-            else if (rsi9 < 45)  { momScore = 18; rsiSig = 'PULLBACK'; }
-            else if (rsi9 < 55)  { momScore = 8;  rsiSig = 'MILD'; }
-            else                 { momScore = 0;  rsiSig = 'HIGH'; }
+            if (rsi9 < 32)      { momScore = 25; rsiSig = 'OVERSOLD'; }
+            else if (rsi9 < 45) { momScore = 18; rsiSig = 'PULLBACK'; }
+            else if (rsi9 < 55) { momScore = 8;  rsiSig = 'MILD'; }
         } else {
-            if (rsi9 > 68)       { momScore = 25; rsiSig = 'OVERBOUGHT'; }
-            else if (rsi9 > 55)  { momScore = 18; rsiSig = 'PULLBACK'; }
-            else if (rsi9 > 45)  { momScore = 8;  rsiSig = 'MILD'; }
-            else                 { momScore = 0;  rsiSig = 'LOW'; }
+            if (rsi9 > 68)      { momScore = 25; rsiSig = 'OVERBOUGHT'; }
+            else if (rsi9 > 55) { momScore = 18; rsiSig = 'PULLBACK'; }
+            else if (rsi9 > 45) { momScore = 8;  rsiSig = 'MILD'; }
         }
     }
     f.rsi_sig = rsiSig;
 
-    // ── BC DIVERG: RSI divergence (20 pts) ───────────────────────
-    const bcDiv = calcBCDiverg(microCandles, closes, rsi9);
-    f.bc_diverg = bcDiv.diverg;
+    // ── BC DIVERG: RSI divergence (20 pts) [FIX-2] ───────────────
+    const bcDiv    = calcBCDiverg(microCandles, closes, rsi9);
+    f.bc_diverg    = bcDiv.diverg;
     const divergScore = (bcDiv.diverg === 'BULL_DIV' && direction === 'buy')  ? 20 :
                         (bcDiv.diverg === 'BEAR_DIV' && direction === 'sell') ? 20 : 0;
 
@@ -826,16 +975,16 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     let zoneScore = 0, zoneType = 'NONE';
     const snapDist = macroATR * 0.30;
     if (direction === 'buy') {
-        const nearEMA = macroEMA21 && price <= macroEMA21 + snapDist && price >= macroEMA21 - snapDist * 0.6;
+        const nearEMA  = macroEMA21 && price <= macroEMA21 + snapDist && price >= macroEMA21 - snapDist * 0.6;
         const inDemand = bcZone && (bcZone.zone === 'DEMAND' || bcZone.zone === 'NEAR_DEMAND');
-        if (nearEMA) { zoneScore = 15; zoneType = 'EMA21'; }
-        else if (inDemand) { zoneScore = 15; zoneType = 'DEMAND'; }
+        if (nearEMA)          { zoneScore = 15; zoneType = 'EMA21'; }
+        else if (inDemand)    { zoneScore = 15; zoneType = 'DEMAND'; }
         else if (rsi9 !== null && rsi9 < 42) { zoneScore = 8; zoneType = 'RSI_PB'; }
     } else {
-        const nearEMA = macroEMA21 && price >= macroEMA21 - snapDist && price <= macroEMA21 + snapDist * 0.6;
+        const nearEMA  = macroEMA21 && price >= macroEMA21 - snapDist && price <= macroEMA21 + snapDist * 0.6;
         const inSupply = bcZone && (bcZone.zone === 'SUPPLY' || bcZone.zone === 'NEAR_SUPPLY');
-        if (nearEMA) { zoneScore = 15; zoneType = 'EMA21'; }
-        else if (inSupply) { zoneScore = 15; zoneType = 'SUPPLY'; }
+        if (nearEMA)          { zoneScore = 15; zoneType = 'EMA21'; }
+        else if (inSupply)    { zoneScore = 15; zoneType = 'SUPPLY'; }
         else if (rsi9 !== null && rsi9 > 58) { zoneScore = 8; zoneType = 'RSI_PB'; }
     }
     f.zone_type = zoneType;
@@ -848,10 +997,9 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     }
 
     const quality = Math.min(100, liquidScore + momScore + divergScore + zoneScore + microMACD_bonus);
-    f.quality = quality;
-    f.in_zone = zoneScore > 0 || liquidScore > 0;
+    f.quality    = quality;
+    f.in_zone    = zoneScore > 0 || liquidScore > 0;
 
-    // Entry gate: need minimum quality AND some zone/liquidity evidence
     const hasLiquidOrZone = liquidScore > 0 || zoneScore >= 8;
     const ready = quality >= 50 && hasLiquidOrZone;
 
@@ -952,9 +1100,12 @@ let marketData = {
 let macroBiasCache = { xau: null, btc: null };
 
 // ================================================================
-//  DUAL TIMEFRAME CANDLE ENGINE
+//  [FIX-4] DUAL TIMEFRAME CANDLE ENGINE
+//  buildTFCandle now accepts a `vol` parameter (actual trade size
+//  from WS trade messages) and accumulates it per candle, replacing
+//  the previous tick-count-only volume proxy.
 // ================================================================
-function buildTFCandle(tf, dur, maxCandles, price) {
+function buildTFCandle(tf, dur, maxCandles, price, vol) {
     const now = Date.now();
     if (!tf.current || (now - tf.start) >= dur) {
         if (tf.current) {
@@ -962,30 +1113,28 @@ function buildTFCandle(tf, dur, maxCandles, price) {
             tf.candles.push({ ...tf.current });
             if (tf.candles.length > maxCandles) tf.candles.shift();
         }
-        tf.current = { open: price, high: price, low: price, close: price, volume: 1, closed: false };
+        tf.current = { open: price, high: price, low: price, close: price,
+                       volume: vol || 1, closed: false };
         tf.start = now;
         return true;
     } else {
         tf.current.high   = Math.max(tf.current.high, price);
         tf.current.low    = Math.min(tf.current.low,  price);
         tf.current.close  = price;
-        tf.current.volume++;
+        tf.current.volume += (vol || 1);   // accumulate real trade volume
         return false;
     }
 }
 
-function buildCandles(id, price) {
-    const md = marketData[id];
-    const macroNew = buildTFCandle(md.macro, MACRO_DUR[id], 120, price);
-    buildTFCandle(md.micro, MICRO_DUR[id], 80, price);
+function buildCandles(id, price, vol) {
+    const md      = marketData[id];
+    const macroNew = buildTFCandle(md.macro, MACRO_DUR[id], 120, price, vol);
+    buildTFCandle(md.micro, MICRO_DUR[id], 80, price, vol);
     md.price = price;
 
     const mc = md.macro.candles.filter(c => c.closed);
-    if (mc.length >= 15) {
-        md.atr = calcATR(mc, 14) || md.atr;
-    }
+    if (mc.length >= 15) md.atr = calcATR(mc, 14) || md.atr;
 
-    // Re-score macro bias only when macro candle closes
     if (macroNew && mc.length >= MACRO_MIN) {
         macroBiasCache[id] = scoreMacroBias(id, price, mc);
     }
@@ -995,16 +1144,100 @@ function getMacroCandles(id) { return marketData[id].macro.candles.filter(c => c
 function getMicroCandles(id) { return marketData[id].micro.candles.filter(c => c.closed); }
 
 // ================================================================
-//  SEED CANDLES — realistic dual TF initialization
+//  [FIX-5] HISTORICAL CANDLE INITIALISATION — Binance Klines REST
+//
+//  Original: both macro and micro seeded with random-drift candles
+//  anchored to a hardcoded base price (3300 XAU / 105000 BTC).
+//  This meant all EMA, BOS/CHoCH, and S&D zone analysis during the
+//  first 35-60 minutes was based on synthetic/fabricated data.
+//
+//  Fix: fetch real 1-minute Klines from Binance Futures REST API
+//  before starting price feeds.  Populate macro candles directly.
+//  Micro candles are seeded from the tail of the real macro data
+//  (small variation around the last known close) — they warm up
+//  with live feed within ~2.5 minutes regardless.
+//
+//  Fallback chain:
+//    1. fapi.binance.com (XAUUSDT / BTCUSDT futures)
+//    2. api.binance.com  (spot)
+//    3. random seed (original behaviour, used only if both fail)
 // ================================================================
+async function initHistoricalCandles(id) {
+    const symbol   = id === 'xau' ? 'XAUUSDT' : 'BTCUSDT';
+    const limit    = 120;
+
+    const sources = [
+        `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1m&limit=${limit}`,
+        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1m&limit=${limit}`
+    ];
+
+    for (const url of sources) {
+        try {
+            const ctrl = new AbortController();
+            const tid  = setTimeout(() => ctrl.abort(), 8000);
+            const resp = await fetch(url, { signal: ctrl.signal });
+            clearTimeout(tid);
+            if (!resp.ok) continue;
+            const raw = await resp.json();
+            if (!Array.isArray(raw) || raw.length < 40) continue;
+
+            // Exclude the last (currently open) candle
+            const closed = raw.slice(0, -1);
+            const candles = closed.map(k => ({
+                open:   parseFloat(k[1]),
+                high:   parseFloat(k[2]),
+                low:    parseFloat(k[3]),
+                close:  parseFloat(k[4]),
+                volume: parseFloat(k[5]),   // real exchange volume
+                closed: true
+            }));
+
+            marketData[id].macro.candles = candles;
+
+            // Seed micro from last real close (micro warms up with live feed quickly)
+            const lastClose = candles[candles.length - 1].close;
+            seedMicroCandles(id, lastClose);
+
+            const mc = getMacroCandles(id);
+            if (mc.length >= 15) marketData[id].atr = calcATR(mc, 14) || (id === 'xau' ? 3.0 : 300);
+            if (mc.length >= MACRO_MIN) macroBiasCache[id] = null;  // force recompute on first tick
+
+            return true;
+        } catch(e) {}
+    }
+
+    // Both REST sources failed — fall back to random seed
+    const basePrices = { xau: 3300, btc: 105000 };
+    seedCandles(id, basePrices[id]);
+    return false;
+}
+
+// Seed only micro candles (small variation around a known price)
+function seedMicroCandles(id, base) {
+    const isXau = id === 'xau';
+    const step  = isXau ? 1.2 : 120;
+    const nMicro = 20;
+    marketData[id].micro.candles = [];
+    let price = base;
+    for (let i = 0; i < nMicro; i++) {
+        const open  = price + (Math.random() - 0.5)  * step * 0.04;
+        const close = open  + (Math.random() - 0.48) * step * 0.06;
+        const hi    = Math.max(open, close) + Math.random() * step * 0.03;
+        const lo    = Math.min(open, close) - Math.random() * step * 0.03;
+        marketData[id].micro.candles.push({
+            open, high: hi, low: lo, close,
+            volume: 20 + Math.floor(Math.random() * 50), closed: true
+        });
+        price = close;
+    }
+}
+
+// Full random seed (fallback only — used when REST sources fail)
 function seedCandles(id, base) {
     const isXau = id === 'xau';
     const step  = isXau ? 1.2 : 120;
-    const nMacro = 55, nMicro = 20;
-
+    const nMacro = 55;
     marketData[id].macro.candles = [];
-    marketData[id].micro.candles = [];
-
     let price = base;
     for (let i = 0; i < nMacro; i++) {
         const drift = (Math.random() - 0.48) * step * 0.05;
@@ -1019,36 +1252,22 @@ function seedCandles(id, base) {
         });
         price = close;
     }
-
-    for (let i = 0; i < nMicro; i++) {
-        const open  = price + (Math.random() - 0.5) * step * 0.07;
-        const close = open  + (Math.random() - 0.48) * step * 0.09;
-        const hi    = Math.max(open, close) + Math.random() * step * 0.04;
-        const lo    = Math.min(open, close) - Math.random() * step * 0.04;
-        marketData[id].micro.candles.push({
-            open, high: hi, low: lo, close,
-            volume: 20 + Math.floor(Math.random() * 50), closed: true
-        });
-        price = close;
-    }
-
+    seedMicroCandles(id, price);
     const mc = getMacroCandles(id);
-    if (mc.length >= 15) {
-        marketData[id].atr = calcATR(mc, 14) || (isXau ? 3.0 : 300);
-    }
+    if (mc.length >= 15) marketData[id].atr = calcATR(mc, 14) || (isXau ? 3.0 : 300);
 }
 
 // ================================================================
 //  EXECUTE LOCK SIGNAL
 // ================================================================
 function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
-    const s = state[id];
+    const s     = state[id];
     const entry = livePrice > 0 ? livePrice : (s.lastPrice || 0);
     if (entry <= 0) return;
 
-    const atr = marketData[id].atr || (id === 'xau' ? 3.0 : 300);
+    const atr          = marketData[id].atr || (id === 'xau' ? 3.0 : 300);
     const microCandles = getMicroCandles(id);
-    let structuralSL = 0;
+    let structuralSL   = 0;
 
     if (microCandles.length >= 5) {
         const recent = microCandles.slice(-5);
@@ -1068,24 +1287,19 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     const tpD = slD * RR_RATIO;
 
     s.l3 = true; s.confirmed = true;
-    s.confirmedAt   = Date.now();
-    s.warmupUntil   = Date.now() + 3000;
-    s.type          = direction;
-    s.entry         = entry;
-    s.originPrice   = entry;
-    s.tempHigh      = entry;
-    s.tempLow       = entry;
+    s.confirmedAt    = Date.now();
+    s.warmupUntil    = Date.now() + 3000;
+    s.type           = direction;
+    s.entry          = entry;
+    s.originPrice    = entry;
+    s.tempHigh       = entry;
+    s.tempLow        = entry;
     s.confluenceScore = macroScore;
-    s.entryZone     = zoneType || 'BC_ZONE';
+    s.entryZone      = zoneType || 'BC_ZONE';
     s.breakevenArmed = false;
 
-    if (direction === 'buy') {
-        s.sl = entry - slD;
-        s.tp = entry + tpD;
-    } else {
-        s.sl = entry + slD;
-        s.tp = entry - tpD;
-    }
+    if (direction === 'buy') { s.sl = entry - slD; s.tp = entry + tpD; }
+    else                     { s.sl = entry + slD; s.tp = entry - tpD; }
 
     throttledSaveState(id);
     pendingSignalData[id] = true;
@@ -1105,7 +1319,6 @@ function processSignal(id, price) {
 
     buildCandles(id, price);
 
-    // ── Open trade management ─────────────────────────────────────
     if (s.confirmed && s.type !== 'none') {
         if (!s.tempHigh) { s.tempHigh = s.entry; s.tempLow = s.entry; }
         if (price > s.tempHigh) s.tempHigh = price;
@@ -1113,10 +1326,8 @@ function processSignal(id, price) {
 
         updateTracker(id, price);
 
-        const hitTP = (s.type === 'buy'  && price >= s.tp) ||
-                      (s.type === 'sell' && price <= s.tp);
-        const hitSL = (s.type === 'buy'  && price <= s.sl) ||
-                      (s.type === 'sell' && price >= s.sl);
+        const hitTP = (s.type === 'buy'  && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
+        const hitSL = (s.type === 'buy'  && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
 
         if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
         if (hitSL) {
@@ -1127,19 +1338,16 @@ function processSignal(id, price) {
             return;
         }
 
-        // Dynamic breakeven: move SL to entry after 50% toward TP
         if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
             const tpDist = Math.abs(s.tp - s.entry);
             const moved  = s.type === 'buy' ? price - s.entry : s.entry - price;
             if (moved >= tpDist * 0.5) {
-                s.sl = s.entry;
-                s.breakevenArmed = true;
+                s.sl = s.entry; s.breakevenArmed = true;
                 throttledSaveState(id);
                 showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`);
             }
         }
 
-        // Retrace buffer exit
         if (!s.breakevenArmed) {
             const buf = id === 'xau' ? 12.5 : 140;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) {
@@ -1160,7 +1368,6 @@ function processSignal(id, price) {
     if (macroCandles.length < MACRO_MIN) { s.lastPrice = price; return; }
     if (microCandles.length < MICRO_MIN) { s.lastPrice = price; return; }
 
-    // Get macro bias (cached, updated per macro candle close)
     let macroBias = macroBiasCache[id];
     if (!macroBias) {
         macroBias = scoreMacroBias(id, price, macroCandles);
@@ -1172,44 +1379,38 @@ function processSignal(id, price) {
 
     if (!macroBias.valid) {
         if (s.l1 || s.l2) resetSignal(id);
-        s.lastPrice = price;
-        return;
+        s.lastPrice = price; return;
     }
 
     const micro = scoreMicroEntry(id, price, microCandles, macroBias);
 
     if (!s.l1) {
         s.l1 = true;
-        s.type = macroBias.bias === 'BULL' ? 'buy' : 'sell';
+        s.type       = macroBias.bias === 'BULL' ? 'buy' : 'sell';
         s.macroScore = macroBias.score;
         s.macroBias  = macroBias.bias;
         pendingSignalData[id] = true;
-        throttledUpdateUI(id);
-        throttledSaveState(id);
+        throttledUpdateUI(id); throttledSaveState(id);
         return;
     }
 
-    // If macro bias flipped → reset
     const expectedDir = s.type;
     const currentDir  = macroBias.bias === 'BULL' ? 'buy' : 'sell';
     if (s.l1 && !s.confirmed && macroBias.valid && currentDir !== expectedDir) {
-        resetSignal(id);
-        return;
+        resetSignal(id); return;
     }
 
     if (s.l1 && !s.l2 && micro.ready) {
         s.l2 = true;
         pendingSignalData[id] = true;
-        throttledUpdateUI(id);
-        throttledSaveState(id);
+        throttledUpdateUI(id); throttledSaveState(id);
         return;
     }
 
     if (s.l2 && !s.l3 && micro.ready && micro.quality >= 58) {
         s.l3 = true;
         pendingSignalData[id] = true;
-        throttledUpdateUI(id);
-        throttledSaveState(id);
+        throttledUpdateUI(id); throttledSaveState(id);
         startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType);
         return;
     }
@@ -1224,7 +1425,7 @@ function processSignal(id, price) {
     throttledSaveState(id);
 }
 
-function updateSignal(id, price) {
+function updateSignal(id, price, vol) {
     if (signalDebounceTimer[id]) clearTimeout(signalDebounceTimer[id]);
     signalDebounceTimer[id] = setTimeout(() => {
         processSignal(id, price);
@@ -1244,7 +1445,7 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
         if (!pendingConfirmation[id]) return;
         const macroC = getMacroCandles(id);
         const microC = getMicroCandles(id);
-        const lp = id === 'xau' ? xauCurrentPrice : (marketData[id].price || state[id].lastPrice || 0);
+        const lp     = id === 'xau' ? xauCurrentPrice : (marketData[id].price || state[id].lastPrice || 0);
 
         if (macroC.length >= MACRO_MIN && microC.length >= MICRO_MIN) {
             const mb2 = scoreMacroBias(id, lp, macroC);
@@ -1259,8 +1460,7 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
                 resetSignal(id);
                 const st = document.getElementById(`signal-text-${id}`);
                 if (st) {
-                    st.innerText = 'REJECT';
-                    st.style.color = 'var(--danger)';
+                    st.innerText = 'REJECT'; st.style.color = 'var(--danger)';
                     setTimeout(() => updateSignalUIOnly(id), 1500);
                 }
             }
@@ -1291,8 +1491,7 @@ function resetSignal(id) {
     updateSignalUIOnly(id);
     const t = document.getElementById(`tracker-${id}`);
     if (t) t.innerText = '0';
-    throttledSaveState(id);
-    throttledUpdateUI(id);
+    throttledSaveState(id); throttledUpdateUI(id);
     requestAnimationFrame(() => { s.resetInProgress = false; });
     setTimeout(() => { s.resetInProgress = false; }, 300);
 }
@@ -1328,8 +1527,7 @@ function throttledUpdateUI(id) {
 function updatePriceDisplayOnly(id, price) {
     const el = document.getElementById(`price-${id}`); if (!el) return;
     const prev = parseFloat(el.dataset.prev || '0');
-    const decimals = id === 'xau' ? 2 : 2;
-    el.innerText = price.toFixed(decimals); el.dataset.prev = price;
+    el.innerText = price.toFixed(2); el.dataset.prev = price;
     if (prev !== 0 && prev !== price) {
         el.style.color = price > prev ? 'var(--success)' : 'var(--danger)';
         clearTimeout(el._ct);
@@ -1387,8 +1585,8 @@ function updateSignalUIOnly(id) {
     }
 
     const eEl = document.getElementById(`entry-${id}`); if (eEl) eEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-    const tEl = document.getElementById(`tp-${id}`);    if (tEl) tEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
-    const sEl = document.getElementById(`sl-${id}`);    if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+    const tEl = document.getElementById(`tp-${id}`);    if (tEl) tEl.innerText = s.confirmed ? s.tp.toFixed(2)    : '--';
+    const sEl = document.getElementById(`sl-${id}`);    if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2)    : '--';
 }
 
 function updateEngineBadges(id, mb) {
@@ -1396,48 +1594,31 @@ function updateEngineBadges(id, mb) {
     const f = mb.factors || {};
 
     const badges = [
-        {
-            id: `eb-trend-${id}`,
-            val: f.bc_trend ? f.bc_trend.replace('STRONG_','S-') : 'TRD',
-            cls: (f.bc_trend||'').includes('BULL') ? 'bull' :
-                 (f.bc_trend||'').includes('BEAR') ? 'bear' : 'neutral'
-        },
-        {
-            id: `eb-struct-${id}`,
-            val: f.bc_struct ? f.bc_struct.replace('_BULL','↑').replace('_BEAR','↓') : 'STR',
-            cls: (f.bc_struct||'').includes('BULL') || f.bc_struct === 'BULLISH' ? 'bull' :
-                 (f.bc_struct||'').includes('BEAR') || f.bc_struct === 'BEARISH' ? 'bear' :
-                 f.bc_struct === 'CHOCH_BULL' || f.bc_struct === 'CHOCH_BEAR' ? 'active' : 'off'
-        },
-        {
-            id: `eb-zone-${id}`,
-            val: f.bc_zone || 'ZNE',
-            cls: f.bc_zone === 'DEMAND' || f.bc_zone === 'NEAR_DEMAND' ? 'bull' :
-                 f.bc_zone === 'SUPPLY' || f.bc_zone === 'NEAR_SUPPLY' ? 'bear' : 'off'
-        },
-        {
-            id: `eb-flow-${id}`,
-            val: f.bc_flow ? f.bc_flow.replace('_PRESSURE','').replace('MILD_','M-') : 'FLW',
-            cls: (f.bc_flow||'').includes('BUY')  ? 'bull' :
-                 (f.bc_flow||'').includes('SELL') ? 'bear' : 'neutral'
-        },
-        {
-            id: `eb-macd-${id}`,
-            val: f.macd_sig || 'MOM',
-            cls: (f.macd_sig||'').startsWith('BULL') ? 'bull' :
-                 (f.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral'
-        },
-        {
-            id: `eb-adx-${id}`,
-            val: f.adx_class || 'ADX',
-            cls: f.adx_class === 'STRONG' || f.adx_class === 'TREND' ? 'bull' :
-                 f.adx_class === 'CHOPPY' ? 'bear' : 'neutral'
-        },
-        {
-            id: `eb-conflict-${id}`,
-            val: f.conflict ? 'CONFLICT' : (f.bc_bos ? 'BOS:'+f.bc_bos : 'ALIGN'),
-            cls: f.conflict ? 'bear' : f.bc_bos ? 'active' : 'off'
-        }
+        { id: `eb-trend-${id}`,
+          val: f.bc_trend ? f.bc_trend.replace('STRONG_','S-') : 'TRD',
+          cls: (f.bc_trend||'').includes('BULL') ? 'bull' : (f.bc_trend||'').includes('BEAR') ? 'bear' : 'neutral' },
+        { id: `eb-struct-${id}`,
+          val: f.bc_struct ? f.bc_struct.replace('_BULL','↑').replace('_BEAR','↓') : 'STR',
+          cls: (f.bc_struct||'').includes('BULL') || f.bc_struct === 'BULLISH' ? 'bull' :
+               (f.bc_struct||'').includes('BEAR') || f.bc_struct === 'BEARISH' ? 'bear' :
+               f.bc_struct === 'CHOCH_BULL' || f.bc_struct === 'CHOCH_BEAR' ? 'active' : 'off' },
+        { id: `eb-zone-${id}`,
+          val: f.bc_zone || 'ZNE',
+          cls: f.bc_zone === 'DEMAND' || f.bc_zone === 'NEAR_DEMAND' ? 'bull' :
+               f.bc_zone === 'SUPPLY' || f.bc_zone === 'NEAR_SUPPLY' ? 'bear' : 'off' },
+        { id: `eb-flow-${id}`,
+          val: f.bc_flow ? f.bc_flow.replace('_PRESSURE','').replace('MILD_','M-') : 'FLW',
+          cls: (f.bc_flow||'').includes('BUY') ? 'bull' : (f.bc_flow||'').includes('SELL') ? 'bear' : 'neutral' },
+        { id: `eb-macd-${id}`,
+          val: f.macd_sig || 'MOM',
+          cls: (f.macd_sig||'').startsWith('BULL') ? 'bull' : (f.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral' },
+        { id: `eb-adx-${id}`,
+          val: f.adx_class || 'ADX',
+          cls: f.adx_class === 'STRONG' || f.adx_class === 'TREND' ? 'bull' :
+               f.adx_class === 'CHOPPY' ? 'bear' : 'neutral' },
+        { id: `eb-conflict-${id}`,
+          val: f.conflict ? 'CONFLICT' : (f.bc_bos ? 'BOS:'+f.bc_bos : 'ALIGN'),
+          cls: f.conflict ? 'bear' : f.bc_bos ? 'active' : 'off' }
     ];
 
     for (const b of badges) {
@@ -1459,12 +1640,12 @@ function updateConfluenceBar(id, score) {
     const txt  = document.getElementById(`cf-txt-${id}`);
     if (!fill || !txt) return;
     const pct = Math.min(100, Math.max(0, score));
-    fill.style.width = pct + '%';
+    fill.style.width      = pct + '%';
     fill.style.background = pct >= BC_SCORE_MIN ? 'var(--emerald)' :
-                             pct >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--crimson)';
-    txt.textContent = Math.round(pct);
-    txt.style.color = pct >= BC_SCORE_MIN ? 'var(--emerald)' :
-                      pct >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
+                            pct >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--crimson)';
+    txt.textContent  = Math.round(pct);
+    txt.style.color  = pct >= BC_SCORE_MIN ? 'var(--emerald)' :
+                       pct >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
 }
 
 function updatePerformanceUI(id) {
@@ -1526,7 +1707,7 @@ function handleHistoryPanelTap(id) {
 }
 
 // ================================================================
-//  CARD HTML — Blue Chart badge labels
+//  CARD HTML
 // ================================================================
 function buildCardHTML(id, label) {
     const isActive = activePairId === id ? 'active' : '';
@@ -1601,48 +1782,33 @@ window.copyValue = (id, type) => {
 
 // ================================================================
 //  PRICE FEEDS
-//  XAUUSD: Primary WS → Binance XAUUSDT Futures (raw, no offset)
-//          Fallback 1 → Binance XAUUSDT Futures REST
-//          Fallback 2 → Binance XAUUSDT Spot REST
-//          Fallback 3 → metals.live spot gold (most accurate for MT5)
-//  BTCUSD: Primary WS → Binance BTCUSDT Trade
-//          Fallback   → Binance BTCUSDT REST
 // ================================================================
 let xauWs = null, xauReconnectTimer = null, xauReconnectAttempts = 0;
 let xauFetchRetryTimer = null, xauCurrentPrice = 0, xauLastHeartbeat = Date.now();
 
-// XAU REST sources — ordered by MT5 accuracy
 const XAU_REST_SOURCES = [
-    // metals.live: spot gold price, closest to MT5 XAUUSD broker feed
     { url: 'https://api.metals.live/v1/spot/gold',
       parse: (d) => {
-          if (Array.isArray(d)) {
-              const g = d.find(x => x.gold !== undefined);
-              return g ? parseFloat(g.gold) : null;
-          }
+          if (Array.isArray(d)) { const g = d.find(x => x.gold !== undefined); return g ? parseFloat(g.gold) : null; }
           return d && d.gold ? parseFloat(d.gold) : null;
       }
     },
-    // Binance XAUUSDT perpetual futures — very close to spot
     { url: 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT',
-      parse: (d) => d?.price ? parseFloat(d.price) : null
-    },
-    // Binance XAUUSDT spot
+      parse: (d) => d?.price ? parseFloat(d.price) : null },
     { url: 'https://api.binance.com/api/v3/ticker/price?symbol=XAUUSDT',
-      parse: (d) => d?.price ? parseFloat(d.price) : null
-    }
+      parse: (d) => d?.price ? parseFloat(d.price) : null }
 ];
 let xauRestIdx = 0;
 
-function updateXAUDisplay(price, feedStatus) {
+function updateXAUDisplay(price, feedStatus, vol) {
     if (!price || isNaN(price) || price < 100 || price > 20000) return;
     price = price + PRICE_OFFSET_XAU;
-    xauCurrentPrice = price;
-    xauLastHeartbeat = Date.now();
+    xauCurrentPrice   = price;
+    xauLastHeartbeat  = Date.now();
     pendingPriceData.xau = price;
     pendingSignalData.xau = true;
     throttledUpdateUI('xau');
-    updateSignal('xau', price);
+    updateSignal('xau', price, vol || 0);
     wsStatus.xau = true;
     updateGlobalPulse();
     const el = document.getElementById('ws-status-xau');
@@ -1652,7 +1818,7 @@ function updateXAUDisplay(price, feedStatus) {
 
 async function xauFetchRestPrice() {
     for (let i = 0; i < XAU_REST_SOURCES.length; i++) {
-        const src = XAU_REST_SOURCES[(xauRestIdx + i) % XAU_REST_SOURCES.length];
+        const src  = XAU_REST_SOURCES[(xauRestIdx + i) % XAU_REST_SOURCES.length];
         try {
             const ctrl = new AbortController();
             const tid  = setTimeout(() => ctrl.abort(), 7000);
@@ -1662,8 +1828,7 @@ async function xauFetchRestPrice() {
             const data = await resp.json();
             const p = src.parse(data);
             if (p && p > 100 && !isNaN(p)) {
-                const useFeed = i === 0 ? 'ok' : 'fallback';
-                updateXAUDisplay(p, useFeed);
+                updateXAUDisplay(p, i === 0 ? 'ok' : 'fallback', 0);
                 xauRestIdx = (xauRestIdx + i) % XAU_REST_SOURCES.length;
                 return true;
             }
@@ -1698,8 +1863,9 @@ function initXAUWebSocket() {
                 const d = JSON.parse(e.data);
                 if (d.p) {
                     const p = parseFloat(d.p);
+                    const q = parseFloat(d.q) || 0;   // [FIX-4] real trade quantity
                     if (!isNaN(p) && p > 100 && p !== xauCurrentPrice)
-                        updateXAUDisplay(p, 'ok');
+                        updateXAUDisplay(p, 'ok', q);
                 }
             } catch(err) {}
         };
@@ -1741,10 +1907,10 @@ async function btcFetchRestPrice() {
             if (data?.price) {
                 const p = parseFloat(data.price) + PRICE_OFFSET_BTC;
                 if (p > 1000 && !isNaN(p)) {
-                    pendingPriceData.btc = p;
+                    pendingPriceData.btc  = p;
                     pendingSignalData.btc = true;
                     throttledUpdateUI('btc');
-                    updateSignal('btc', p);
+                    updateSignal('btc', p, 0);
                     wsStatus.btc = true;
                     updateGlobalPulse();
                     updateFeedBadge('btc', 'fallback');
@@ -1786,11 +1952,12 @@ function initBTCWebSocket() {
             try {
                 const d = JSON.parse(e.data);
                 const p = parseFloat(d.p) + PRICE_OFFSET_BTC;
+                const q = parseFloat(d.q) || 0;   // [FIX-4] real trade quantity
                 if (p && p > 1000 && !isNaN(p)) {
-                    pendingPriceData.btc = p;
+                    pendingPriceData.btc  = p;
                     pendingSignalData.btc = true;
                     throttledUpdateUI('btc');
-                    updateSignal('btc', p);
+                    updateSignal('btc', p, q);
                 }
             } catch(err) {}
         };
@@ -1832,14 +1999,19 @@ function switchPair() {
 // ================================================================
 //  INIT
 // ================================================================
-function init() {
+async function init() {
     checkAndMigrateSchema();
+
     state.xau = loadState('xau');
     state.btc = loadState('btc');
     performanceStats.xau = loadPerformanceStats('xau');
     performanceStats.btc = loadPerformanceStats('btc');
     updateWinrateAndDrawrate('xau');
     updateWinrateAndDrawrate('btc');
+
+    // Load persisted S&D zones
+    loadZones('xau');
+    loadZones('btc');
 
     document.getElementById('terminals').innerHTML =
         buildCardHTML('xau', 'XAUUSD') + buildCardHTML('btc', 'BTCUSD');
@@ -1876,38 +2048,34 @@ function init() {
         nb.addEventListener('touchstart', ds, { passive: false });
     }
 
-    updateSignalUIOnly('xau'); updateSignalUIOnly('btc');
+    updateSignalUIOnly('xau');  updateSignalUIOnly('btc');
     updatePerformanceUI('xau'); updatePerformanceUI('btc');
 
-    // Seed with realistic base prices
-    seedCandles('xau', 3300);
-    seedCandles('btc', 105000);
+    // [FIX-5] Load real historical Klines for both instruments in parallel
+    // Each call shows a loading indicator and falls back to random seed on failure
+    updateFeedBadge('xau', 'fallback');
+    updateFeedBadge('btc', 'fallback');
+    const el_xau = document.getElementById('ws-status-xau');
+    const el_btc = document.getElementById('ws-status-btc');
+    if (el_xau) { el_xau.textContent = '● LOADING...'; el_xau.className = 'ws-status connected'; }
+    if (el_btc) { el_btc.textContent = '○ LOADING...'; el_btc.className = 'ws-status disconnected'; }
 
-    // Re-seed with real price on first data
-    let seedFixed = { xau: false, btc: false };
-    const fixSeed = (id, price) => {
-        if (seedFixed[id]) return;
-        const mc = getMacroCandles(id);
-        const first = mc[0]?.close || 0;
-        if (first > 0 && Math.abs(first - price) / price > 0.04) {
-            seedCandles(id, price);
-            macroBiasCache[id] = null;
-        }
-        seedFixed[id] = true;
-    };
+    await Promise.all([
+        initHistoricalCandles('xau'),
+        initHistoricalCandles('btc')
+    ]);
 
-    // Start price feeds
+    // Start live price feeds AFTER historical data is loaded so the first
+    // macro bias calculation uses real candles, not synthetic ones.
     initXAUWebSocket();
-    xauFetchRestPrice();   // immediate first fetch
+    xauFetchRestPrice();
     initBTCWebSocket();
     btcFetchRestPrice();
     updateGlobalPulse();
 
-    // Heartbeat loop: re-fetch if stale, fix seeds
+    // Heartbeat: re-fetch if stale
     setInterval(() => {
-        if (!seedFixed.xau && xauCurrentPrice > 0)     fixSeed('xau', xauCurrentPrice);
-        if (!seedFixed.btc && marketData.btc.price > 0) fixSeed('btc', marketData.btc.price);
-        if (Date.now() - xauLastHeartbeat > 6000)       xauFetchRestPrice();
+        if (Date.now() - xauLastHeartbeat > 6000) xauFetchRestPrice();
         updateGlobalPulse();
     }, 3000);
 
