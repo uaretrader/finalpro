@@ -413,35 +413,79 @@ function calcADX(candles, period) {
 }
 
 // ================================================================
-//  BLUE CHART INDICATOR 1: BC TREND
-//  EMA 21/50/200 alignment + slope analysis
+//  BLUE CHART INDICATOR 1: BC TREND  [FIXED — EMA Cross v2]
+//
+//  Fixes vs original:
+//    1. Slope threshold raised from > 0 → > SLOPE_MIN (0.08 ATR)
+//       Any positive EMA21 tick no longer triggers STRONG_BULL.
+//    2. Cross EVENT detection: compare current vs 1-bar-ago EMA50
+//       to detect the actual moment of crossing, not just the state.
+//    3. EMA200 used correctly when n ≥ 200 (guaranteed with 250-bar
+//       historical fetch); explicit fallback label when approximate.
+//    4. BULL_PULL / BEAR_PULL state for full alignment + declining
+//       slope (pullback inside trend) — scored lower than flat BULL.
+//    5. EMA50 slope also checked for STRONG confirmation.
+//    6. Slope window widened 5 → 10 bars for stability.
 // ================================================================
 function calcBCTrend(closes, atr) {
     const n = closes.length;
+
+    // EMA200 is valid when n ≥ 200 (achieved with 250-bar fetch)
     const ema21  = calcEMA(closes, Math.min(21, n - 1));
     const ema50  = calcEMA(closes, Math.min(50, n - 1));
-    const ema200 = n >= 200 ? calcEMA(closes, 200) : calcEMA(closes, Math.min(n - 1, 100));
+    const ema200 = n >= 200
+        ? calcEMA(closes, 200)
+        : (n >= 100 ? calcEMA(closes, 100) : calcEMA(closes, Math.max(50, n - 1)));
+    const hasEma200 = n >= 200;
+
     if (!ema21 || !ema50 || !ema200) return { trend: 'NEUTRAL', score: 0, ema21, ema50, ema200 };
 
-    const ema21Prev = calcEMA(closes.slice(0, -5), Math.min(21, n - 6));
-    const slope21 = ema21Prev ? (ema21 - ema21Prev) / (atr || 1) : 0;
+    // ── Slope over 10 bars (= 10 min on MACRO 60s) ───────────────
+    const SLOPE_WINDOW = Math.min(10, n - 2);
+    const ema21Prev = SLOPE_WINDOW > 0
+        ? calcEMA(closes.slice(0, -SLOPE_WINDOW), Math.min(21, n - SLOPE_WINDOW - 1))
+        : null;
+    const ema50Prev = SLOPE_WINDOW > 0
+        ? calcEMA(closes.slice(0, -SLOPE_WINDOW), Math.min(50, n - SLOPE_WINDOW - 1))
+        : null;
+    const slope21 = (ema21Prev && atr) ? (ema21 - ema21Prev) / atr : 0;
+    const slope50 = (ema50Prev && atr) ? (ema50 - ema50Prev) / atr : 0;
 
-    const strongBull = ema21 > ema50 && ema50 > ema200 && slope21 > 0;
-    const weakBull   = ema21 > ema50 && ema50 > ema200 && slope21 <= 0;
-    const crossBull  = ema21 > ema50 && ema21 < ema200;
-    const strongBear = ema21 < ema50 && ema50 < ema200 && slope21 < 0;
-    const weakBear   = ema21 < ema50 && ema50 < ema200 && slope21 >= 0;
-    const crossBear  = ema21 < ema50 && ema21 > ema200;
+    // Minimum meaningful slope: 8% of 1 ATR over 10 bars
+    const SLOPE_MIN = 0.08;
+
+    // ── Cross EVENT: did EMA21 just cross EMA50 this bar? ────────
+    const ema21_1 = n > 2 ? calcEMA(closes.slice(0, -1), Math.min(21, n - 2)) : null;
+    const ema50_1 = n > 2 ? calcEMA(closes.slice(0, -1), Math.min(50, n - 2)) : null;
+    const justCrossedUp   = ema21_1 !== null && ema50_1 !== null
+                            && ema21_1 < ema50_1 && ema21 >= ema50;
+    const justCrossedDown = ema21_1 !== null && ema50_1 !== null
+                            && ema21_1 > ema50_1 && ema21 <= ema50;
+
+    // ── Full EMA alignment ────────────────────────────────────────
+    const fullBull = ema21 > ema50 && ema50 > ema200;
+    const fullBear = ema21 < ema50 && ema50 < ema200;
+    // Transitional: short-term direction opposes long-term average
+    const zoneBull = ema21 > ema50 && ema21 < ema200;  // short bull, below LT
+    const zoneBear = ema21 < ema50 && ema21 > ema200;  // short bear, above LT
 
     let trend = 'NEUTRAL', score = 0;
-    if (strongBull)      { trend = 'STRONG_BULL'; score = 30; }
-    else if (weakBull)   { trend = 'BULL';         score = 22; }
-    else if (crossBull)  { trend = 'BULL_X';       score = 14; }
-    else if (strongBear) { trend = 'STRONG_BEAR';  score = -30; }
-    else if (weakBear)   { trend = 'BEAR';          score = -22; }
-    else if (crossBear)  { trend = 'BEAR_X';        score = -14; }
 
-    return { trend, score, ema21, ema50, ema200, slope21 };
+    // Fresh cross events get priority — highest actionability
+    if      (justCrossedUp   && ema21 < ema200) { trend = 'BULL_X';      score =  16; }
+    else if (justCrossedDown && ema21 > ema200) { trend = 'BEAR_X';      score = -16; }
+    // Full alignment states
+    else if (fullBull && slope21 >  SLOPE_MIN && slope50 > 0) { trend = 'STRONG_BULL'; score =  30; }
+    else if (fullBull && slope21 >= -SLOPE_MIN)                { trend = 'BULL';        score =  22; }
+    else if (fullBull && slope21 <  -SLOPE_MIN)                { trend = 'BULL_PULL';   score =  12; }
+    else if (fullBear && slope21 < -SLOPE_MIN && slope50 < 0)  { trend = 'STRONG_BEAR'; score = -30; }
+    else if (fullBear && slope21 <=  SLOPE_MIN)                { trend = 'BEAR';        score = -22; }
+    else if (fullBear && slope21 >   SLOPE_MIN)                { trend = 'BEAR_PULL';   score = -12; }
+    // Transitional zone (short vs long EMA disagreement)
+    else if (zoneBull)                                         { trend = 'BULL_ZONE';   score =  10; }
+    else if (zoneBear)                                         { trend = 'BEAR_ZONE';   score = -10; }
+
+    return { trend, score, ema21, ema50, ema200, slope21, slope50, hasEma200 };
 }
 
 // ================================================================
@@ -1164,7 +1208,7 @@ function getMicroCandles(id) { return marketData[id].micro.candles.filter(c => c
 // ================================================================
 async function initHistoricalCandles(id) {
     const symbol   = id === 'xau' ? 'XAUUSDT' : 'BTCUSDT';
-    const limit    = 120;
+    const limit    = 250;  // 250 bars → EMA200 valid dari startup
 
     const sources = [
         `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1m&limit=${limit}`,
@@ -1595,8 +1639,15 @@ function updateEngineBadges(id, mb) {
 
     const badges = [
         { id: `eb-trend-${id}`,
-          val: f.bc_trend ? f.bc_trend.replace('STRONG_','S-') : 'TRD',
-          cls: (f.bc_trend||'').includes('BULL') ? 'bull' : (f.bc_trend||'').includes('BEAR') ? 'bear' : 'neutral' },
+          val: f.bc_trend
+            ? f.bc_trend
+                .replace('STRONG_','S-')
+                .replace('_PULL','↓')
+                .replace('_ZONE','~')
+                .replace('_X','⤢')
+            : 'TRD',
+          cls: (f.bc_trend||'').includes('BULL') ? 'bull' :
+               (f.bc_trend||'').includes('BEAR') ? 'bear' : 'neutral' },
         { id: `eb-struct-${id}`,
           val: f.bc_struct ? f.bc_struct.replace('_BULL','↑').replace('_BEAR','↓') : 'STR',
           cls: (f.bc_struct||'').includes('BULL') || f.bc_struct === 'BULLISH' ? 'bull' :
