@@ -994,7 +994,7 @@ function processSignal(id, price) {
             if (moved >= tpDist * 0.5) { s.sl = s.entry; s.breakevenArmed = true; throttledSaveState(id); showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`); }
         }
         if (!s.breakevenArmed) {
-            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 1.3;
+            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 1.5;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
             if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         }
