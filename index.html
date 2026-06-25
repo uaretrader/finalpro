@@ -130,6 +130,8 @@ header::after {
 .ebadge.neutral { color: var(--amber); border-color: rgba(255,184,48,0.25); background: rgba(255,184,48,0.07); }
 .ebadge.active { color: var(--violet); border-color: rgba(167,139,250,0.3); background: rgba(167,139,250,0.08); }
 .ebadge.score { color: var(--gold); border-color: rgba(240,165,0,0.3); background: rgba(240,165,0,0.08); font-weight: 700; }
+.ebadge.pulse { animation: badgePulse 1.2s ease-in-out infinite; }
+@keyframes badgePulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
 .confluence-panel {
     display: flex; align-items: center; gap: 8px;
     padding: 7px 17px; border-bottom: 1px solid var(--edge); background: rgba(0,0,0,0.1);
@@ -359,7 +361,7 @@ function calcADX(candles, period) {
 }
 
 // ================================================================
-//  BC TREND (unchanged)
+//  BC TREND (FIXED: 5-candle lookback, edge case ema200)
 // ================================================================
 function calcBCTrend(closes, atr) {
     const n = closes.length;
@@ -374,19 +376,28 @@ function calcBCTrend(closes, atr) {
     const slope21 = (ema21Prev && atr) ? (ema21 - ema21Prev) / atr : 0;
     const slope50 = (ema50Prev && atr) ? (ema50 - ema50Prev) / atr : 0;
     const SLOPE_MIN = 0.08;
-    const ema21_1 = n > 2 ? calcEMA(closes.slice(0, -1), Math.min(21, n - 2)) : null;
-    const ema50_1 = n > 2 ? calcEMA(closes.slice(0, -1), Math.min(50, n - 2)) : null;
-    const justCrossedUp   = ema21_1 !== null && ema50_1 !== null && ema21_1 < ema50_1 && ema21 >= ema50;
-    const justCrossedDown = ema21_1 !== null && ema50_1 !== null && ema21_1 > ema50_1 && ema21 <= ema50;
+    // ---- FIX #1: 5-candle lookback for cross detection ----
+    const CROSS_LOOKBACK = Math.min(5, n - 2);
+    const ema21_lb = n > CROSS_LOOKBACK + 1
+        ? calcEMA(closes.slice(0, -CROSS_LOOKBACK), Math.min(21, n - CROSS_LOOKBACK - 1))
+        : null;
+    const ema50_lb = n > CROSS_LOOKBACK + 1
+        ? calcEMA(closes.slice(0, -CROSS_LOOKBACK), Math.min(50, n - CROSS_LOOKBACK - 1))
+        : null;
+    const justCrossedUp   = ema21_lb !== null && ema50_lb !== null && ema21_lb < ema50_lb && ema21 >= ema50;
+    const justCrossedDown = ema21_lb !== null && ema50_lb !== null && ema21_lb > ema50_lb && ema21 <= ema50;
+    // ---- end FIX #1 ----
     const fullBull = ema21 > ema50 && ema50 > ema200;
     const fullBear = ema21 < ema50 && ema50 < ema200;
     const zoneBull = ema21 > ema50 && ema21 < ema200;
     const zoneBear = ema21 < ema50 && ema21 > ema200;
     let trend = 'NEUTRAL', score = 0;
-    if      (justCrossedUp   && ema21 < ema200)  { trend = 'BULL_X';      score =  16; }
-    else if (justCrossedUp   && fullBull)         { trend = 'BULL_X_BULL'; score =  28; }
-    else if (justCrossedDown && ema21 > ema200)  { trend = 'BEAR_X';      score = -16; }
-    else if (justCrossedDown && fullBear)         { trend = 'BEAR_X_BEAR'; score = -28; }
+    // ---- FIX #4: edge case ema200 (<= / >=) ----
+    if      (justCrossedUp   && ema21 <= ema200)  { trend = 'BULL_X';      score =  16; }
+    else if (justCrossedUp   && fullBull)          { trend = 'BULL_X_BULL'; score =  28; }
+    else if (justCrossedDown && ema21 >= ema200)  { trend = 'BEAR_X';      score = -16; }
+    else if (justCrossedDown && fullBear)          { trend = 'BEAR_X_BEAR'; score = -28; }
+    // ---- end FIX #4 ----
     else if (fullBull && slope21 >  SLOPE_MIN && slope50 > 0) { trend = 'STRONG_BULL'; score =  30; }
     else if (fullBull && slope21 >= -SLOPE_MIN)                { trend = 'BULL';        score =  22; }
     else if (fullBull && slope21 <  -SLOPE_MIN)                { trend = 'BULL_PULL';   score =  12; }
@@ -636,7 +647,6 @@ function getMTFConfirmation(id, price, macroCandles) {
         t5 = trend5m.trend;
         if (trend5m.score > 0) score += 10;
         else if (trend5m.score < 0) score -= 10;
-        // Bonus jika trend adalah EMA cross baru (momentum awal)
         if (t5 === 'BULL_X' || t5 === 'BULL_X_BULL') score += 5;
         if (t5 === 'BEAR_X' || t5 === 'BEAR_X_BEAR') score -= 5;
     }
@@ -644,11 +654,9 @@ function getMTFConfirmation(id, price, macroCandles) {
         t15 = trend15m.trend;
         if (trend15m.score > 0) score += 10;
         else if (trend15m.score < 0) score -= 10;
-        // Bonus jika trend adalah EMA cross baru
         if (t15 === 'BULL_X' || t15 === 'BULL_X_BULL') score += 5;
         if (t15 === 'BEAR_X' || t15 === 'BEAR_X_BEAR') score -= 5;
     }
-    // Bonus jika keduanya alignment
     if (trend5m && trend15m && trend5m.score > 0 && trend15m.score > 0) score += 5;
     if (trend5m && trend15m && trend5m.score < 0 && trend15m.score < 0) score -= 5;
     return { score: Math.max(0, score), trend5m: t5, trend15m: t15 };
@@ -718,20 +726,14 @@ function checkPriceAction(candles, direction, atr) {
     const c1 = last[0], c2 = last[1];
     let score = 0;
     if (direction === 'buy') {
-        // Bullish engulfing
         if (c2.close > c1.high && c2.open < c1.low) score = 15;
-        // Hammer / pin bar
         const body = Math.abs(c2.close - c2.open);
         if ((c2.high - Math.max(c2.open, c2.close)) > body * 2.5) score = 12;
-        // Bullish harami
         if (c2.close > c2.open && c2.close < c1.close && c2.open > c1.open) score = 8;
     } else {
-        // Bearish engulfing
         if (c2.close < c1.low && c2.open > c1.high) score = 15;
-        // Shooting star / pin bar
         const body = Math.abs(c2.close - c2.open);
         if ((Math.min(c2.open, c2.close) - c2.low) > body * 2.5) score = 12;
-        // Bearish harami
         if (c2.close < c2.open && c2.close > c1.close && c2.open < c1.open) score = 8;
     }
     return score;
@@ -751,7 +753,7 @@ function calculateDynamicRR(atr, price) {
 }
 
 // ================================================================
-//  BC MACRO BIAS SCORER (unchanged, but uses updated thresholds)
+//  BC MACRO BIAS SCORER (FIX #5: store just_crossed)
 // ================================================================
 function scoreMacroBias(id, price, macroCandles) {
     const f = {};
@@ -764,7 +766,16 @@ function scoreMacroBias(id, price, macroCandles) {
     f.adx_class = adx ? (adx >= 35 ? 'STRONG' : adx >= 25 ? 'TREND' : adx >= 20 ? 'MILD' : 'CHOPPY') : 'UNKNOWN';
     if (adx !== null && adx < ADX_MIN) { return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, atr }; }
     const adxMult = adx !== null ? (adx >= 35 ? 1.18 : adx >= 25 ? 1.08 : adx >= 16 ? 0.93 : 0.75) : 0.85;
-    const bcTrend = calcBCTrend(closes, atr); f.bc_trend = bcTrend.trend; f.ema21 = bcTrend.ema21; f.ema50 = bcTrend.ema50;
+    const bcTrend = calcBCTrend(closes, atr);
+    // ---- FIX #5: store trend and just_crossed ----
+    f.bc_trend  = bcTrend ? bcTrend.trend : null;
+    f.bc_trend_score = bcTrend ? bcTrend.score : 0;
+    f.just_crossed = bcTrend
+        ? (bcTrend.trend === 'BULL_X' || bcTrend.trend === 'BULL_X_BULL'
+           || bcTrend.trend === 'BEAR_X' || bcTrend.trend === 'BEAR_X_BEAR')
+        : false;
+    // ---- end FIX #5 ----
+    f.ema21 = bcTrend.ema21; f.ema50 = bcTrend.ema50;
     const bcStruct = calcBCStruct(macroCandles); f.bc_struct = bcStruct.struct; f.bc_bos = bcStruct.bos;
     const bcZone = calcBCZone(id, macroCandles, price, atr); f.bc_zone = bcZone.zone;
     const bcFlow = calcBCFlow(macroCandles, 12); f.bc_flow = bcFlow.flow;
@@ -794,6 +805,7 @@ function scoreMacroBias(id, price, macroCandles) {
 
 // ================================================================
 //  BC MICRO ENTRY SCORER — UPGRADED WITH ALL NEW LOGIC
+//  FIX #2 & #3: guard condition & lookback for micro EMA cross
 // ================================================================
 function scoreMicroEntry(id, price, microCandles, macroBias) {
     const f = {};
@@ -804,14 +816,25 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const microATR  = calcATR(microCandles, Math.min(10, microCandles.length - 1)) || macroBias.atr * 0.3;
     const rsi9      = calcRSI(closes, Math.min(9, closes.length - 1));
     const microMACD = calcMACD(closes, 5, 13, 4);
-    const ema9m     = closes.length > 2 ? calcEMA(closes, Math.min(9,  closes.length - 1)) : null;
-    const ema21m    = closes.length > 2 ? calcEMA(closes, Math.min(21, closes.length - 1)) : null;
-    const ema9m_1   = closes.length > 3 ? calcEMA(closes.slice(0, -1), Math.min(9,  closes.length - 2)) : null;
-    const ema21m_1  = closes.length > 3 ? calcEMA(closes.slice(0, -1), Math.min(21, closes.length - 2)) : null;
-    const microGoldenX = (ema9m !== null && ema21m !== null && ema9m_1 !== null && ema21m_1 !== null)
-                         ? (ema9m_1 < ema21m_1 && ema9m >= ema21m) : false;
-    const microDeathX  = (ema9m !== null && ema21m !== null && ema9m_1 !== null && ema21m_1 !== null)
-                         ? (ema9m_1 > ema21m_1 && ema9m <= ema21m) : false;
+    // ---- FIX #2: guard condition & fixed periods ----
+    const MICRO_CROSS_MIN = 23;
+    const ema9m    = closes.length > MICRO_CROSS_MIN ? calcEMA(closes, 9)  : null;
+    const ema21m   = closes.length > MICRO_CROSS_MIN ? calcEMA(closes, 21) : null;
+    const ema9m_1  = closes.length > MICRO_CROSS_MIN + 1
+        ? calcEMA(closes.slice(0, -1), 9)  : null;
+    const ema21m_1 = closes.length > MICRO_CROSS_MIN + 1
+        ? calcEMA(closes.slice(0, -1), 21) : null;
+    // ---- FIX #3: lookback window for micro cross ----
+    const MICRO_CROSS_LB = Math.min(3, closes.length - MICRO_CROSS_MIN - 1);
+    const ema9m_lb  = (MICRO_CROSS_LB > 0 && closes.length > MICRO_CROSS_MIN + MICRO_CROSS_LB)
+        ? calcEMA(closes.slice(0, -MICRO_CROSS_LB), 9)  : null;
+    const ema21m_lb = (MICRO_CROSS_LB > 0 && closes.length > MICRO_CROSS_MIN + MICRO_CROSS_LB)
+        ? calcEMA(closes.slice(0, -MICRO_CROSS_LB), 21) : null;
+    const microGoldenX = (ema9m !== null && ema21m !== null && ema9m_lb !== null && ema21m_lb !== null)
+                         ? (ema9m_lb < ema21m_lb && ema9m >= ema21m) : false;
+    const microDeathX  = (ema9m !== null && ema21m !== null && ema9m_lb !== null && ema21m_lb !== null)
+                         ? (ema9m_lb > ema21m_lb && ema9m <= ema21m) : false;
+    // ---- end FIX #2 & #3 ----
 
     f.rsi = rsi9 ? rsi9.toFixed(1) : null;
     const { bias, ema21: macroEMA21, atr: macroATR, bcZone } = macroBias;
@@ -1223,6 +1246,9 @@ function updateSignalUIOnly(id) {
     const sEl = document.getElementById(`sl-${id}`); if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
     const rrEl = document.getElementById(`rr-${id}`); if (rrEl) rrEl.innerText = s.confirmed ? s.rr_used.toFixed(1) : '--';
 }
+// ================================================================
+//  updateEngineBadges — FIX #6: pulse on cross active
+// ================================================================
 function updateEngineBadges(id, mb) {
     if (!mb) return; const f = mb.factors || {};
     const badges = [
@@ -1236,14 +1262,23 @@ function updateEngineBadges(id, mb) {
     ];
     for (const b of badges) { const el = document.getElementById(b.id); if (el) { el.className = `ebadge ${b.cls}`; el.textContent = b.val; } }
     const sc = document.getElementById(`eb-score-${id}`); if (sc) { const sv = Math.round(mb.score || 0); sc.textContent = `BC:${sv}`; sc.className = 'ebadge score'; sc.style.color = mb.valid ? 'var(--emerald)' : sv >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)'; }
-    // Update micro cross badge dari factors micro (diakses via state)
+    // ---- FIX #6: update eb-mcross with pulse on cross ----
     const mcxEl = document.getElementById(`eb-mcross-${id}`);
     if (mcxEl) {
-        const mcx = (mb.factors && mb.factors.micro_cross) ? mb.factors.micro_cross : 'NONE';
-        if (mcx === 'GOLDEN_X') { mcxEl.className = 'ebadge bull'; mcxEl.textContent = 'GX⤢'; }
-        else if (mcx === 'DEATH_X') { mcxEl.className = 'ebadge bear'; mcxEl.textContent = 'DX⤢'; }
-        else { mcxEl.className = 'ebadge off'; mcxEl.textContent = 'MCX'; }
+        const mcx         = (mb.factors && mb.factors.micro_cross) ? mb.factors.micro_cross : 'NONE';
+        const macroCrossed = mb.factors && mb.factors.just_crossed;
+        if (mcx === 'GOLDEN_X' || (macroCrossed && (mb.factors.bc_trend||'').includes('BULL'))) {
+            mcxEl.className = 'ebadge bull' + (macroCrossed ? ' pulse' : '');
+            mcxEl.textContent = macroCrossed ? 'MX⤢+' : 'GX⤢';
+        } else if (mcx === 'DEATH_X' || (macroCrossed && (mb.factors.bc_trend||'').includes('BEAR'))) {
+            mcxEl.className = 'ebadge bear' + (macroCrossed ? ' pulse' : '');
+            mcxEl.textContent = macroCrossed ? 'MX⤢-' : 'DX⤢';
+        } else {
+            mcxEl.className = 'ebadge off';
+            mcxEl.textContent = 'MCX';
+        }
     }
+    // ---- end FIX #6 ----
 }
 function updateConfluenceBar(id, score) {
     const fill = document.getElementById(`cf-fill-${id}`); const txt = document.getElementById(`cf-txt-${id}`);
