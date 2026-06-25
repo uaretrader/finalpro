@@ -255,7 +255,7 @@ function showToast(msg) {
 }
 
 // ================================================================
-//  INDICATOR LIBRARY (SAME AS ORIGINAL)
+//  INDICATOR LIBRARY
 // ================================================================
 
 function calcEMA(arr, period) {
@@ -264,11 +264,6 @@ function calcEMA(arr, period) {
     let e = arr.slice(0, period).reduce((a, b) => a + b, 0) / period;
     for (let i = period; i < arr.length; i++) e = arr[i] * k + e * (1 - k);
     return e;
-}
-
-function calcSMA(arr, period) {
-    if (!arr || arr.length < period) return null;
-    return arr.slice(-period).reduce((a, b) => a + b, 0) / period;
 }
 
 function calcRSI(closes, period) {
@@ -294,14 +289,14 @@ function calcMACD(closes, fast, slow, sig) {
     let emaFast = 0;
     for (let i = 0; i < fast; i++) emaFast += closes[i];
     emaFast /= fast;
-    for (let i = fast; i < slow - 1; i++) emaFast = closes[i] * kFast + emaFast * (1 - kFast);
+    for (let i = fast; i < slow; i++) emaFast = closes[i] * kFast + emaFast * (1 - kFast);
     let emaSlow = 0;
     for (let i = 0; i < slow; i++) emaSlow += closes[i];
     emaSlow /= slow;
     const macdLine = [];
     for (let i = slow - 1; i < closes.length; i++) {
         emaFast = closes[i] * kFast + emaFast * (1 - kFast);
-        if (i > slow - 1) emaSlow = closes[i] * kSlow + emaSlow * (1 - kSlow);
+        if (i >= slow - 1) emaSlow = closes[i] * kSlow + emaSlow * (1 - kSlow);
         macdLine.push(emaFast - emaSlow);
     }
     if (macdLine.length < sig) return null;
@@ -388,8 +383,10 @@ function calcBCTrend(closes, atr) {
     const zoneBull = ema21 > ema50 && ema21 < ema200;
     const zoneBear = ema21 < ema50 && ema21 > ema200;
     let trend = 'NEUTRAL', score = 0;
-    if      (justCrossedUp   && ema21 < ema200) { trend = 'BULL_X';      score =  16; }
-    else if (justCrossedDown && ema21 > ema200) { trend = 'BEAR_X';      score = -16; }
+    if      (justCrossedUp   && ema21 < ema200)  { trend = 'BULL_X';      score =  16; }
+    else if (justCrossedUp   && fullBull)         { trend = 'BULL_X_BULL'; score =  28; }
+    else if (justCrossedDown && ema21 > ema200)  { trend = 'BEAR_X';      score = -16; }
+    else if (justCrossedDown && fullBear)         { trend = 'BEAR_X_BEAR'; score = -28; }
     else if (fullBull && slope21 >  SLOPE_MIN && slope50 > 0) { trend = 'STRONG_BULL'; score =  30; }
     else if (fullBull && slope21 >= -SLOPE_MIN)                { trend = 'BULL';        score =  22; }
     else if (fullBull && slope21 <  -SLOPE_MIN)                { trend = 'BULL_PULL';   score =  12; }
@@ -639,11 +636,17 @@ function getMTFConfirmation(id, price, macroCandles) {
         t5 = trend5m.trend;
         if (trend5m.score > 0) score += 10;
         else if (trend5m.score < 0) score -= 10;
+        // Bonus jika trend adalah EMA cross baru (momentum awal)
+        if (t5 === 'BULL_X' || t5 === 'BULL_X_BULL') score += 5;
+        if (t5 === 'BEAR_X' || t5 === 'BEAR_X_BEAR') score -= 5;
     }
     if (trend15m) {
         t15 = trend15m.trend;
         if (trend15m.score > 0) score += 10;
         else if (trend15m.score < 0) score -= 10;
+        // Bonus jika trend adalah EMA cross baru
+        if (t15 === 'BULL_X' || t15 === 'BULL_X_BULL') score += 5;
+        if (t15 === 'BEAR_X' || t15 === 'BEAR_X_BEAR') score -= 5;
     }
     // Bonus jika keduanya alignment
     if (trend5m && trend15m && trend5m.score > 0 && trend15m.score > 0) score += 5;
@@ -678,11 +681,12 @@ function detectFVG(candles) {
     if (!candles || candles.length < 3) return { type: 'NONE', level: 0, gap: 0 };
     const last = candles.slice(-3);
     const c1 = last[0], c2 = last[1], c3 = last[2];
-    const gap = c1.high - c3.low;
-    if (c2.low > c1.high && gap > 0) {
-        return { type: 'BULL_FVG', level: (c1.high + c3.low)/2, gap };
-    } else if (c2.high < c1.low && gap < 0) {
-        return { type: 'BEAR_FVG', level: (c1.low + c3.high)/2, gap: -gap };
+    if (c3.low > c1.high) {
+        const gap = c3.low - c1.high;
+        return { type: 'BULL_FVG', level: (c1.high + c3.low) / 2, gap };
+    } else if (c3.high < c1.low) {
+        const gap = c1.low - c3.high;
+        return { type: 'BEAR_FVG', level: (c1.low + c3.high) / 2, gap };
     }
     return { type: 'NONE', level: 0, gap: 0 };
 }
@@ -694,7 +698,7 @@ function calcVolumeProfile(candles, price, atr) {
     if (!candles || candles.length < 10) return { nearPOC: false, pocLevel: 0, score: 0 };
     const lookback = 20; const rc = candles.slice(-lookback);
     const levels = []; const step = atr * 0.1;
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 21; i++) {
         const level = price - atr + i * step;
         let vol = 0;
         for (const c of rc) { if (c.low <= level && c.high >= level) vol += c.volume || 1; }
@@ -757,7 +761,7 @@ function scoreMacroBias(id, price, macroCandles) {
     const adx    = calcADX(macroCandles, 14);
     const macd   = calcMACD(closes);
     f.atr = atr; f.adx = adx ? adx.toFixed(1) : null;
-    f.adx_class = adx ? (adx >= 35 ? 'STRONG' : adx >= 25 ? 'TREND' : adx >= 16 ? 'MILD' : 'CHOPPY') : 'UNKNOWN';
+    f.adx_class = adx ? (adx >= 35 ? 'STRONG' : adx >= 25 ? 'TREND' : adx >= 20 ? 'MILD' : 'CHOPPY') : 'UNKNOWN';
     if (adx !== null && adx < ADX_MIN) { return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, atr }; }
     const adxMult = adx !== null ? (adx >= 35 ? 1.18 : adx >= 25 ? 1.08 : adx >= 16 ? 0.93 : 0.75) : 0.85;
     const bcTrend = calcBCTrend(closes, atr); f.bc_trend = bcTrend.trend; f.ema21 = bcTrend.ema21; f.ema50 = bcTrend.ema50;
@@ -793,13 +797,21 @@ function scoreMacroBias(id, price, macroCandles) {
 // ================================================================
 function scoreMicroEntry(id, price, microCandles, macroBias) {
     const f = {};
-    if (microCandles.length < MICRO_MIN) return { ready: false, direction: null, quality: 0, factors: f };
-    if (!macroBias || !macroBias.valid)  return { ready: false, direction: null, quality: 0, factors: f };
+    if (microCandles.length < MICRO_MIN) return { ready: false, direction: null, quality: 0, factors: f, zoneType: null };
+    if (!macroBias || !macroBias.valid)  return { ready: false, direction: null, quality: 0, factors: f, zoneType: null };
 
     const closes    = microCandles.map(c => c.close);
     const microATR  = calcATR(microCandles, Math.min(10, microCandles.length - 1)) || macroBias.atr * 0.3;
     const rsi9      = calcRSI(closes, Math.min(9, closes.length - 1));
     const microMACD = calcMACD(closes, 5, 13, 4);
+    const ema9m     = closes.length > 2 ? calcEMA(closes, Math.min(9,  closes.length - 1)) : null;
+    const ema21m    = closes.length > 2 ? calcEMA(closes, Math.min(21, closes.length - 1)) : null;
+    const ema9m_1   = closes.length > 3 ? calcEMA(closes.slice(0, -1), Math.min(9,  closes.length - 2)) : null;
+    const ema21m_1  = closes.length > 3 ? calcEMA(closes.slice(0, -1), Math.min(21, closes.length - 2)) : null;
+    const microGoldenX = (ema9m !== null && ema21m !== null && ema9m_1 !== null && ema21m_1 !== null)
+                         ? (ema9m_1 < ema21m_1 && ema9m >= ema21m) : false;
+    const microDeathX  = (ema9m !== null && ema21m !== null && ema9m_1 !== null && ema21m_1 !== null)
+                         ? (ema9m_1 > ema21m_1 && ema9m <= ema21m) : false;
 
     f.rsi = rsi9 ? rsi9.toFixed(1) : null;
     const { bias, ema21: macroEMA21, atr: macroATR, bcZone } = macroBias;
@@ -857,6 +869,12 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
         if (direction === 'sell' && microMACD.hist < 0) microMACD_bonus = 5;
     }
 
+    // ── 5b. MICRO EMA CROSS bonus (15 pts) ───────────────────────
+    let microCrossScore = 0;
+    if (direction === 'buy'  && microGoldenX) { microCrossScore = 15; f.micro_cross = 'GOLDEN_X'; }
+    else if (direction === 'sell' && microDeathX)  { microCrossScore = 15; f.micro_cross = 'DEATH_X'; }
+    else { f.micro_cross = 'NONE'; }
+
     // ── 6. MTF CONFLUENCE (max 25 pts) ────────────────────────────
     const macroCandles = getMacroCandles(id);
     const mtf = getMTFConfirmation(id, price, macroCandles);
@@ -892,7 +910,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 
     // ── QUALITY SUM ──────────────────────────────────────────────
     let quality = liquidScore + momScore + divergScore + zoneScore + microMACD_bonus +
-                  mtfBonus + obScore + fvgScore + vpScore + paScore;
+                  mtfBonus + obScore + fvgScore + vpScore + paScore + microCrossScore;
     quality = Math.min(100, quality);
     f.quality = quality;
     f.in_zone = zoneScore > 0 || liquidScore > 0;
@@ -976,7 +994,7 @@ function processSignal(id, price) {
             if (moved >= tpDist * 0.5) { s.sl = s.entry; s.breakevenArmed = true; throttledSaveState(id); showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`); }
         }
         if (!s.breakevenArmed) {
-            const buf = id === 'xau' ? 12.5 : 140;
+            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 1.2;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
             if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         }
@@ -1107,7 +1125,7 @@ function buildTFCandle(tf, dur, maxCandles, price, vol) {
     }
 }
 function buildCandles(id, price, vol) {
-    const md = marketData[id]; const macroNew = buildTFCandle(md.macro, MACRO_DUR[id], 120, price, vol);
+    const md = marketData[id]; const macroNew = buildTFCandle(md.macro, MACRO_DUR[id], 220, price, vol);
     buildTFCandle(md.micro, MICRO_DUR[id], 80, price, vol); md.price = price;
     const mc = md.macro.candles.filter(c => c.closed); if (mc.length >= 15) md.atr = calcATR(mc, 14) || md.atr;
     if (macroNew && mc.length >= MACRO_MIN) macroBiasCache[id] = scoreMacroBias(id, price, mc);
@@ -1208,7 +1226,7 @@ function updateSignalUIOnly(id) {
 function updateEngineBadges(id, mb) {
     if (!mb) return; const f = mb.factors || {};
     const badges = [
-        { id: `eb-trend-${id}`, val: f.bc_trend ? f.bc_trend.replace('STRONG_','S-').replace('_PULL','↓').replace('_ZONE','~').replace('_X','⤢') : 'TRD', cls: (f.bc_trend||'').includes('BULL') ? 'bull' : (f.bc_trend||'').includes('BEAR') ? 'bear' : 'neutral' },
+        { id: `eb-trend-${id}`, val: f.bc_trend ? f.bc_trend.replace('STRONG_','S-').replace('_PULL','↓').replace('_ZONE','~').replace('_X_BULL','⤢+').replace('_X_BEAR','⤢-').replace('_X','⤢') : 'TRD', cls: (f.bc_trend||'').includes('BULL') ? 'bull' : (f.bc_trend||'').includes('BEAR') ? 'bear' : 'neutral' },
         { id: `eb-struct-${id}`, val: f.bc_struct ? f.bc_struct.replace('_BULL','↑').replace('_BEAR','↓') : 'STR', cls: (f.bc_struct||'').includes('BULL') || f.bc_struct === 'BULLISH' ? 'bull' : (f.bc_struct||'').includes('BEAR') || f.bc_struct === 'BEARISH' ? 'bear' : f.bc_struct === 'CHOCH_BULL' || f.bc_struct === 'CHOCH_BEAR' ? 'active' : 'off' },
         { id: `eb-zone-${id}`, val: f.bc_zone || 'ZNE', cls: f.bc_zone === 'DEMAND' || f.bc_zone === 'NEAR_DEMAND' ? 'bull' : f.bc_zone === 'SUPPLY' || f.bc_zone === 'NEAR_SUPPLY' ? 'bear' : 'off' },
         { id: `eb-flow-${id}`, val: f.bc_flow ? f.bc_flow.replace('_PRESSURE','').replace('MILD_','M-') : 'FLW', cls: (f.bc_flow||'').includes('BUY') ? 'bull' : (f.bc_flow||'').includes('SELL') ? 'bear' : 'neutral' },
@@ -1218,6 +1236,14 @@ function updateEngineBadges(id, mb) {
     ];
     for (const b of badges) { const el = document.getElementById(b.id); if (el) { el.className = `ebadge ${b.cls}`; el.textContent = b.val; } }
     const sc = document.getElementById(`eb-score-${id}`); if (sc) { const sv = Math.round(mb.score || 0); sc.textContent = `BC:${sv}`; sc.className = 'ebadge score'; sc.style.color = mb.valid ? 'var(--emerald)' : sv >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)'; }
+    // Update micro cross badge dari factors micro (diakses via state)
+    const mcxEl = document.getElementById(`eb-mcross-${id}`);
+    if (mcxEl) {
+        const mcx = (mb.factors && mb.factors.micro_cross) ? mb.factors.micro_cross : 'NONE';
+        if (mcx === 'GOLDEN_X') { mcxEl.className = 'ebadge bull'; mcxEl.textContent = 'GX⤢'; }
+        else if (mcx === 'DEATH_X') { mcxEl.className = 'ebadge bear'; mcxEl.textContent = 'DX⤢'; }
+        else { mcxEl.className = 'ebadge off'; mcxEl.textContent = 'MCX'; }
+    }
 }
 function updateConfluenceBar(id, score) {
     const fill = document.getElementById(`cf-fill-${id}`); const txt = document.getElementById(`cf-txt-${id}`);
@@ -1300,6 +1326,7 @@ function buildCardHTML(id, label) {
           <span class="ebadge off" id="eb-macd-${id}">MOM</span>
           <span class="ebadge off" id="eb-adx-${id}">ADX</span>
           <span class="ebadge off" id="eb-conflict-${id}">ALIGN</span>
+          <span class="ebadge off" id="eb-mcross-${id}">MCX</span>
         </div>
         <div class="confluence-panel">
           <span class="confluence-label">STRENGTH</span>
