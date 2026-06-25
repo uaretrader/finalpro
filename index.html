@@ -219,11 +219,11 @@ const MACRO_MIN = 35;
 const MICRO_MIN = 10;
 
 // ── Blue Chart Score thresholds (UPGRADED) ───────────────────────
-const BC_SCORE_MIN = 58;        // unchanged macro threshold
+const BC_SCORE_MIN = 60;        // unchanged macro threshold
 const ADX_MIN      = 20;
 
 // ── NEW: Micro entry thresholds ──────────────────────────────────
-const MICRO_READY_THRESHOLD = 58;    // was 50
+const MICRO_READY_THRESHOLD = 60;    // was 50
 const MICRO_LOCK_THRESHOLD  = 65;    // was 58
 
 // ── Persistent Zone TTL & limits ─────────────────────────────────
@@ -961,7 +961,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
         if (direction === 'buy') { const lowestLow = Math.min(...recent.map(c => c.low)); structuralSL = lowestLow - atr * 0.12; }
         else { const highestHigh = Math.max(...recent.map(c => c.high)); structuralSL = highestHigh + atr * 0.12; }
     }
-    const minSL = id === 'xau' ? 14 : 180;
+    const minSL = id === 'xau' ? 12.5 : 150;
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
@@ -1014,10 +1014,10 @@ function processSignal(id, price) {
         if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
             const tpDist = Math.abs(s.tp - s.entry);
             const moved  = s.type === 'buy' ? price - s.entry : s.entry - price;
-            if (moved >= tpDist * 0.5) { s.sl = s.entry; s.breakevenArmed = true; throttledSaveState(id); showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`); }
+            if (moved >= tpDist * 0.4) { s.sl = s.entry; s.breakevenArmed = true; throttledSaveState(id); showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`); }
         }
         if (!s.breakevenArmed) {
-            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 2;
+            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 1.8;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
             if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         }
