@@ -961,7 +961,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
         if (direction === 'buy') { const lowestLow = Math.min(...recent.map(c => c.low)); structuralSL = lowestLow - atr * 0.12; }
         else { const highestHigh = Math.max(...recent.map(c => c.high)); structuralSL = highestHigh + atr * 0.12; }
     }
-    const minSL = id === 'xau' ? 12.5 : 150;
+    const minSL = id === 'xau' ? 12.5 : 175;
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
