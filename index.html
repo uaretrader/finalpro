@@ -1353,16 +1353,6 @@ function buildCardHTML(id, label) {
           </div>
           <span id="signal-text-${id}">IDLE</span>
         </div>
-        <div class="engine-badge-row">
-          <span class="ebadge off" id="eb-trend-${id}">TRD</span>
-          <span class="ebadge off" id="eb-struct-${id}">STR</span>
-          <span class="ebadge off" id="eb-zone-${id}">ZNE</span>
-          <span class="ebadge off" id="eb-flow-${id}">FLW</span>
-          <span class="ebadge off" id="eb-macd-${id}">MOM</span>
-          <span class="ebadge off" id="eb-mcross-${id}">MCX</span>
-          <span class="ebadge off" id="eb-adx-${id}">ADX</span>
-          <span class="ebadge off" id="eb-conflict-${id}">ALIGN</span>
-        </div>
         <div class="confluence-panel">
           <span class="confluence-label">STRENGTH</span>
           <div class="confluence-bar-wrap"><div class="confluence-bar-fill" id="cf-fill-${id}" style="width:0%"></div></div>
@@ -1381,7 +1371,17 @@ function buildCardHTML(id, label) {
           <div class="level-item" onclick="window.copyValue('${id}','rr')">
             <span class="level-label">RR</span><span class="level-value draw-value" id="rr-${id}">--</span>
           </div>
-        </div>
+        </div>        
+        <div class="engine-badge-row">
+          <span class="ebadge off" id="eb-trend-${id}">TRD</span>
+          <span class="ebadge off" id="eb-struct-${id}">STR</span>
+          <span class="ebadge off" id="eb-zone-${id}">ZNE</span>
+          <span class="ebadge off" id="eb-flow-${id}">FLW</span>
+          <span class="ebadge off" id="eb-mcross-${id}">MCX</span>
+          <span class="ebadge off" id="eb-adx-${id}">ADX</span>
+          <span class="ebadge off" id="eb-conflict-${id}">ALIGN</span>
+          <span class="ebadge off" id="eb-macd-${id}">MOM</span>
+        </div>        
         <div class="stats-grid" id="history-panel-${id}">
           <div class="stats-item"><span class="stats-label">TP HIT</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div>
           <div class="stats-item"><span class="stats-label" style="color:var(--teal)">BREAKEVEN</span><span class="stats-value retrace-value" id="stats-retrace-${id}">0</span></div>
