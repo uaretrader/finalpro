@@ -206,7 +206,7 @@ const CONFIRMATION_WAIT_MS = 3000;
 // ================================================================
 //  LIVE PRICE OFFSET
 // ================================================================
-const PRICE_OFFSET_XAU = -0;
+const PRICE_OFFSET_XAU = 0;
 const PRICE_OFFSET_BTC = -2;
 const COOLDOWN_AFTER_SL_MS = 20000;
 
@@ -1189,7 +1189,7 @@ function seedMicroCandles(id, base) {
     }
 }
 function seedCandles(id, base) {
-    const isXau = id === 'xau'; const step = isXau ? 1.2 : 120; const nMacro = 55;
+    const isXau = id === 'xau'; const step = isXau ? 1.8 : 120; const nMacro = 55;
     marketData[id].macro.candles = []; let price = base;
     for (let i = 0; i < nMacro; i++) {
         const drift = (Math.random() - 0.48) * step * 0.05; price += drift;
