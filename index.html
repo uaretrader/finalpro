@@ -1136,6 +1136,17 @@ let marketData = { xau: { macro: { candles: [], current: null, start: 0 }, micro
                    btc: { macro: { candles: [], current: null, start: 0 }, micro: { candles: [], current: null, start: 0 }, atr: 0, price: 0 } };
 let macroBiasCache = { xau: null, btc: null };
 
+// ── PATCH 1: Infinite Loop Protection ────────────────────────────
+let rawXauPrice = null;
+let rawBtcPrice = null;
+
+// ── PATCH 2: consolidated polling state ──────────────────────────
+let xauFetching = false;
+let btcFetching = false;
+
+// ── PATCH 3: heartbeat for BTC ───────────────────────────────────
+let btcLastHeartbeat = Date.now();
+
 // ── Candle Build ──────────────────────────────────────────────────
 function buildTFCandle(tf, dur, maxCandles, price, vol) {
     const now = Date.now();
@@ -1414,53 +1425,119 @@ function updateXAUDisplay(price, feedStatus, vol) {
     if (feedStatus) updateFeedBadge('xau', feedStatus);
 }
 async function xauFetchRestPrice() {
-    for (let i = 0; i < XAU_REST_SOURCES.length; i++) {
-        const src = XAU_REST_SOURCES[(xauRestIdx + i) % XAU_REST_SOURCES.length];
-        try {
-            const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 7000);
-            const resp = await fetch(src.url, { signal: ctrl.signal }); clearTimeout(tid);
-            if (!resp.ok) continue; const data = await resp.json(); const p = src.parse(data);
-            if (p && p > 100 && !isNaN(p)) { updateXAUDisplay(p, i === 0 ? 'ok' : 'fallback', 0); xauRestIdx = (xauRestIdx + i) % XAU_REST_SOURCES.length; return true; }
-        } catch(e) {}
+    if (xauFetching) return;
+    xauFetching = true;
+    try {
+        for (let i = 0; i < XAU_REST_SOURCES.length; i++) {
+            const src = XAU_REST_SOURCES[(xauRestIdx + i) % XAU_REST_SOURCES.length];
+            try {
+                const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 7000);
+                const resp = await fetch(src.url, { signal: ctrl.signal }); clearTimeout(tid);
+                if (!resp.ok) continue; const data = await resp.json(); const p = src.parse(data);
+                if (p && p > 100 && !isNaN(p)) { updateXAUDisplay(p, i === 0 ? 'ok' : 'fallback', 0); xauRestIdx = (xauRestIdx + i) % XAU_REST_SOURCES.length; return true; }
+            } catch(e) {}
+        }
+        updateFeedBadge('xau', 'err'); return false;
+    } finally {
+        xauFetching = false;
     }
-    updateFeedBadge('xau', 'err'); return false;
 }
 function initXAUWebSocket() {
     if (xauWs) { try { xauWs.close(); } catch(e) {} xauWs = null; }
     if (xauReconnectTimer) clearTimeout(xauReconnectTimer);
     try {
         xauWs = new WebSocket(XAU_WS_URL);
-        const wst = setTimeout(() => { if (xauWs && xauWs.readyState !== WebSocket.OPEN) { try { xauWs.close(); } catch(e) {} xauWs = null; updateFeedBadge('xau', 'fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(() => xauFetchRestPrice(), 2000); } }, 6000);
-        xauWs.onopen = () => { clearTimeout(wst); xauReconnectAttempts = 0; if (xauFetchRetryTimer) { clearInterval(xauFetchRetryTimer); xauFetchRetryTimer = null; } updateFeedBadge('xau', 'ok'); updateGlobalPulse(); };
-        xauWs.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.p) { const p = parseFloat(d.p); const q = parseFloat(d.q) || 0; if (!isNaN(p) && p > 100 && p !== xauCurrentPrice) updateXAUDisplay(p, 'ok', q); } } catch(err) {} };
-        xauWs.onclose = () => { const delay = Math.min(1000 * Math.pow(1.6, xauReconnectAttempts), 20000); xauReconnectAttempts++; xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay); updateFeedBadge('xau', 'fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(() => xauFetchRestPrice(), 2000); };
-        xauWs.onerror = () => { updateFeedBadge('xau', 'fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(() => xauFetchRestPrice(), 2000); };
-    } catch(err) { updateFeedBadge('xau', 'fallback'); if (!xauFetchRetryTimer) xauFetchRetryTimer = setInterval(() => xauFetchRestPrice(), 2000); }
+        const wst = setTimeout(() => { if (xauWs && xauWs.readyState !== WebSocket.OPEN) { try { xauWs.close(); } catch(e) {} xauWs = null; updateFeedBadge('xau', 'fallback'); } }, 6000);
+        xauWs.onopen = () => { clearTimeout(wst); xauReconnectAttempts = 0; updateFeedBadge('xau', 'ok'); updateGlobalPulse(); };
+        xauWs.onmessage = (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                if (d.p) {
+                    const p = parseFloat(d.p);
+                    // PATCH 1: infinite loop protection — skip if raw price unchanged
+                    if (p === rawXauPrice) return;
+                    rawXauPrice = p;
+                    const q = parseFloat(d.q) || 0;
+                    if (!isNaN(p) && p > 100 && p !== xauCurrentPrice) updateXAUDisplay(p, 'ok', q);
+                }
+            } catch(err) {}
+        };
+        xauWs.onclose = () => {
+            const delay = Math.min(1000 * Math.pow(1.6, xauReconnectAttempts), 20000);
+            xauReconnectAttempts++;
+            xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay);
+            updateFeedBadge('xau', 'fallback');
+        };
+        xauWs.onerror = () => { updateFeedBadge('xau', 'fallback'); };
+    } catch(err) { updateFeedBadge('xau', 'fallback'); }
 }
 
-let btcWs = null, btcReconnectTimer = null, btcReconnectAttempts = 0, btcFetchRetryTimer = null;
+let btcWs = null, btcReconnectTimer = null, btcReconnectAttempts = 0;
 async function btcFetchRestPrice() {
-    const urls = ['https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT'];
-    for (const url of urls) {
-        try {
-            const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 7000);
-            const resp = await fetch(url, { signal: ctrl.signal }); clearTimeout(tid);
-            if (!resp.ok) continue; const data = await resp.json();
-            if (data?.price) { const p = parseFloat(data.price) + PRICE_OFFSET_BTC; if (p > 1000 && !isNaN(p)) { pendingPriceData.btc = p; pendingSignalData.btc = true; throttledUpdateUI('btc'); updateSignal('btc', p, 0); wsStatus.btc = true; updateGlobalPulse(); updateFeedBadge('btc', 'fallback'); return true; } }
-        } catch(e) {}
+    if (btcFetching) return;
+    btcFetching = true;
+    try {
+        const urls = ['https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT'];
+        for (const url of urls) {
+            try {
+                const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 7000);
+                const resp = await fetch(url, { signal: ctrl.signal }); clearTimeout(tid);
+                if (!resp.ok) continue; const data = await resp.json();
+                if (data?.price) {
+                    const p = parseFloat(data.price) + PRICE_OFFSET_BTC;
+                    if (p > 1000 && !isNaN(p)) {
+                        btcLastHeartbeat = Date.now();
+                        pendingPriceData.btc = p;
+                        pendingSignalData.btc = true;
+                        throttledUpdateUI('btc');
+                        updateSignal('btc', p, 0);
+                        wsStatus.btc = true;
+                        updateGlobalPulse();
+                        updateFeedBadge('btc', 'fallback');
+                        return true;
+                    }
+                }
+            } catch(e) {}
+        }
+        updateFeedBadge('btc', 'err'); return false;
+    } finally {
+        btcFetching = false;
     }
-    updateFeedBadge('btc', 'err'); return false;
 }
 function initBTCWebSocket() {
     if (btcWs) { try { btcWs.close(); } catch(e) {} btcWs = null; }
     if (btcReconnectTimer) clearTimeout(btcReconnectTimer);
     try {
         btcWs = new WebSocket(BTC_WS_URL);
-        const wst = setTimeout(() => { if (btcWs && btcWs.readyState !== WebSocket.OPEN) { try { btcWs.close(); } catch(e) {} btcWs = null; updateFeedBadge('btc', 'fallback'); wsStatus.btc = false; if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(() => btcFetchRestPrice(), 3000); } }, 7000);
-        btcWs.onopen = () => { clearTimeout(wst); btcReconnectAttempts = 0; wsStatus.btc = true; if (btcFetchRetryTimer) { clearInterval(btcFetchRetryTimer); btcFetchRetryTimer = null; } const el = document.getElementById('ws-status-btc'); if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; } updateFeedBadge('btc', 'ok'); updateGlobalPulse(); updateSignalUIOnly('btc'); };
-        btcWs.onmessage = (e) => { try { const d = JSON.parse(e.data); const p = parseFloat(d.p) + PRICE_OFFSET_BTC; const q = parseFloat(d.q) || 0; if (p && p > 1000 && !isNaN(p)) { pendingPriceData.btc = p; pendingSignalData.btc = true; throttledUpdateUI('btc'); updateSignal('btc', p, q); } } catch(err) {} };
-        btcWs.onclose = () => { wsStatus.btc = false; updateFeedBadge('btc', 'fallback'); updateGlobalPulse(); updateSignalUIOnly('btc'); const delay = Math.min(1000 * Math.pow(2, btcReconnectAttempts), 30000); btcReconnectAttempts++; btcReconnectTimer = setTimeout(() => initBTCWebSocket(), delay); if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(() => btcFetchRestPrice(), 3000); };
-        btcWs.onerror = () => { wsStatus.btc = false; updateFeedBadge('btc', 'fallback'); updateGlobalPulse(); if (!btcFetchRetryTimer) btcFetchRetryTimer = setInterval(() => btcFetchRestPrice(), 3000); };
+        const wst = setTimeout(() => { if (btcWs && btcWs.readyState !== WebSocket.OPEN) { try { btcWs.close(); } catch(e) {} btcWs = null; updateFeedBadge('btc', 'fallback'); wsStatus.btc = false; } }, 7000);
+        btcWs.onopen = () => { clearTimeout(wst); btcReconnectAttempts = 0; wsStatus.btc = true; const el = document.getElementById('ws-status-btc'); if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; } updateFeedBadge('btc', 'ok'); updateGlobalPulse(); updateSignalUIOnly('btc'); };
+        btcWs.onmessage = (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                const p = parseFloat(d.p) + PRICE_OFFSET_BTC;
+                // PATCH 1: infinite loop protection — skip if raw price unchanged
+                if (p === rawBtcPrice) return;
+                rawBtcPrice = p;
+                const q = parseFloat(d.q) || 0;
+                if (p && p > 1000 && !isNaN(p)) {
+                    btcLastHeartbeat = Date.now();
+                    pendingPriceData.btc = p;
+                    pendingSignalData.btc = true;
+                    throttledUpdateUI('btc');
+                    updateSignal('btc', p, q);
+                }
+            } catch(err) {}
+        };
+        btcWs.onclose = () => {
+            wsStatus.btc = false;
+            updateFeedBadge('btc', 'fallback');
+            updateGlobalPulse();
+            updateSignalUIOnly('btc');
+            const delay = Math.min(1000 * Math.pow(2, btcReconnectAttempts), 30000);
+            btcReconnectAttempts++;
+            btcReconnectTimer = setTimeout(() => initBTCWebSocket(), delay);
+        };
+        btcWs.onerror = () => { wsStatus.btc = false; updateFeedBadge('btc', 'fallback'); updateGlobalPulse(); };
     } catch(err) { wsStatus.btc = false; updateFeedBadge('btc', 'err'); setTimeout(() => initBTCWebSocket(), 5000); }
 }
 function switchPair() {
@@ -1469,6 +1546,24 @@ function switchPair() {
     const lb = document.getElementById('switchLabel'); if (lb) lb.innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
     document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active')); document.getElementById(`card-${activePairId}`)?.classList.add('active');
     if (navigator.vibrate) navigator.vibrate(20);
+}
+
+// ── PATCH 2: Consolidated polling (single 3000ms interval) ──────
+function consolidatedPoll() {
+    // XAU: check WS status + heartbeat
+    const xauConnected = xauWs && xauWs.readyState === WebSocket.OPEN;
+    if (!xauConnected || (Date.now() - xauLastHeartbeat) > 6000) {
+        if (!xauFetching) xauFetchRestPrice();
+    }
+
+    // BTC: check WS status + heartbeat
+    const btcConnected = btcWs && btcWs.readyState === WebSocket.OPEN;
+    if (!btcConnected || (Date.now() - btcLastHeartbeat) > 6000) {
+        if (!btcFetching) btcFetchRestPrice();
+    }
+
+    // Update global pulse
+    updateGlobalPulse();
 }
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -1497,11 +1592,32 @@ async function init() {
     if (el_xau) { el_xau.textContent = '● LOADING...'; el_xau.className = 'ws-status connected'; }
     if (el_btc) { el_btc.textContent = '○ LOADING...'; el_btc.className = 'ws-status disconnected'; }
 
+    // ── PATCH 3: Proper Initialization ────────────────────────────
+    // STEP 1: load historical candles (await ensures complete)
     await Promise.all([ initHistoricalCandles('xau'), initHistoricalCandles('btc') ]);
-    initXAUWebSocket(); xauFetchRestPrice(); initBTCWebSocket(); btcFetchRestPrice(); updateGlobalPulse();
-    setInterval(() => { if (Date.now() - xauLastHeartbeat > 6000) xauFetchRestPrice(); updateGlobalPulse(); }, 3000);
-    setInterval(() => { if (!xauWs || xauWs.readyState !== WebSocket.OPEN) xauFetchRestPrice(); if (!btcWs || btcWs.readyState !== WebSocket.OPEN) btcFetchRestPrice(); }, 2000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { xauFetchRestPrice(); btcFetchRestPrice(); updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updateGlobalPulse(); } });
+
+    // STEP 2: only then connect WebSockets
+    initXAUWebSocket();
+    // initial REST fetch to get a price immediately
+    await xauFetchRestPrice();
+
+    initBTCWebSocket();
+    await btcFetchRestPrice();
+
+    updateGlobalPulse();
+
+    // ── SINGLE SCHEDULER: only one setInterval remains ──────────
+    setInterval(consolidatedPoll, 3000);
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            if (!xauFetching) xauFetchRestPrice();
+            if (!btcFetching) btcFetchRestPrice();
+            updateSignalUIOnly('xau');
+            updateSignalUIOnly('btc');
+            updateGlobalPulse();
+        }
+    });
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
