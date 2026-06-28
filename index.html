@@ -1177,7 +1177,7 @@ async function initHistoricalCandles(id) {
     const basePrices = { xau: 3300, btc: 105000 }; seedCandles(id, basePrices[id]); return false;
 }
 function seedMicroCandles(id, base) {
-    const isXau = id === 'xau'; const step = isXau ? 1.2 : 120; const nMicro = 20;
+    const isXau = id === 'xau'; const step = isXau ? 1.8 : 120; const nMicro = 20;
     marketData[id].micro.candles = []; let price = base;
     for (let i = 0; i < nMicro; i++) {
         const open = price + (Math.random() - 0.5) * step * 0.04;
