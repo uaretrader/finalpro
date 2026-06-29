@@ -201,12 +201,12 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 const LS_SCHEMA_VERSION    = 9;   // bumped for new logic
 const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
-const CONFIRMATION_WAIT_MS = 3000;
+const CONFIRMATION_WAIT_MS = 2500;
 
 // ================================================================
 //  LIVE PRICE OFFSET
 // ================================================================
-const PRICE_OFFSET_XAU = -3;
+const PRICE_OFFSET_XAU = -2.9;
 const PRICE_OFFSET_BTC = -2;
 const COOLDOWN_AFTER_SL_MS = 20000;
 
@@ -220,7 +220,7 @@ const MICRO_MIN = 10;
 
 // ── Blue Chart Score thresholds (UPGRADED) ───────────────────────
 const BC_SCORE_MIN = 55;        // unchanged macro threshold
-const ADX_MIN      = 25;
+const ADX_MIN      = 30;
 
 // ── NEW: Micro entry thresholds ──────────────────────────────────
 const MICRO_READY_THRESHOLD = 55;    // was 50
@@ -1017,7 +1017,7 @@ function processSignal(id, price) {
             if (moved >= tpDist * 0.4) { s.sl = s.entry; s.breakevenArmed = true; throttledSaveState(id); showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`); }
         }
         if (!s.breakevenArmed) {
-            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 1.8;
+            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 2;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
             if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         }
