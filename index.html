@@ -219,12 +219,12 @@ const MACRO_MIN = 35;
 const MICRO_MIN = 10;
 
 // ── Blue Chart Score thresholds (UPGRADED) ───────────────────────
-const BC_SCORE_MIN = 58;        // unchanged macro threshold
-const ADX_MIN      = 28;
+const BC_SCORE_MIN = 60;        // unchanged macro threshold
+const ADX_MIN      = 25;
 
 // ── NEW: Micro entry thresholds ──────────────────────────────────
 const MICRO_READY_THRESHOLD = 55;    // was 50
-const MICRO_LOCK_THRESHOLD  = 60;    // was 58
+const MICRO_LOCK_THRESHOLD  = 70;    // was 58
 
 // ── Persistent Zone TTL & limits ─────────────────────────────────
 const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;   // 4 hours
@@ -745,7 +745,7 @@ function checkPriceAction(candles, direction, atr) {
 function calculateDynamicRR(atr, price) {
     const volatilityPct = (atr / price) * 100;
     let rr;
-    if (volatilityPct > 2.8) rr = 1.2;
+    if (volatilityPct > 2.5) rr = 1.2;
     else if (volatilityPct > 2.0) rr = 1.4;
     else if (volatilityPct > 1.0) rr = 1.6;
     else rr = 2.0;
@@ -1017,7 +1017,7 @@ function processSignal(id, price) {
             if (moved >= tpDist * 0.35) { s.sl = s.entry; s.breakevenArmed = true; throttledSaveState(id); showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`); }
         }
         if (!s.breakevenArmed) {
-            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 4;
+            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 3;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
             if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         }
