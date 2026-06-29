@@ -219,7 +219,7 @@ const MACRO_MIN = 35;
 const MICRO_MIN = 10;
 
 // ── Blue Chart Score thresholds (UPGRADED) ───────────────────────
-const BC_SCORE_MIN = 55;        // unchanged macro threshold
+const BC_SCORE_MIN = 58;        // unchanged macro threshold
 const ADX_MIN      = 30;
 
 // ── NEW: Micro entry thresholds ──────────────────────────────────
@@ -1014,10 +1014,10 @@ function processSignal(id, price) {
         if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
             const tpDist = Math.abs(s.tp - s.entry);
             const moved  = s.type === 'buy' ? price - s.entry : s.entry - price;
-            if (moved >= tpDist * 0.4) { s.sl = s.entry; s.breakevenArmed = true; throttledSaveState(id); showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`); }
+            if (moved >= tpDist * 0.35) { s.sl = s.entry; s.breakevenArmed = true; throttledSaveState(id); showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`); }
         }
         if (!s.breakevenArmed) {
-            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 2;
+            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 4;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
             if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         }
