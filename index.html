@@ -1248,7 +1248,7 @@ function updateSignalUIOnly(id) {
         else if (pendingConfirmation[id] && s.l3 && !s.confirmed) { st.innerText = 'CONFIRM...'; st.style.color = 'var(--gold)'; }
         else if (s.confirmed) { const beLabel = s.breakevenArmed ? ' [BE]' : ''; st.innerText = s.type.toUpperCase() + beLabel; st.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
         else if (s.l3) { st.innerText = 'LOCKED'; st.style.color = 'var(--accent)'; }
-        else if (s.l2) { st.innerText = 'READY!'; st.style.color = 'var(--accent)'; }
+        else if (s.l2) { st.innerText = 'READY'; st.style.color = 'var(--accent)'; }
         else if (s.l1) { st.innerText = 'BIAS'; st.style.color = 'var(--amber)'; }
         else { st.innerText = 'IDLE'; st.style.color = 'var(--text-dim)'; }
     }
@@ -1384,12 +1384,12 @@ function buildCardHTML(id, label) {
           </div>
         </div>        
         <div class="engine-badge-row">
+          <span class="ebadge off" id="eb-adx-${id}">ADX</span>
           <span class="ebadge off" id="eb-trend-${id}">TRD</span>
           <span class="ebadge off" id="eb-struct-${id}">STR</span>
           <span class="ebadge off" id="eb-zone-${id}">ZNE</span>
-          <span class="ebadge off" id="eb-flow-${id}">FLW</span>
           <span class="ebadge off" id="eb-mcross-${id}">MCX</span>
-          <span class="ebadge off" id="eb-adx-${id}">ADX</span>
+          <span class="ebadge off" id="eb-flow-${id}">FLW</span>
           <span class="ebadge off" id="eb-conflict-${id}">ALIGN</span>
           <span class="ebadge off" id="eb-macd-${id}">MOM</span>
         </div>        
