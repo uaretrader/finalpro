@@ -220,7 +220,7 @@ const MICRO_MIN = 10;
 
 // ── Blue Chart Score thresholds (UPGRADED) ───────────────────────
 const BC_SCORE_MIN = 58;        // unchanged macro threshold
-const ADX_MIN      = 30;
+const ADX_MIN      = 28;
 
 // ── NEW: Micro entry thresholds ──────────────────────────────────
 const MICRO_READY_THRESHOLD = 55;    // was 50
@@ -745,7 +745,7 @@ function checkPriceAction(candles, direction, atr) {
 function calculateDynamicRR(atr, price) {
     const volatilityPct = (atr / price) * 100;
     let rr;
-    if (volatilityPct > 3.0) rr = 1.2;
+    if (volatilityPct > 2.8) rr = 1.2;
     else if (volatilityPct > 2.0) rr = 1.4;
     else if (volatilityPct > 1.0) rr = 1.6;
     else rr = 2.0;
