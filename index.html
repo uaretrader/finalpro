@@ -1250,7 +1250,7 @@ function updateSignalUIOnly(id) {
         else if (s.l3) { st.innerText = 'LOCKED'; st.style.color = 'var(--accent)'; }
         else if (s.l2) { st.innerText = 'READY'; st.style.color = 'var(--accent)'; }
         else if (s.l1) { st.innerText = 'BIAS'; st.style.color = 'var(--amber)'; }
-        else { st.innerText = 'IDLE'; st.style.color = 'var(--text-dim)'; }
+        else { st.innerText = 'WAIT'; st.style.color = 'var(--text-dim)'; }
     }
     const eEl = document.getElementById(`entry-${id}`); if (eEl) eEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
     const tEl = document.getElementById(`tp-${id}`); if (tEl) tEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
