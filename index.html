@@ -746,9 +746,9 @@ function calculateDynamicRR(atr, price) {
     const volatilityPct = (atr / price) * 100;
     let rr;
     if (volatilityPct > 2.5) rr = 1.2;
-    else if (volatilityPct > 2.0) rr = 1.4;
+    else if (volatilityPct > 1.8) rr = 1.4;
     else if (volatilityPct > 1.0) rr = 1.6;
-    else rr = 2.0;
+    else rr = 1.8;
     return rr;
 }
 
