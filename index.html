@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
-<title>URADVISOR v11.1 — BLUE CHART ENGINE + SMC ULTRA</title>
+<title>URADVISOR v11.2 — BLUE CHART ENGINE + SMC ULTRA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -167,7 +167,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <header>
     <div class="brand">
         <h1>ur<span>advisor</span></h1>
-        <div class="brand-sub">URA V11.1</div>
+        <div class="brand-sub">URA V11.2</div>
     </div>
     <div class="header-right">
         <div class="sys-status">
@@ -182,7 +182,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <div id="terminals"></div>
 
 <footer>
-    BLUE CHART ENGINE v11.1 · SMC ULTRA · MTF CONFLUENCE · OB/FVG · DYNAMIC RR<br>
+    BLUE CHART ENGINE v11.2 · SMC ULTRA · MTF CONFLUENCE · OB/FVG · DYNAMIC RR<br>
     LIQUIDITY SWEEP · ORDER FLOW · RSI DIVERGENCE · VOLUME PROFILE
 </footer>
 </div>
@@ -193,12 +193,13 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 'use strict';
 
 // ================================================================
-//  URADVISOR — BLUE CHART ENGINE v11.1  [SMC ULTRA EDITION]
+//  URADVISOR — BLUE CHART ENGINE v11.2  [SMC ULTRA EDITION] — patched
 //  Upgrade: MTF Confluence, Order Block, FVG, Volume Profile,
-//           Dynamic RR, Price Action Filter, Threshold 65/70
+//           Dynamic RR, Price Action Filter, Threshold 55/70 (READY/LOCK)
 // ================================================================
 
-const LS_SCHEMA_VERSION    = 9;   // bumped for new logic
+const LS_SCHEMA_VERSION    = 10;  // bumped: ema200 gate fix invalidates old cached bias/state
+const ATR_FALLBACK         = { xau: 3.0, btc: 300 };
 const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
 const CONFIRMATION_WAIT_MS = 2500;
@@ -367,7 +368,11 @@ function calcBCTrend(closes, atr) {
     const n = closes.length;
     const ema21  = calcEMA(closes, Math.min(21, n - 1));
     const ema50  = calcEMA(closes, Math.min(50, n - 1));
-    const ema200 = n >= 200 ? calcEMA(closes, 200) : (n >= 100 ? calcEMA(closes, 100) : calcEMA(closes, Math.max(50, n - 1)));
+    // FIX (audit): tiered period must never exceed n-1, or calcEMA silently returns null
+    // and forces trend=NEUTRAL for every candle count below the old hardcoded 50 floor
+    // (i.e. the whole 35-50 range promised by MACRO_MIN was dead on arrival).
+    const ema200Period = n >= 200 ? 200 : n >= 100 ? 100 : n >= 50 ? 50 : Math.max(20, n - 1);
+    const ema200 = calcEMA(closes, ema200Period);
     const hasEma200 = n >= 200;
     if (!ema21 || !ema50 || !ema200) return { trend: 'NEUTRAL', score: 0, ema21, ema50, ema200 };
     const SLOPE_WINDOW = Math.min(10, n - 2);
@@ -759,7 +764,7 @@ function scoreMacroBias(id, price, macroCandles) {
     const f = {};
     if (macroCandles.length < MACRO_MIN) return { bias: 'NEUTRAL', score: 0, factors: f, valid: false };
     const closes = macroCandles.map(c => c.close);
-    const atr    = calcATR(macroCandles) || (id === 'xau' ? 3.0 : 300);
+    const atr    = calcATR(macroCandles) || (ATR_FALLBACK[id] || 300);
     const adx    = calcADX(macroCandles, 14);
     const macd   = calcMACD(closes);
     f.atr = atr; f.adx = adx ? adx.toFixed(1) : null;
@@ -953,7 +958,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     const s     = state[id];
     const entry = livePrice > 0 ? livePrice : (s.lastPrice || 0);
     if (entry <= 0) return;
-    const atr = marketData[id].atr || (id === 'xau' ? 3.0 : 300);
+    const atr = marketData[id].atr || (ATR_FALLBACK[id] || 300);
     const microCandles = getMicroCandles(id);
     let structuralSL = 0;
     if (microCandles.length >= 5) {
@@ -1017,7 +1022,7 @@ function processSignal(id, price) {
             if (moved >= tpDist * 0.35) { s.sl = s.entry; s.breakevenArmed = true; throttledSaveState(id); showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`); }
         }
         if (!s.breakevenArmed) {
-            const buf = (marketData[id].atr || (id === 'xau' ? 3.0 : 300)) * 3;
+            const buf = (marketData[id].atr || (ATR_FALLBACK[id] || 300)) * 3;
             if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
             if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
         }
@@ -1076,7 +1081,7 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
         if (!pendingConfirmation[id]) return;
         const macroC = getMacroCandles(id);
         const microC = getMicroCandles(id);
-        const lp = id === 'xau' ? xauCurrentPrice : (marketData[id].price || state[id].lastPrice || 0);
+        const lp = marketData[id].price || state[id].lastPrice || 0;
         if (macroC.length >= MACRO_MIN && microC.length >= MICRO_MIN) {
             const mb2 = scoreMacroBias(id, lp, macroC);
             const mi2 = scoreMicroEntry(id, lp, microC, mb2);
@@ -1181,7 +1186,7 @@ async function initHistoricalCandles(id) {
             const closed = raw.slice(0, -1); const candles = closed.map(k => ({ open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5]), closed: true }));
             marketData[id].macro.candles = candles;
             const lastClose = candles[candles.length - 1].close; seedMicroCandles(id, lastClose);
-            const mc = getMacroCandles(id); if (mc.length >= 15) marketData[id].atr = calcATR(mc, 14) || (id === 'xau' ? 3.0 : 300);
+            const mc = getMacroCandles(id); if (mc.length >= 15) marketData[id].atr = calcATR(mc, 14) || (ATR_FALLBACK[id] || 300);
             if (mc.length >= MACRO_MIN) macroBiasCache[id] = null; return true;
         } catch(e) {}
     }
@@ -1210,7 +1215,7 @@ function seedCandles(id, base) {
         marketData[id].macro.candles.push({ open, high: hi, low: lo, close, volume: 60 + Math.floor(Math.random() * 120), closed: true });
         price = close;
     }
-    seedMicroCandles(id, price); const mc = getMacroCandles(id); if (mc.length >= 15) marketData[id].atr = calcATR(mc, 14) || (isXau ? 3.0 : 300);
+    seedMicroCandles(id, price); const mc = getMacroCandles(id); if (mc.length >= 15) marketData[id].atr = calcATR(mc, 14) || (ATR_FALLBACK[id] || 300);
 }
 
 // ── UI Functions ──────────────────────────────────────────────────
@@ -1244,7 +1249,8 @@ function updateSignalUIOnly(id) {
     setDot(`l1-${id}`, s.l1, s.type); setDot(`l2-${id}`, s.l2, s.type); setDot(`l3-${id}`, s.l3, s.type);
     const st = document.getElementById(`signal-text-${id}`);
     if (st) {
-        if (!wsStatus[id] && id === 'btc') { st.innerText = 'NO FEED'; st.style.color = 'var(--danger)'; }
+        // FIX (audit #2c): was `id === 'btc'` only — XAU disconnects were never surfaced.
+        if (!wsStatus[id]) { st.innerText = 'NO FEED'; st.style.color = 'var(--danger)'; }
         else if (pendingConfirmation[id] && s.l3 && !s.confirmed) { st.innerText = 'CONFIRM...'; st.style.color = 'var(--gold)'; }
         else if (s.confirmed) { const beLabel = s.breakevenArmed ? ' [BE]' : ''; st.innerText = s.type.toUpperCase() + beLabel; st.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
         else if (s.l3) { st.innerText = 'LOCKED'; st.style.color = 'var(--accent)'; }
@@ -1311,7 +1317,7 @@ function updateFeedBadge(id, status) {
     else if (status === 'fallback') { el.textContent = '⚡ REST'; el.classList.add('fallback'); }
     else { el.textContent = '✕ ERR'; el.classList.add('err'); }
 }
-function updateGlobalPulse() { const el = document.getElementById('globalPulse'); if (el) el.className = (xauCurrentPrice > 0 || wsStatus.btc) ? 'pulse connected' : 'pulse disconnected'; }
+function updateGlobalPulse() { const el = document.getElementById('globalPulse'); if (el) el.className = (wsStatus.xau || wsStatus.btc) ? 'pulse connected' : 'pulse disconnected'; }
 function cancelPendingConfirmation(id) {
     if (!pendingConfirmation[id]) return;
     if (pendingConfirmation[id].timerId) clearTimeout(pendingConfirmation[id].timerId);
@@ -1432,6 +1438,9 @@ async function xauFetchRestPrice() {
                 if (p && p > 100 && !isNaN(p)) { updateXAUDisplay(p, i === 0 ? 'ok' : 'fallback', 0); xauRestIdx = (xauRestIdx + i) % XAU_REST_SOURCES.length; return true; }
             } catch(e) {}
         }
+        // FIX (audit #2): mark feed dead when every REST source fails, so
+        // wsStatus.xau/pulse/NO FEED can actually reflect a real outage.
+        wsStatus.xau = false; updateGlobalPulse(); updateSignalUIOnly('xau');
         updateFeedBadge('xau', 'err'); return false;
     } finally {
         xauFetching = false;
@@ -1442,8 +1451,10 @@ function initXAUWebSocket() {
     if (xauReconnectTimer) clearTimeout(xauReconnectTimer);
     try {
         xauWs = new WebSocket(XAU_WS_URL);
-        const wst = setTimeout(() => { if (xauWs && xauWs.readyState !== WebSocket.OPEN) { try { xauWs.close(); } catch(e) {} xauWs = null; updateFeedBadge('xau', 'fallback'); } }, 6000);
-        xauWs.onopen = () => { clearTimeout(wst); xauReconnectAttempts = 0; updateFeedBadge('xau', 'ok'); updateGlobalPulse(); };
+        const wst = setTimeout(() => { if (xauWs && xauWs.readyState !== WebSocket.OPEN) { try { xauWs.close(); } catch(e) {} xauWs = null; wsStatus.xau = false; updateFeedBadge('xau', 'fallback'); updateGlobalPulse(); } }, 6000);
+        // FIX (audit #7): set wsStatus.xau=true immediately on open, symmetric with BTC,
+        // instead of waiting for the first message tick.
+        xauWs.onopen = () => { clearTimeout(wst); xauReconnectAttempts = 0; wsStatus.xau = true; updateFeedBadge('xau', 'ok'); updateGlobalPulse(); updateSignalUIOnly('xau'); };
         xauWs.onmessage = (e) => {
             try {
                 const d = JSON.parse(e.data);
@@ -1453,17 +1464,26 @@ function initXAUWebSocket() {
                     if (p === rawXauPrice) return;
                     rawXauPrice = p;
                     const q = parseFloat(d.q) || 0;
-                    if (!isNaN(p) && p > 100 && p !== xauCurrentPrice) updateXAUDisplay(p, 'ok', q);
+                    // FIX (audit #3): removed bogus `p !== xauCurrentPrice` comparison —
+                    // it compared a raw (pre-offset) price against a post-offset stored
+                    // price, so it was a near-permanent no-op. Dedupe is already handled
+                    // correctly above via rawXauPrice.
+                    if (!isNaN(p) && p > 100) updateXAUDisplay(p, 'ok', q);
                 }
             } catch(err) {}
         };
         xauWs.onclose = () => {
+            // FIX (audit #2): XAU never marked disconnected before — pulse/NO FEED
+            // could never reflect a real outage. Now symmetric with BTC's onclose.
+            wsStatus.xau = false;
+            updateGlobalPulse();
+            updateSignalUIOnly('xau');
             const delay = Math.min(1000 * Math.pow(1.6, xauReconnectAttempts), 20000);
             xauReconnectAttempts++;
             xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay);
             updateFeedBadge('xau', 'fallback');
         };
-        xauWs.onerror = () => { updateFeedBadge('xau', 'fallback'); };
+        xauWs.onerror = () => { wsStatus.xau = false; updateFeedBadge('xau', 'fallback'); updateGlobalPulse(); updateSignalUIOnly('xau'); };
     } catch(err) { updateFeedBadge('xau', 'fallback'); }
 }
 
