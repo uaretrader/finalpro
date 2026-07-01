@@ -155,7 +155,7 @@ header::after {
 .stats-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.37rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
 .stats-value { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; letter-spacing: -0.2px; }
 .winrate-value { color: var(--gold); }
-.retrace-value { color: var(--teal); }
+.be-value { color: var(--gold); }
 footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var(--text-dim); text-align: center; padding: 14px 0 6px; letter-spacing: 1.5px; text-transform: uppercase; border-top: 1px solid var(--edge); margin-top: 4px; line-height: 1.9; }
 #toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(16px); background: var(--surface2); border: 1px solid var(--edge-bright); color: var(--text-primary); padding: 8px 18px; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; border-radius: 3px; letter-spacing: 1px; text-transform: uppercase; opacity: 0; transition: opacity 0.22s ease, transform 0.22s ease; pointer-events: none; z-index: 9999; white-space: nowrap; box-shadow: var(--shadow-deep); }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -193,12 +193,16 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 'use strict';
 
 // ================================================================
-//  URADVISOR — BLUE CHART ENGINE v11.2  [SMC ULTRA EDITION] — patched
-//  Upgrade: MTF Confluence, Order Block, FVG, Volume Profile,
-//           Dynamic RR, Price Action Filter, Threshold 55/70 (READY/LOCK)
+//  URADVISOR — BLUE CHART ENGINE v11.2  [SMC ULTRA EDITION]
+//  BREAKEVEN LOGIC V2:
+//  - Arm breakeven at 35% TP distance
+//  - If price returns to entry → BREAKEVEN (be)
+//  - If price hits TP → TP (tp)
+//  - If price hits SL without 35% → LOSS (sl)
+//  - NO MORE RETRACE
 // ================================================================
 
-const LS_SCHEMA_VERSION    = 10;  // bumped: ema200 gate fix invalidates old cached bias/state
+const LS_SCHEMA_VERSION    = 11;  // bumped for breakeven v2
 const ATR_FALLBACK         = { xau: 3.0, btc: 300 };
 const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
@@ -219,13 +223,13 @@ const MICRO_DUR = { xau: 15000, btc: 15000 };
 const MACRO_MIN = 35;
 const MICRO_MIN = 10;
 
-// ── Blue Chart Score thresholds (UPGRADED) ───────────────────────
-const BC_SCORE_MIN = 60;        // unchanged macro threshold
+// ── Blue Chart Score thresholds ───────────────────────────────────
+const BC_SCORE_MIN = 60;
 const ADX_MIN      = 25;
 
-// ── NEW: Micro entry thresholds ──────────────────────────────────
-const MICRO_READY_THRESHOLD = 55;    // was 50
-const MICRO_LOCK_THRESHOLD  = 70;    // was 58
+// ── Micro entry thresholds ──────────────────────────────────────
+const MICRO_READY_THRESHOLD = 55;
+const MICRO_LOCK_THRESHOLD  = 70;
 
 // ── Persistent Zone TTL & limits ─────────────────────────────────
 const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;   // 4 hours
@@ -362,15 +366,12 @@ function calcADX(candles, period) {
 }
 
 // ================================================================
-//  BC TREND (FIXED: 5-candle lookback, edge case ema200)
+//  BC TREND
 // ================================================================
 function calcBCTrend(closes, atr) {
     const n = closes.length;
     const ema21  = calcEMA(closes, Math.min(21, n - 1));
     const ema50  = calcEMA(closes, Math.min(50, n - 1));
-    // FIX (audit): tiered period must never exceed n-1, or calcEMA silently returns null
-    // and forces trend=NEUTRAL for every candle count below the old hardcoded 50 floor
-    // (i.e. the whole 35-50 range promised by MACRO_MIN was dead on arrival).
     const ema200Period = n >= 200 ? 200 : n >= 100 ? 100 : n >= 50 ? 50 : Math.max(20, n - 1);
     const ema200 = calcEMA(closes, ema200Period);
     const hasEma200 = n >= 200;
@@ -381,7 +382,6 @@ function calcBCTrend(closes, atr) {
     const slope21 = (ema21Prev && atr) ? (ema21 - ema21Prev) / atr : 0;
     const slope50 = (ema50Prev && atr) ? (ema50 - ema50Prev) / atr : 0;
     const SLOPE_MIN = 0.08;
-    // ---- FIX #1: 5-candle lookback for cross detection ----
     const CROSS_LOOKBACK = Math.min(5, n - 2);
     const ema21_lb = n > CROSS_LOOKBACK + 1
         ? calcEMA(closes.slice(0, -CROSS_LOOKBACK), Math.min(21, n - CROSS_LOOKBACK - 1))
@@ -391,18 +391,15 @@ function calcBCTrend(closes, atr) {
         : null;
     const justCrossedUp   = ema21_lb !== null && ema50_lb !== null && ema21_lb < ema50_lb && ema21 >= ema50;
     const justCrossedDown = ema21_lb !== null && ema50_lb !== null && ema21_lb > ema50_lb && ema21 <= ema50;
-    // ---- end FIX #1 ----
     const fullBull = ema21 > ema50 && ema50 > ema200;
     const fullBear = ema21 < ema50 && ema50 < ema200;
     const zoneBull = ema21 > ema50 && ema21 < ema200;
     const zoneBear = ema21 < ema50 && ema21 > ema200;
     let trend = 'NEUTRAL', score = 0;
-    // ---- FIX #4: edge case ema200 (<= / >=) ----
     if      (justCrossedUp   && ema21 <= ema200)  { trend = 'BULL_X';      score =  16; }
     else if (justCrossedUp   && fullBull)          { trend = 'BULL_X_BULL'; score =  28; }
     else if (justCrossedDown && ema21 >= ema200)  { trend = 'BEAR_X';      score = -16; }
     else if (justCrossedDown && fullBear)          { trend = 'BEAR_X_BEAR'; score = -28; }
-    // ---- end FIX #4 ----
     else if (fullBull && slope21 >  SLOPE_MIN && slope50 > 0) { trend = 'STRONG_BULL'; score =  30; }
     else if (fullBull && slope21 >= -SLOPE_MIN)                { trend = 'BULL';        score =  22; }
     else if (fullBull && slope21 <  -SLOPE_MIN)                { trend = 'BULL_PULL';   score =  12; }
@@ -411,11 +408,11 @@ function calcBCTrend(closes, atr) {
     else if (fullBear && slope21 >   SLOPE_MIN)                { trend = 'BEAR_PULL';   score = -12; }
     else if (zoneBull)                                         { trend = 'BULL_ZONE';   score =  10; }
     else if (zoneBear)                                         { trend = 'BEAR_ZONE';   score = -10; }
-    return { trend, score, ema21, ema50, ema200, slope21, slope50, hasEma200 };
+    return { trend, score, ema21, ema50, ema200, slope21, slope50, hasEma200, justCrossedUp, justCrossedDown };
 }
 
 // ================================================================
-//  BC STRUCT (unchanged)
+//  BC STRUCT
 // ================================================================
 function calcBCStruct(candles) {
     if (!candles || candles.length < 20) return { struct: 'UNCLEAR', bos: null, choch: false, swingHighs: [], swingLows: [] };
@@ -447,7 +444,7 @@ function calcBCStruct(candles) {
 }
 
 // ================================================================
-//  BC ZONE (unchanged)
+//  BC ZONE
 // ================================================================
 let sdZones = { xau: { demand: [], supply: [], updatedAt: 0 }, btc: { demand: [], supply: [], updatedAt: 0 } };
 function loadZones(id) {
@@ -532,7 +529,7 @@ function calcBCZoneFallback(candles, price, atr) {
 }
 
 // ================================================================
-//  BC FLOW (unchanged)
+//  BC FLOW
 // ================================================================
 function calcBCFlow(candles, lookback) {
     lookback = lookback || 10;
@@ -560,7 +557,7 @@ function calcBCFlow(candles, lookback) {
 }
 
 // ================================================================
-//  BC LIQUID (unchanged)
+//  BC LIQUID
 // ================================================================
 function calcBCLiquid(candles, atr) {
     if (!candles || candles.length < 8) return { sweep: 'NONE', quality: 0 };
@@ -587,7 +584,7 @@ function calcBCLiquid(candles, atr) {
 }
 
 // ================================================================
-//  BC DIVERG (unchanged)
+//  BC DIVERG
 // ================================================================
 function calcBCDiverg(candles, closes, rsi) {
     if (!candles || candles.length < 20 || rsi === null) return { diverg: 'NONE', strength: 0 };
@@ -620,7 +617,7 @@ function calcBCDiverg(candles, closes, rsi) {
 }
 
 // ================================================================
-//  [NEW] 1. MTF CONFLUENCE
+//  MTF CONFLUENCE
 // ================================================================
 function aggregateCandles(candles, factor) {
     if (!candles || candles.length < factor) return [];
@@ -668,7 +665,7 @@ function getMTFConfirmation(id, price, macroCandles) {
 }
 
 // ================================================================
-//  [NEW] 2. ORDER BLOCK DETECTION
+//  ORDER BLOCK DETECTION
 // ================================================================
 function detectOrderBlock(candles, atr) {
     if (!candles || candles.length < 20) return { type: 'NONE', top: 0, bot: 0, strength: 0 };
@@ -688,7 +685,7 @@ function detectOrderBlock(candles, atr) {
 }
 
 // ================================================================
-//  [NEW] 3. FVG DETECTION
+//  FVG DETECTION
 // ================================================================
 function detectFVG(candles) {
     if (!candles || candles.length < 3) return { type: 'NONE', level: 0, gap: 0 };
@@ -705,7 +702,7 @@ function detectFVG(candles) {
 }
 
 // ================================================================
-//  [NEW] 4. VOLUME PROFILE (POC)
+//  VOLUME PROFILE (POC)
 // ================================================================
 function calcVolumeProfile(candles, price, atr) {
     if (!candles || candles.length < 10) return { nearPOC: false, pocLevel: 0, score: 0 };
@@ -723,7 +720,7 @@ function calcVolumeProfile(candles, price, atr) {
 }
 
 // ================================================================
-//  [NEW] 5. PRICE ACTION FILTER
+//  PRICE ACTION FILTER
 // ================================================================
 function checkPriceAction(candles, direction, atr) {
     if (!candles || candles.length < 2) return 0;
@@ -745,7 +742,7 @@ function checkPriceAction(candles, direction, atr) {
 }
 
 // ================================================================
-//  [NEW] 6. DYNAMIC RR
+//  DYNAMIC RR
 // ================================================================
 function calculateDynamicRR(atr, price) {
     const volatilityPct = (atr / price) * 100;
@@ -758,7 +755,7 @@ function calculateDynamicRR(atr, price) {
 }
 
 // ================================================================
-//  BC MACRO BIAS SCORER (FIX #5: store just_crossed)
+//  BC MACRO BIAS SCORER
 // ================================================================
 function scoreMacroBias(id, price, macroCandles) {
     const f = {};
@@ -772,14 +769,12 @@ function scoreMacroBias(id, price, macroCandles) {
     if (adx !== null && adx < ADX_MIN) { return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, atr }; }
     const adxMult = adx !== null ? (adx >= 35 ? 1.18 : adx >= 25 ? 1.08 : adx >= 16 ? 0.93 : 0.75) : 0.85;
     const bcTrend = calcBCTrend(closes, atr);
-    // ---- FIX #5: store trend and just_crossed ----
     f.bc_trend  = bcTrend ? bcTrend.trend : null;
     f.bc_trend_score = bcTrend ? bcTrend.score : 0;
     f.just_crossed = bcTrend
         ? (bcTrend.trend === 'BULL_X' || bcTrend.trend === 'BULL_X_BULL'
            || bcTrend.trend === 'BEAR_X' || bcTrend.trend === 'BEAR_X_BEAR')
         : false;
-    // ---- end FIX #5 ----
     f.ema21 = bcTrend.ema21; f.ema50 = bcTrend.ema50;
     const bcStruct = calcBCStruct(macroCandles); f.bc_struct = bcStruct.struct; f.bc_bos = bcStruct.bos;
     const bcZone = calcBCZone(id, macroCandles, price, atr); f.bc_zone = bcZone.zone;
@@ -809,8 +804,7 @@ function scoreMacroBias(id, price, macroCandles) {
 }
 
 // ================================================================
-//  BC MICRO ENTRY SCORER — UPGRADED WITH ALL NEW LOGIC
-//  FIX #2 & #3: guard condition & lookback for micro EMA cross
+//  BC MICRO ENTRY SCORER
 // ================================================================
 function scoreMicroEntry(id, price, microCandles, macroBias) {
     const f = {};
@@ -821,7 +815,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const microATR  = calcATR(microCandles, Math.min(10, microCandles.length - 1)) || macroBias.atr * 0.3;
     const rsi9      = calcRSI(closes, Math.min(9, closes.length - 1));
     const microMACD = calcMACD(closes, 5, 13, 4);
-    // ---- FIX #2: guard condition & fixed periods ----
+    
     const MICRO_CROSS_MIN = 23;
     const ema9m    = closes.length > MICRO_CROSS_MIN ? calcEMA(closes, 9)  : null;
     const ema21m   = closes.length > MICRO_CROSS_MIN ? calcEMA(closes, 21) : null;
@@ -829,7 +823,6 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
         ? calcEMA(closes.slice(0, -1), 9)  : null;
     const ema21m_1 = closes.length > MICRO_CROSS_MIN + 1
         ? calcEMA(closes.slice(0, -1), 21) : null;
-    // ---- FIX #3: lookback window for micro cross ----
     const MICRO_CROSS_LB = Math.min(3, closes.length - MICRO_CROSS_MIN - 1);
     const ema9m_lb  = (MICRO_CROSS_LB > 0 && closes.length > MICRO_CROSS_MIN + MICRO_CROSS_LB)
         ? calcEMA(closes.slice(0, -MICRO_CROSS_LB), 9)  : null;
@@ -839,7 +832,6 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
                          ? (ema9m_lb < ema21m_lb && ema9m >= ema21m) : false;
     const microDeathX  = (ema9m !== null && ema21m !== null && ema9m_lb !== null && ema21m_lb !== null)
                          ? (ema9m_lb > ema21m_lb && ema9m <= ema21m) : false;
-    // ---- end FIX #2 & #3 ----
 
     f.rsi = rsi9 ? rsi9.toFixed(1) : null;
     const { bias, ema21: macroEMA21, atr: macroATR, bcZone } = macroBias;
@@ -899,9 +891,14 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 
     // ── 5b. MICRO EMA CROSS bonus (15 pts) ───────────────────────
     let microCrossScore = 0;
-    if (direction === 'buy'  && microGoldenX) { microCrossScore = 15; f.micro_cross = 'GOLDEN_X'; }
-    else if (direction === 'sell' && microDeathX)  { microCrossScore = 15; f.micro_cross = 'DEATH_X'; }
-    else { f.micro_cross = 'NONE'; }
+    f.micro_cross = 'NONE';
+    if (direction === 'buy'  && microGoldenX) { 
+        microCrossScore = 15; 
+        f.micro_cross = 'GOLDEN_X'; 
+    } else if (direction === 'sell' && microDeathX) { 
+        microCrossScore = 15; 
+        f.micro_cross = 'DEATH_X'; 
+    }
 
     // ── 6. MTF CONFLUENCE (max 25 pts) ────────────────────────────
     const macroCandles = getMacroCandles(id);
@@ -943,7 +940,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     f.quality = quality;
     f.in_zone = zoneScore > 0 || liquidScore > 0;
 
-    // ── READY & LOCK THRESHOLDS (UPGRADED) ──────────────────────
+    // ── READY & LOCK THRESHOLDS ──────────────────────────────────
     const hasLiquidOrZone = liquidScore > 0 || zoneScore >= 8 || obScore > 0 || fvgScore > 0;
     const ready = quality >= MICRO_READY_THRESHOLD && hasLiquidOrZone;
     const lockable = quality >= MICRO_LOCK_THRESHOLD && hasLiquidOrZone;
@@ -952,7 +949,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 }
 
 // ================================================================
-//  EXECUTE LOCK SIGNAL — with DYNAMIC RR
+//  EXECUTE LOCK SIGNAL
 // ================================================================
 function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     const s     = state[id];
@@ -970,7 +967,6 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
-    // ── DYNAMIC RR ────────────────────────────────────────────────
     const rr = calculateDynamicRR(atr, entry);
     const tpD = slD * rr;
 
@@ -985,7 +981,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     s.confluenceScore = macroScore;
     s.entryZone      = zoneType || 'BC_ZONE';
     s.breakevenArmed = false;
-    s.rr_used        = rr;  // store for display
+    s.rr_used        = rr;
 
     if (direction === 'buy') { s.sl = entry - slD; s.tp = entry + tpD; }
     else                     { s.sl = entry + slD; s.tp = entry - tpD; }
@@ -999,72 +995,155 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
 }
 
 // ================================================================
-//  SIGNAL ENGINE — CORE (with new threshold usage)
+//  ════════════════════════════════════════════════════════════════
+//  ║  BREAKEVEN LOGIC V2 — MODIFIED processSignal()              ║
+//  ════════════════════════════════════════════════════════════════
 // ================================================================
+
 function processSignal(id, price) {
     const s = state[id];
     if (!s) return;
     if (Date.now() < (s.cooldownUntil || 0)) return;
     buildCandles(id, price);
 
+    // ============================================================
+    //  CONFIRMED SIGNAL — MONITOR TP / SL / BREAKEVEN
+    // ============================================================
     if (s.confirmed && s.type !== 'none') {
+        // Update tracker
         if (!s.tempHigh) { s.tempHigh = s.entry; s.tempLow = s.entry; }
         if (price > s.tempHigh) s.tempHigh = price;
         if (price < s.tempLow)  s.tempLow  = price;
         updateTracker(id, price);
-        const hitTP = (s.type === 'buy'  && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
-        const hitSL = (s.type === 'buy'  && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
-        if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
-        if (hitSL) { const result = s.breakevenArmed ? 'be' : 'sl'; if (result === 'sl') state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS; recordSignalResult(id, result); resetSignal(id); return; }
+
+        // ── 1. CEK TP ──────────────────────────────────────────
+        const hitTP = (s.type === 'buy' && price >= s.tp) || 
+                      (s.type === 'sell' && price <= s.tp);
+        if (hitTP) {
+            recordSignalResult(id, 'tp');
+            resetSignal(id);
+            return;
+        }
+
+        // ── 2. CEK SL ──────────────────────────────────────────
+        const hitSL = (s.type === 'buy' && price <= s.sl) || 
+                      (s.type === 'sell' && price >= s.sl);
+        if (hitSL) {
+            // Jika breakeven sudah armed → BREAKEVEN
+            // Jika belum armed → LOSS (SL)
+            const result = s.breakevenArmed ? 'be' : 'sl';
+            recordSignalResult(id, result);
+            if (result === 'sl') {
+                state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
+            }
+            resetSignal(id);
+            return;
+        }
+
+        // ── 3. ARM BREAKEVEN (35% dari jarak TP) ──────────────
         if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
             const tpDist = Math.abs(s.tp - s.entry);
-            const moved  = s.type === 'buy' ? price - s.entry : s.entry - price;
-            if (moved >= tpDist * 0.35) { s.sl = s.entry; s.breakevenArmed = true; throttledSaveState(id); showToast(`${id.toUpperCase()} SL → BREAKEVEN 🔒`); }
+            const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
+            
+            // Jika harga sudah mencapai 35% dari jarak TP
+            if (moved >= tpDist * 0.35) {
+                // PINDAHKAN SL KE ENTRY (BREAKEVEN)
+                s.sl = s.entry;
+                s.breakevenArmed = true;
+                throttledSaveState(id);
+                showToast(`${id.toUpperCase()} 🔒 BREAKEVEN ARMED @ ${s.entry.toFixed(2)}`);
+            }
         }
-        if (!s.breakevenArmed) {
-            const buf = (marketData[id].atr || (ATR_FALLBACK[id] || 300)) * 3;
-            if (s.type === 'buy'  && price <= (s.entry - buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
-            if (s.type === 'sell' && price >= (s.entry + buf) && Date.now() > (s.warmupUntil || 0)) { recordSignalResult(id, 'retrace'); resetSignal(id); return; }
-        }
+
+        // ── 4. RETRACE LOGIC DIHAPUS TOTAL ────────────────────
+        // Tidak ada lagi kode retrace di sini
+
         return;
     }
 
-    if (pendingConfirmation[id]) { s.lastPrice = price; return; }
+    // ============================================================
+    //  PENDING CONFIRMATION — skip processing
+    // ============================================================
+    if (pendingConfirmation[id]) { 
+        s.lastPrice = price; 
+        return; 
+    }
 
+    // ============================================================
+    //  BUILD CANDLES & CHECK MINIMUM
+    // ============================================================
     const macroCandles = getMacroCandles(id);
     const microCandles = getMicroCandles(id);
     if (macroCandles.length < MACRO_MIN) { s.lastPrice = price; return; }
     if (microCandles.length < MICRO_MIN) { s.lastPrice = price; return; }
 
+    // ============================================================
+    //  MACRO BIAS
+    // ============================================================
     let macroBias = macroBiasCache[id];
     if (!macroBias) { macroBias = scoreMacroBias(id, price, macroCandles); macroBiasCache[id] = macroBias; }
     updateEngineBadges(id, macroBias);
     updateConfluenceBar(id, macroBias.score);
 
-    if (!macroBias.valid) { if (s.l1 || s.l2) resetSignal(id); s.lastPrice = price; return; }
+    if (!macroBias.valid) { 
+        if (s.l1 || s.l2) resetSignal(id); 
+        s.lastPrice = price; 
+        return; 
+    }
 
+    // ============================================================
+    //  MICRO ENTRY SCORE
+    // ============================================================
     const micro = scoreMicroEntry(id, price, microCandles, macroBias);
 
+    // ── L1: Bias ─────────────────────────────────────────────────
     if (!s.l1) {
-        s.l1 = true; s.type = macroBias.bias === 'BULL' ? 'buy' : 'sell'; s.macroScore = macroBias.score; s.macroBias = macroBias.bias;
-        pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id); return;
+        s.l1 = true; 
+        s.type = macroBias.bias === 'BULL' ? 'buy' : 'sell'; 
+        s.macroScore = macroBias.score; 
+        s.macroBias = macroBias.bias;
+        pendingSignalData[id] = true; 
+        throttledUpdateUI(id); 
+        throttledSaveState(id); 
+        return;
     }
 
+    // ── Check if macro bias still aligns ─────────────────────────
     const expectedDir = s.type;
     const currentDir  = macroBias.bias === 'BULL' ? 'buy' : 'sell';
-    if (s.l1 && !s.confirmed && macroBias.valid && currentDir !== expectedDir) { resetSignal(id); return; }
-
-    if (s.l1 && !s.l2 && micro.ready) { s.l2 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id); return; }
-
-    // ── L3 LOCK: use lockable instead of ready ────────────────────
-    if (s.l2 && !s.l3 && micro.lockable && micro.quality >= MICRO_LOCK_THRESHOLD) {
-        s.l3 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id);
-        startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType); return;
+    if (s.l1 && !s.confirmed && macroBias.valid && currentDir !== expectedDir) { 
+        resetSignal(id); 
+        return; 
     }
 
-    if (s.l2 && !s.l3 && !micro.ready && !micro.factors.in_zone) { s.l2 = false; pendingSignalData[id] = true; throttledUpdateUI(id); }
+    // ── L2: Ready ────────────────────────────────────────────────
+    if (s.l1 && !s.l2 && micro.ready) { 
+        s.l2 = true; 
+        pendingSignalData[id] = true; 
+        throttledUpdateUI(id); 
+        throttledSaveState(id); 
+        return; 
+    }
 
-    s.lastPrice = price; throttledSaveState(id);
+    // ── L3: Lock ─────────────────────────────────────────────────
+    if (s.l2 && !s.l3 && micro.lockable && micro.quality >= MICRO_LOCK_THRESHOLD) {
+        s.l3 = true; 
+        pendingSignalData[id] = true; 
+        throttledUpdateUI(id); 
+        throttledSaveState(id);
+        startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType); 
+        return;
+    }
+
+    // ── Reset L2 if micro no longer ready ───────────────────────
+    if (s.l2 && !s.l3 && !micro.ready && !micro.factors.in_zone) { 
+        s.l2 = false; 
+        pendingSignalData[id] = true; 
+        throttledUpdateUI(id); 
+    }
+
+    s.lastPrice = price; 
+    throttledSaveState(id);
 }
 
 // ================================================================
@@ -1099,7 +1178,7 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
 }
 
 // ================================================================
-//  REST OF CODE (state, UI, feeds, init) — identical to original
+//  REST OF CODE (state, UI, feeds, init)
 // ================================================================
 
 // ── State Management ──────────────────────────────────────────────
@@ -1112,20 +1191,31 @@ function createFreshState() {
 function loadState(id) {
     try { const r = localStorage.getItem(`ura_state_${id}`); return r ? Object.assign(createFreshState(), JSON.parse(r)) : createFreshState(); } catch(e) { return createFreshState(); }
 }
-function createDefaultStats() { return { tpHits: 0, retraceResets: 0, slHits: 0, breakevenHits: 0, total: 0, winrate: 0.0 }; }
+function createDefaultStats() { return { tpHits: 0, slHits: 0, breakevenHits: 0, total: 0, winrate: 0.0 }; }
 function loadPerformanceStats(id) {
     try { const r = localStorage.getItem(`ura_stats_${id}`); return r ? Object.assign(createDefaultStats(), JSON.parse(r)) : createDefaultStats(); } catch(e) { return createDefaultStats(); }
 }
 function savePerformanceStats(id) { try { localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id])); } catch(e) {} }
 function updateWinrateAndDrawrate(id) {
-    const s = performanceStats[id]; s.total = s.tpHits + s.retraceResets + s.slHits + (s.breakevenHits || 0);
-    const wd = s.tpHits + s.slHits; s.winrate = wd > 0 ? parseFloat(((s.tpHits / wd) * 100).toFixed(1)) : 0.0;
-    s.drawrate = s.total > 0 ? parseFloat((((s.retraceResets + (s.breakevenHits||0)) / s.total) * 100).toFixed(1)) : 0.0;
+    const s = performanceStats[id];
+    s.total = s.tpHits + s.slHits + (s.breakevenHits || 0);
+    // Winrate: HANYA TP vs SL (breakeven TIDAK dihitung)
+    const wd = s.tpHits + s.slHits;
+    s.winrate = wd > 0 ? parseFloat(((s.tpHits / wd) * 100).toFixed(1)) : 0.0;
 }
 function recordSignalResult(id, type) {
     const s = performanceStats[id];
-    if (type === 'tp') s.tpHits++; else if (type === 'retrace') s.retraceResets++; else if (type === 'sl') s.slHits++; else if (type === 'be') { s.breakevenHits = (s.breakevenHits||0) + 1; }
-    updateWinrateAndDrawrate(id); savePerformanceStats(id); updatePerformanceUI(id);
+    if (type === 'tp') {
+        s.tpHits++;
+    } else if (type === 'sl') {
+        s.slHits++;
+    } else if (type === 'be') {
+        s.breakevenHits = (s.breakevenHits || 0) + 1;
+    }
+    // NO MORE RETRACE
+    updateWinrateAndDrawrate(id);
+    savePerformanceStats(id);
+    updatePerformanceUI(id);
 }
 
 // ── Global Variables ──────────────────────────────────────────────
@@ -1141,15 +1231,10 @@ let marketData = { xau: { macro: { candles: [], current: null, start: 0 }, micro
                    btc: { macro: { candles: [], current: null, start: 0 }, micro: { candles: [], current: null, start: 0 }, atr: 0, price: 0 } };
 let macroBiasCache = { xau: null, btc: null };
 
-// ── PATCH 1: Infinite Loop Protection ────────────────────────────
 let rawXauPrice = null;
 let rawBtcPrice = null;
-
-// ── PATCH 2: consolidated polling state ──────────────────────────
 let xauFetching = false;
 let btcFetching = false;
-
-// ── PATCH 3: heartbeat for BTC ───────────────────────────────────
 let btcLastHeartbeat = Date.now();
 
 // ── Candle Build ──────────────────────────────────────────────────
@@ -1249,7 +1334,6 @@ function updateSignalUIOnly(id) {
     setDot(`l1-${id}`, s.l1, s.type); setDot(`l2-${id}`, s.l2, s.type); setDot(`l3-${id}`, s.l3, s.type);
     const st = document.getElementById(`signal-text-${id}`);
     if (st) {
-        // FIX (audit #2c): was `id === 'btc'` only — XAU disconnects were never surfaced.
         if (!wsStatus[id]) { st.innerText = 'NO FEED'; st.style.color = 'var(--danger)'; }
         else if (pendingConfirmation[id] && s.l3 && !s.confirmed) { st.innerText = 'CONFIRM...'; st.style.color = 'var(--gold)'; }
         else if (s.confirmed) { const beLabel = s.breakevenArmed ? ' [BE]' : ''; st.innerText = s.type.toUpperCase() + beLabel; st.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
@@ -1263,9 +1347,7 @@ function updateSignalUIOnly(id) {
     const sEl = document.getElementById(`sl-${id}`); if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
     const rrEl = document.getElementById(`rr-${id}`); if (rrEl) rrEl.innerText = s.confirmed ? s.rr_used.toFixed(1) : '--';
 }
-// ================================================================
-//  updateEngineBadges — FIX #6: pulse on cross active
-// ================================================================
+
 function updateEngineBadges(id, mb) {
     if (!mb) return; const f = mb.factors || {};
     const badges = [
@@ -1279,7 +1361,6 @@ function updateEngineBadges(id, mb) {
     ];
     for (const b of badges) { const el = document.getElementById(b.id); if (el) { el.className = `ebadge ${b.cls}`; el.textContent = b.val; } }
     const sc = document.getElementById(`eb-score-${id}`); if (sc) { const sv = Math.round(mb.score || 0); sc.textContent = `BC:${sv}`; sc.className = 'ebadge score'; sc.style.color = mb.valid ? 'var(--emerald)' : sv >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)'; }
-    // ---- FIX #6: update eb-mcross with pulse on cross ----
     const mcxEl = document.getElementById(`eb-mcross-${id}`);
     if (mcxEl) {
         const mcx         = (mb.factors && mb.factors.micro_cross) ? mb.factors.micro_cross : 'NONE';
@@ -1295,7 +1376,6 @@ function updateEngineBadges(id, mb) {
             mcxEl.textContent = 'MCX';
         }
     }
-    // ---- end FIX #6 ----
 }
 function updateConfluenceBar(id, score) {
     const fill = document.getElementById(`cf-fill-${id}`); const txt = document.getElementById(`cf-txt-${id}`);
@@ -1303,13 +1383,39 @@ function updateConfluenceBar(id, score) {
     fill.style.width = pct + '%'; fill.style.background = pct >= BC_SCORE_MIN ? 'var(--emerald)' : pct >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--crimson)';
     txt.textContent = Math.round(pct); txt.style.color = pct >= BC_SCORE_MIN ? 'var(--emerald)' : pct >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
 }
+
+// ================================================================
+//  updatePerformanceUI — BREAKEVEN LABEL (BE)
+// ================================================================
 function updatePerformanceUI(id) {
-    const s = performanceStats[id]; if (!s) return;
-    const tp = document.getElementById(`stats-tp-${id}`); const rt = document.getElementById(`stats-retrace-${id}`);
-    const sl = document.getElementById(`stats-sl-${id}`); const wr = document.getElementById(`stats-winrate-${id}`);
-    if (tp) tp.innerText = s.tpHits; if (rt) { rt.innerText = s.retraceResets + (s.breakevenHits||0); rt.style.color = 'var(--teal)'; }
-    if (sl) sl.innerText = s.slHits; if (wr) { wr.innerText = `${s.winrate}%`; wr.style.color = s.winrate >= 65 ? 'var(--emerald)' : s.winrate >= 50 ? 'var(--gold)' : 'var(--crimson)'; }
+    const s = performanceStats[id];
+    if (!s) return;
+    
+    const tp = document.getElementById(`stats-tp-${id}`);
+    const be = document.getElementById(`stats-retrace-${id}`); // ID tetap sama
+    const sl = document.getElementById(`stats-sl-${id}`);
+    const wr = document.getElementById(`stats-winrate-${id}`);
+    
+    if (tp) tp.innerText = s.tpHits;
+    
+    // BREAKEVEN — label di HTML sudah diubah menjadi "BE"
+    if (be) {
+        be.innerText = s.breakevenHits || 0;
+        be.style.color = 'var(--gold)';
+    }
+    
+    if (sl) sl.innerText = s.slHits;
+    
+    // Winrate: HANYA TP vs SL (breakeven TIDAK dihitung)
+    if (wr) {
+        const total = s.tpHits + s.slHits;
+        const winrate = total > 0 ? ((s.tpHits / total) * 100).toFixed(1) : '0.0';
+        wr.innerText = `${winrate}%`;
+        wr.style.color = parseFloat(winrate) >= 65 ? 'var(--emerald)' : 
+                         parseFloat(winrate) >= 50 ? 'var(--gold)' : 'var(--crimson)';
+    }
 }
+
 function updateFeedBadge(id, status) {
     const el = document.getElementById(`feed-badge-${id}`); if (!el) return;
     el.className = 'feed-badge';
@@ -1396,7 +1502,7 @@ function buildCardHTML(id, label) {
         </div>        
         <div class="stats-grid" id="history-panel-${id}">
           <div class="stats-item"><span class="stats-label">TP HIT</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div>
-          <div class="stats-item"><span class="stats-label" style="color:var(--teal)">BREAKEVEN</span><span class="stats-value retrace-value" id="stats-retrace-${id}">0</span></div>
+          <div class="stats-item"><span class="stats-label" style="color:var(--gold)">BE</span><span class="stats-value be-value" id="stats-retrace-${id}">0</span></div>
           <div class="stats-item"><span class="stats-label">SL HIT</span><span class="stats-value" id="stats-sl-${id}" style="color:var(--danger)">0</span></div>
           <div class="stats-item"><span class="stats-label" style="color:var(--gold)">WINRATE</span><span class="stats-value winrate-value" id="stats-winrate-${id}">0%</span></div>
         </div>
@@ -1438,8 +1544,6 @@ async function xauFetchRestPrice() {
                 if (p && p > 100 && !isNaN(p)) { updateXAUDisplay(p, i === 0 ? 'ok' : 'fallback', 0); xauRestIdx = (xauRestIdx + i) % XAU_REST_SOURCES.length; return true; }
             } catch(e) {}
         }
-        // FIX (audit #2): mark feed dead when every REST source fails, so
-        // wsStatus.xau/pulse/NO FEED can actually reflect a real outage.
         wsStatus.xau = false; updateGlobalPulse(); updateSignalUIOnly('xau');
         updateFeedBadge('xau', 'err'); return false;
     } finally {
@@ -1452,29 +1556,20 @@ function initXAUWebSocket() {
     try {
         xauWs = new WebSocket(XAU_WS_URL);
         const wst = setTimeout(() => { if (xauWs && xauWs.readyState !== WebSocket.OPEN) { try { xauWs.close(); } catch(e) {} xauWs = null; wsStatus.xau = false; updateFeedBadge('xau', 'fallback'); updateGlobalPulse(); } }, 6000);
-        // FIX (audit #7): set wsStatus.xau=true immediately on open, symmetric with BTC,
-        // instead of waiting for the first message tick.
         xauWs.onopen = () => { clearTimeout(wst); xauReconnectAttempts = 0; wsStatus.xau = true; updateFeedBadge('xau', 'ok'); updateGlobalPulse(); updateSignalUIOnly('xau'); };
         xauWs.onmessage = (e) => {
             try {
                 const d = JSON.parse(e.data);
                 if (d.p) {
                     const p = parseFloat(d.p);
-                    // PATCH 1: infinite loop protection — skip if raw price unchanged
                     if (p === rawXauPrice) return;
                     rawXauPrice = p;
                     const q = parseFloat(d.q) || 0;
-                    // FIX (audit #3): removed bogus `p !== xauCurrentPrice` comparison —
-                    // it compared a raw (pre-offset) price against a post-offset stored
-                    // price, so it was a near-permanent no-op. Dedupe is already handled
-                    // correctly above via rawXauPrice.
                     if (!isNaN(p) && p > 100) updateXAUDisplay(p, 'ok', q);
                 }
             } catch(err) {}
         };
         xauWs.onclose = () => {
-            // FIX (audit #2): XAU never marked disconnected before — pulse/NO FEED
-            // could never reflect a real outage. Now symmetric with BTC's onclose.
             wsStatus.xau = false;
             updateGlobalPulse();
             updateSignalUIOnly('xau');
@@ -1483,7 +1578,12 @@ function initXAUWebSocket() {
             xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay);
             updateFeedBadge('xau', 'fallback');
         };
-        xauWs.onerror = () => { wsStatus.xau = false; updateFeedBadge('xau', 'fallback'); updateGlobalPulse(); updateSignalUIOnly('xau'); };
+        xauWs.onerror = () => { 
+            wsStatus.xau = false; 
+            updateFeedBadge('xau', 'fallback'); 
+            updateGlobalPulse(); 
+            updateSignalUIOnly('xau'); 
+        };
     } catch(err) { updateFeedBadge('xau', 'fallback'); }
 }
 
@@ -1530,7 +1630,6 @@ function initBTCWebSocket() {
             try {
                 const d = JSON.parse(e.data);
                 const p = parseFloat(d.p) + PRICE_OFFSET_BTC;
-                // PATCH 1: infinite loop protection — skip if raw price unchanged
                 if (p === rawBtcPrice) return;
                 rawBtcPrice = p;
                 const q = parseFloat(d.q) || 0;
@@ -1563,21 +1662,15 @@ function switchPair() {
     if (navigator.vibrate) navigator.vibrate(20);
 }
 
-// ── PATCH 2: Consolidated polling (single 3000ms interval) ──────
 function consolidatedPoll() {
-    // XAU: check WS status + heartbeat
     const xauConnected = xauWs && xauWs.readyState === WebSocket.OPEN;
     if (!xauConnected || (Date.now() - xauLastHeartbeat) > 6000) {
         if (!xauFetching) xauFetchRestPrice();
     }
-
-    // BTC: check WS status + heartbeat
     const btcConnected = btcWs && btcWs.readyState === WebSocket.OPEN;
     if (!btcConnected || (Date.now() - btcLastHeartbeat) > 6000) {
         if (!btcFetching) btcFetchRestPrice();
     }
-
-    // Update global pulse
     updateGlobalPulse();
 }
 
@@ -1607,13 +1700,9 @@ async function init() {
     if (el_xau) { el_xau.textContent = '● LOADING...'; el_xau.className = 'ws-status connected'; }
     if (el_btc) { el_btc.textContent = '○ LOADING...'; el_btc.className = 'ws-status disconnected'; }
 
-    // ── PATCH 3: Proper Initialization ────────────────────────────
-    // STEP 1: load historical candles (await ensures complete)
     await Promise.all([ initHistoricalCandles('xau'), initHistoricalCandles('btc') ]);
 
-    // STEP 2: only then connect WebSockets
     initXAUWebSocket();
-    // initial REST fetch to get a price immediately
     await xauFetchRestPrice();
 
     initBTCWebSocket();
@@ -1621,7 +1710,6 @@ async function init() {
 
     updateGlobalPulse();
 
-    // ── SINGLE SCHEDULER: only one setInterval remains ──────────
     setInterval(consolidatedPoll, 3000);
 
     document.addEventListener('visibilitychange', () => {
