@@ -194,15 +194,13 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 
 // ================================================================
 //  URADVISOR — BLUE CHART ENGINE v11.2  [SMC ULTRA EDITION]
-//  BREAKEVEN LOGIC V2:
-//  - Arm breakeven at 35% TP distance
-//  - If price returns to entry → BREAKEVEN (be)
-//  - If price hits TP → TP (tp)
-//  - If price hits SL without 35% → LOSS (sl)
-//  - NO MORE RETRACE
+//  TP1 MASUK WINRATE:
+//  - BE → TP1
+//  - TP1 masuk perhitungan winrate
+//  - Winrate = (TP2 + TP1) / (TP2 + TP1 + SL)
 // ================================================================
 
-const LS_SCHEMA_VERSION    = 11;  // bumped for breakeven v2
+const LS_SCHEMA_VERSION    = 12;  // bumped untuk TP1 masuk winrate
 const ATR_FALLBACK         = { xau: 3.0, btc: 300 };
 const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
@@ -262,7 +260,7 @@ function showToast(msg) {
 }
 
 // ================================================================
-//  INDICATOR LIBRARY
+//  INDICATOR LIBRARY (TIDAK DIUBAH)
 // ================================================================
 
 function calcEMA(arr, period) {
@@ -366,7 +364,7 @@ function calcADX(candles, period) {
 }
 
 // ================================================================
-//  BC TREND
+//  BC TREND (TIDAK DIUBAH)
 // ================================================================
 function calcBCTrend(closes, atr) {
     const n = closes.length;
@@ -412,7 +410,7 @@ function calcBCTrend(closes, atr) {
 }
 
 // ================================================================
-//  BC STRUCT
+//  BC STRUCT (TIDAK DIUBAH)
 // ================================================================
 function calcBCStruct(candles) {
     if (!candles || candles.length < 20) return { struct: 'UNCLEAR', bos: null, choch: false, swingHighs: [], swingLows: [] };
@@ -444,7 +442,7 @@ function calcBCStruct(candles) {
 }
 
 // ================================================================
-//  BC ZONE
+//  BC ZONE (TIDAK DIUBAH)
 // ================================================================
 let sdZones = { xau: { demand: [], supply: [], updatedAt: 0 }, btc: { demand: [], supply: [], updatedAt: 0 } };
 function loadZones(id) {
@@ -529,7 +527,7 @@ function calcBCZoneFallback(candles, price, atr) {
 }
 
 // ================================================================
-//  BC FLOW
+//  BC FLOW (TIDAK DIUBAH)
 // ================================================================
 function calcBCFlow(candles, lookback) {
     lookback = lookback || 10;
@@ -557,7 +555,7 @@ function calcBCFlow(candles, lookback) {
 }
 
 // ================================================================
-//  BC LIQUID
+//  BC LIQUID (TIDAK DIUBAH)
 // ================================================================
 function calcBCLiquid(candles, atr) {
     if (!candles || candles.length < 8) return { sweep: 'NONE', quality: 0 };
@@ -584,7 +582,7 @@ function calcBCLiquid(candles, atr) {
 }
 
 // ================================================================
-//  BC DIVERG
+//  BC DIVERG (TIDAK DIUBAH)
 // ================================================================
 function calcBCDiverg(candles, closes, rsi) {
     if (!candles || candles.length < 20 || rsi === null) return { diverg: 'NONE', strength: 0 };
@@ -617,7 +615,7 @@ function calcBCDiverg(candles, closes, rsi) {
 }
 
 // ================================================================
-//  MTF CONFLUENCE
+//  MTF CONFLUENCE (TIDAK DIUBAH)
 // ================================================================
 function aggregateCandles(candles, factor) {
     if (!candles || candles.length < factor) return [];
@@ -665,7 +663,7 @@ function getMTFConfirmation(id, price, macroCandles) {
 }
 
 // ================================================================
-//  ORDER BLOCK DETECTION
+//  ORDER BLOCK DETECTION (TIDAK DIUBAH)
 // ================================================================
 function detectOrderBlock(candles, atr) {
     if (!candles || candles.length < 20) return { type: 'NONE', top: 0, bot: 0, strength: 0 };
@@ -685,7 +683,7 @@ function detectOrderBlock(candles, atr) {
 }
 
 // ================================================================
-//  FVG DETECTION
+//  FVG DETECTION (TIDAK DIUBAH)
 // ================================================================
 function detectFVG(candles) {
     if (!candles || candles.length < 3) return { type: 'NONE', level: 0, gap: 0 };
@@ -702,7 +700,7 @@ function detectFVG(candles) {
 }
 
 // ================================================================
-//  VOLUME PROFILE (POC)
+//  VOLUME PROFILE (POC) (TIDAK DIUBAH)
 // ================================================================
 function calcVolumeProfile(candles, price, atr) {
     if (!candles || candles.length < 10) return { nearPOC: false, pocLevel: 0, score: 0 };
@@ -720,7 +718,7 @@ function calcVolumeProfile(candles, price, atr) {
 }
 
 // ================================================================
-//  PRICE ACTION FILTER
+//  PRICE ACTION FILTER (TIDAK DIUBAH)
 // ================================================================
 function checkPriceAction(candles, direction, atr) {
     if (!candles || candles.length < 2) return 0;
@@ -742,7 +740,7 @@ function checkPriceAction(candles, direction, atr) {
 }
 
 // ================================================================
-//  DYNAMIC RR
+//  DYNAMIC RR (TIDAK DIUBAH)
 // ================================================================
 function calculateDynamicRR(atr, price) {
     const volatilityPct = (atr / price) * 100;
@@ -755,7 +753,7 @@ function calculateDynamicRR(atr, price) {
 }
 
 // ================================================================
-//  BC MACRO BIAS SCORER
+//  BC MACRO BIAS SCORER (TIDAK DIUBAH)
 // ================================================================
 function scoreMacroBias(id, price, macroCandles) {
     const f = {};
@@ -804,7 +802,7 @@ function scoreMacroBias(id, price, macroCandles) {
 }
 
 // ================================================================
-//  BC MICRO ENTRY SCORER
+//  BC MICRO ENTRY SCORER (TIDAK DIUBAH)
 // ================================================================
 function scoreMicroEntry(id, price, microCandles, macroBias) {
     const f = {};
@@ -949,7 +947,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 }
 
 // ================================================================
-//  EXECUTE LOCK SIGNAL
+//  EXECUTE LOCK SIGNAL (TIDAK DIUBAH)
 // ================================================================
 function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     const s     = state[id];
@@ -996,7 +994,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
 
 // ================================================================
 //  ════════════════════════════════════════════════════════════════
-//  ║  BREAKEVEN LOGIC V2 — MODIFIED processSignal()              ║
+//  ║  PROCESS SIGNAL — DIPERBAIKI TOAST TP1                    ║
 //  ════════════════════════════════════════════════════════════════
 // ================================================================
 
@@ -1029,7 +1027,7 @@ function processSignal(id, price) {
         const hitSL = (s.type === 'buy' && price <= s.sl) || 
                       (s.type === 'sell' && price >= s.sl);
         if (hitSL) {
-            // Jika breakeven sudah armed → BREAKEVEN
+            // Jika breakeven sudah armed → BREAKEVEN (TP1)
             // Jika belum armed → LOSS (SL)
             const result = s.breakevenArmed ? 'be' : 'sl';
             recordSignalResult(id, result);
@@ -1045,13 +1043,14 @@ function processSignal(id, price) {
             const tpDist = Math.abs(s.tp - s.entry);
             const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
             
-            // Jika harga sudah mencapai 35% dari jarak TP
+            // Jika harga sudah mencapai 24% dari jarak TP
             if (moved >= tpDist * 0.24) {
                 // PINDAHKAN SL KE ENTRY (BREAKEVEN)
                 s.sl = s.entry;
                 s.breakevenArmed = true;
                 throttledSaveState(id);
-                showToast(`${id.toUpperCase()} 🔒 BREAKEVEN ARMED @ ${s.entry.toFixed(2)}`);
+                // ── TOAST DIUBAH: BREAKEVEN → TP1 ─────────────
+                showToast(`${id.toUpperCase()} 🔒 TP1 ARMED @ ${s.entry.toFixed(2)}`);
             }
         }
 
@@ -1147,7 +1146,7 @@ function processSignal(id, price) {
 }
 
 // ================================================================
-//  START CONFIRMATION DELAY
+//  START CONFIRMATION DELAY (TIDAK DIUBAH)
 // ================================================================
 function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType) {
     if (pendingConfirmation[id]) cancelPendingConfirmation(id);
@@ -1178,42 +1177,81 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
 }
 
 // ================================================================
-//  REST OF CODE (state, UI, feeds, init)
+//  STATE MANAGEMENT — DIPERBAIKI (TP1 MASUK WINRATE)
 // ================================================================
 
-// ── State Management ──────────────────────────────────────────────
 function createFreshState() {
     return { v: LS_SCHEMA_VERSION, lastPrice: 0, macroBias: 'NEUTRAL', macroScore: 0, macroValid: false,
              l1: false, l2: false, l3: false, confirmed: false, confirmedAt: 0, resetInProgress: false,
              warmupUntil: 0, cooldownUntil: 0, type: 'none', entry: 0, sl: 0, tp: 0, rr_used: 1.4,
              tempHigh: 0, tempLow: 0, originPrice: 0, confluenceScore: 0, entryZone: 'NONE', breakevenArmed: false };
 }
+
 function loadState(id) {
     try { const r = localStorage.getItem(`ura_state_${id}`); return r ? Object.assign(createFreshState(), JSON.parse(r)) : createFreshState(); } catch(e) { return createFreshState(); }
 }
-function createDefaultStats() { return { tpHits: 0, slHits: 0, breakevenHits: 0, total: 0, winrate: 0.0 }; }
+
+// ── STATS — DIPERBAIKI ──────────────────────────────────────────
+function createDefaultStats() { 
+    return { 
+        tpHits: 0,       // TP2 (full TP)
+        tp1Hits: 0,      // TP1 (dulu breakeven) — MASUK WINRATE
+        slHits: 0, 
+        total: 0, 
+        winrate: 0.0 
+    }; 
+}
+
 function loadPerformanceStats(id) {
-    try { const r = localStorage.getItem(`ura_stats_${id}`); return r ? Object.assign(createDefaultStats(), JSON.parse(r)) : createDefaultStats(); } catch(e) { return createDefaultStats(); }
+    try { 
+        const r = localStorage.getItem(`ura_stats_${id}`); 
+        if (r) {
+            const parsed = JSON.parse(r);
+            // Migrasi: breakevenHits → tp1Hits
+            if (parsed.breakevenHits !== undefined && parsed.tp1Hits === undefined) {
+                parsed.tp1Hits = parsed.breakevenHits;
+                delete parsed.breakevenHits;
+            }
+            if (parsed.tp1Hits === undefined) parsed.tp1Hits = 0;
+            return Object.assign(createDefaultStats(), parsed);
+        }
+        return createDefaultStats(); 
+    } catch(e) { 
+        return createDefaultStats(); 
+    }
 }
-function savePerformanceStats(id) { try { localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id])); } catch(e) {} }
-function updateWinrateAndDrawrate(id) {
+
+function savePerformanceStats(id) { 
+    try { 
+        localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id])); 
+    } catch(e) {} 
+}
+
+function updateWinrate(id) {
     const s = performanceStats[id];
-    s.total = s.tpHits + s.slHits + (s.breakevenHits || 0);
-    // Winrate: HANYA TP vs SL (breakeven TIDAK dihitung)
-    const wd = s.tpHits + s.slHits;
-    s.winrate = wd > 0 ? parseFloat(((s.tpHits / wd) * 100).toFixed(1)) : 0.0;
+    
+    // Total semua trade: TP2 + TP1 + SL
+    s.total = s.tpHits + (s.tp1Hits || 0) + s.slHits;
+    
+    // Winrate: (TP2 + TP1) / (TP2 + TP1 + SL)
+    const wins = s.tpHits + (s.tp1Hits || 0);
+    const total = wins + s.slHits;
+    
+    s.winrate = total > 0 ? parseFloat(((wins / total) * 100).toFixed(1)) : 0.0;
 }
+
 function recordSignalResult(id, type) {
     const s = performanceStats[id];
+    
     if (type === 'tp') {
-        s.tpHits++;
+        s.tpHits++;          // TP penuh (TP2 di UI)
+    } else if (type === 'be') {
+        s.tp1Hits++;         // TP1 (dulu breakeven) — SEKARANG MASUK WINRATE
     } else if (type === 'sl') {
         s.slHits++;
-    } else if (type === 'be') {
-        s.breakevenHits = (s.breakevenHits || 0) + 1;
     }
-    // NO MORE RETRACE
-    updateWinrateAndDrawrate(id);
+    
+    updateWinrate(id);
     savePerformanceStats(id);
     updatePerformanceUI(id);
 }
@@ -1328,24 +1366,68 @@ function updateTracker(id, price) {
     const dist = s.type === 'buy' ? price - s.entry : s.entry - price;
     if (t) { t.innerText = (Math.round(dist * 100) / 100).toFixed(2); t.style.color = dist >= 0 ? 'var(--emerald)' : 'var(--crimson)'; }
 }
+
+// ================================================================
+//  updateSignalUIOnly — [BE] → [TP1]
+// ================================================================
 function updateSignalUIOnly(id) {
-    const s = state[id]; if (!s) return;
-    const setDot = (eid, on, type) => { const el = document.getElementById(eid); if (!el) return; if (!on) el.className = 'dot'; else if (pendingConfirmation[id] && eid === `l3-${id}` && !s.confirmed) el.className = 'dot confirm-pending'; else el.className = type === 'sell' ? 'dot active-down' : 'dot active'; };
-    setDot(`l1-${id}`, s.l1, s.type); setDot(`l2-${id}`, s.l2, s.type); setDot(`l3-${id}`, s.l3, s.type);
+    const s = state[id]; 
+    if (!s) return;
+    
+    const setDot = (eid, on, type) => { 
+        const el = document.getElementById(eid); 
+        if (!el) return; 
+        if (!on) el.className = 'dot'; 
+        else if (pendingConfirmation[id] && eid === `l3-${id}` && !s.confirmed) el.className = 'dot confirm-pending'; 
+        else el.className = type === 'sell' ? 'dot active-down' : 'dot active'; 
+    };
+    
+    setDot(`l1-${id}`, s.l1, s.type); 
+    setDot(`l2-${id}`, s.l2, s.type); 
+    setDot(`l3-${id}`, s.l3, s.type);
+    
     const st = document.getElementById(`signal-text-${id}`);
     if (st) {
-        if (!wsStatus[id]) { st.innerText = 'NO FEED'; st.style.color = 'var(--danger)'; }
-        else if (pendingConfirmation[id] && s.l3 && !s.confirmed) { st.innerText = 'CONFIRM...'; st.style.color = 'var(--gold)'; }
-        else if (s.confirmed) { const beLabel = s.breakevenArmed ? ' [BE]' : ''; st.innerText = s.type.toUpperCase() + beLabel; st.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; }
-        else if (s.l3) { st.innerText = 'LOCKED'; st.style.color = 'var(--accent)'; }
-        else if (s.l2) { st.innerText = 'READY'; st.style.color = 'var(--accent)'; }
-        else if (s.l1) { st.innerText = 'BIAS'; st.style.color = 'var(--amber)'; }
-        else { st.innerText = 'WAIT'; st.style.color = 'var(--text-dim)'; }
+        if (!wsStatus[id]) { 
+            st.innerText = 'NO FEED'; 
+            st.style.color = 'var(--danger)'; 
+        }
+        else if (pendingConfirmation[id] && s.l3 && !s.confirmed) { 
+            st.innerText = 'CONFIRM...'; 
+            st.style.color = 'var(--gold)'; 
+        }
+        else if (s.confirmed) { 
+            // [BE] → [TP1]
+            const tp1Label = s.breakevenArmed ? ' [TP1]' : ''; 
+            st.innerText = s.type.toUpperCase() + tp1Label; 
+            st.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; 
+        }
+        else if (s.l3) { 
+            st.innerText = 'LOCKED'; 
+            st.style.color = 'var(--accent)'; 
+        }
+        else if (s.l2) { 
+            st.innerText = 'READY'; 
+            st.style.color = 'var(--accent)'; 
+        }
+        else if (s.l1) { 
+            st.innerText = 'BIAS'; 
+            st.style.color = 'var(--amber)'; 
+        }
+        else { 
+            st.innerText = 'WAIT'; 
+            st.style.color = 'var(--text-dim)'; 
+        }
     }
-    const eEl = document.getElementById(`entry-${id}`); if (eEl) eEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-    const tEl = document.getElementById(`tp-${id}`); if (tEl) tEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
-    const sEl = document.getElementById(`sl-${id}`); if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
-    const rrEl = document.getElementById(`rr-${id}`); if (rrEl) rrEl.innerText = s.confirmed ? s.rr_used.toFixed(1) : '--';
+    
+    const eEl = document.getElementById(`entry-${id}`); 
+    if (eEl) eEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
+    const tEl = document.getElementById(`tp-${id}`); 
+    if (tEl) tEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
+    const sEl = document.getElementById(`sl-${id}`); 
+    if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+    const rrEl = document.getElementById(`rr-${id}`); 
+    if (rrEl) rrEl.innerText = s.confirmed ? s.rr_used.toFixed(1) : '--';
 }
 
 function updateEngineBadges(id, mb) {
@@ -1385,31 +1467,39 @@ function updateConfluenceBar(id, score) {
 }
 
 // ================================================================
-//  updatePerformanceUI — BREAKEVEN LABEL (BE)
+//  updatePerformanceUI — TP1 dari tp1Hits
 // ================================================================
 function updatePerformanceUI(id) {
     const s = performanceStats[id];
     if (!s) return;
     
-    const tp = document.getElementById(`stats-tp-${id}`);
-    const be = document.getElementById(`stats-retrace-${id}`); // ID tetap sama
+    const tp1 = document.getElementById(`stats-retrace-${id}`); // TP1
+    const tp2 = document.getElementById(`stats-tp-${id}`);      // TP2
     const sl = document.getElementById(`stats-sl-${id}`);
     const wr = document.getElementById(`stats-winrate-${id}`);
     
-    if (tp) tp.innerText = s.tpHits;
-    
-    // BREAKEVEN — label di HTML sudah diubah menjadi "BE"
-    if (be) {
-        be.innerText = s.breakevenHits || 0;
-        be.style.color = 'var(--gold)';
+    // TP1 (dulu breakeven) — warna emas
+    if (tp1) {
+        tp1.innerText = s.tp1Hits || 0;
+        tp1.style.color = 'var(--gold)';
     }
     
-    if (sl) sl.innerText = s.slHits;
+    // TP2 (full TP) — warna hijau
+    if (tp2) {
+        tp2.innerText = s.tpHits;
+        tp2.style.color = 'var(--success)';
+    }
     
-    // Winrate: HANYA TP vs SL (breakeven TIDAK dihitung)
+    if (sl) {
+        sl.innerText = s.slHits;
+        sl.style.color = 'var(--danger)';
+    }
+    
+    // Winrate: (TP2 + TP1) / (TP2 + TP1 + SL)
     if (wr) {
-        const total = s.tpHits + s.slHits;
-        const winrate = total > 0 ? ((s.tpHits / total) * 100).toFixed(1) : '0.0';
+        const wins = s.tpHits + (s.tp1Hits || 0);
+        const total = wins + s.slHits;
+        const winrate = total > 0 ? ((wins / total) * 100).toFixed(1) : '0.0';
         wr.innerText = `${winrate}%`;
         wr.style.color = parseFloat(winrate) >= 65 ? 'var(--emerald)' : 
                          parseFloat(winrate) >= 50 ? 'var(--gold)' : 'var(--crimson)';
@@ -1443,10 +1533,32 @@ function handleSignalBarTap(id) {
     tapTimers[id] = setTimeout(() => { tapCounters[id] = 0; tapTimers[id] = null; }, TAP_TIMEOUT);
     if (tapCounters[id] === 3) { if (pendingConfirmation[id]) cancelPendingConfirmation(id); resetSignal(id); tapCounters[id] = 0; if (tapTimers[id]) { clearTimeout(tapTimers[id]); tapTimers[id] = null; } if (navigator.vibrate) navigator.vibrate(30); showToast('Signal reset ✓'); }
 }
+
+// ================================================================
+//  handleHistoryPanelTap — Reset dengan format baru
+// ================================================================
 function handleHistoryPanelTap(id) {
-    if (historyTapTimers[id]) clearTimeout(historyTapTimers[id]); historyTapCounters[id]++;
-    historyTapTimers[id] = setTimeout(() => { historyTapCounters[id] = 0; historyTapTimers[id] = null; }, TAP_TIMEOUT);
-    if (historyTapCounters[id] === 3) { performanceStats[id] = createDefaultStats(); savePerformanceStats(id); updatePerformanceUI(id); historyTapCounters[id] = 0; if (historyTapTimers[id]) { clearTimeout(historyTapTimers[id]); historyTapTimers[id] = null; } if (navigator.vibrate) navigator.vibrate([30, 50, 30]); showToast('History reset ✓'); }
+    if (historyTapTimers[id]) clearTimeout(historyTapTimers[id]);
+    historyTapCounters[id]++;
+    
+    historyTapTimers[id] = setTimeout(() => { 
+        historyTapCounters[id] = 0; 
+        historyTapTimers[id] = null; 
+    }, TAP_TIMEOUT);
+    
+    if (historyTapCounters[id] === 3) { 
+        // Reset dengan format baru (tp1Hits)
+        performanceStats[id] = createDefaultStats(); 
+        savePerformanceStats(id); 
+        updatePerformanceUI(id); 
+        historyTapCounters[id] = 0; 
+        if (historyTapTimers[id]) { 
+            clearTimeout(historyTapTimers[id]); 
+            historyTapTimers[id] = null; 
+        } 
+        if (navigator.vibrate) navigator.vibrate([30, 50, 30]); 
+        showToast('History reset ✓'); 
+    }
 }
 
 // ── Card HTML ─────────────────────────────────────────────────────
@@ -1679,7 +1791,7 @@ async function init() {
     checkAndMigrateSchema();
     state.xau = loadState('xau'); state.btc = loadState('btc');
     performanceStats.xau = loadPerformanceStats('xau'); performanceStats.btc = loadPerformanceStats('btc');
-    updateWinrateAndDrawrate('xau'); updateWinrateAndDrawrate('btc');
+    updateWinrate('xau'); updateWinrate('btc');
     loadZones('xau'); loadZones('btc');
     document.getElementById('terminals').innerHTML = buildCardHTML('xau', 'XAUUSD') + buildCardHTML('btc', 'BTCUSD');
 
