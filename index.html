@@ -746,9 +746,9 @@ function calculateDynamicRR(atr, price) {
     const volatilityPct = (atr / price) * 100;
     let rr;
     if (volatilityPct > 2.5) rr = 1.2;
-    else if (volatilityPct > 1.8) rr = 1.4;
-    else if (volatilityPct > 1.0) rr = 1.6;
-    else rr = 1.8;
+    else if (volatilityPct > 1.6) rr = 1.4;
+    else if (volatilityPct > 1.0) rr = 1.5;
+    else rr = 1.6;
     return rr;
 }
 
@@ -1044,7 +1044,7 @@ function processSignal(id, price) {
             const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
             
             // Jika harga sudah mencapai 24% dari jarak TP
-            if (moved >= tpDist * 0.24) {
+            if (moved >= tpDist * 0.30) {
                 // PINDAHKAN SL KE ENTRY (BREAKEVEN)
                 s.sl = s.entry;
                 s.breakevenArmed = true;
