@@ -226,8 +226,8 @@ const BC_SCORE_MIN = 72;
 const ADX_MIN      = 25;
 
 // ── Micro entry thresholds ──────────────────────────────────────
-const MICRO_READY_THRESHOLD = 58;
-const MICRO_LOCK_THRESHOLD  = 70;
+const MICRO_READY_THRESHOLD = 50;
+const MICRO_LOCK_THRESHOLD  = 55;
 
 // ── Persistent Zone TTL & limits ─────────────────────────────────
 const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;   // 4 hours
@@ -659,7 +659,8 @@ function getMTFConfirmation(id, price, macroCandles) {
     }
     if (trend5m && trend15m && trend5m.score > 0 && trend15m.score > 0) score += 5;
     if (trend5m && trend15m && trend5m.score < 0 && trend15m.score < 0) score -= 5;
-    return { score: Math.max(0, score), trend5m: t5, trend15m: t15 };
+    // Kembalikan skor signed (positif = bullish, negatif = bearish)
+    return { score, trend5m: t5, trend15m: t15 };
 }
 
 // ================================================================
@@ -725,16 +726,25 @@ function checkPriceAction(candles, direction, atr) {
     const last = candles.slice(-2);
     const c1 = last[0], c2 = last[1];
     let score = 0;
+    const range2 = c2.high - c2.low;
     if (direction === 'buy') {
+        // Bullish engulf: c2 menutup di atas high c1 dan buka di bawah low c1
         if (c2.close > c1.high && c2.open < c1.low) score = 15;
         const body = Math.abs(c2.close - c2.open);
-        if ((c2.high - Math.max(c2.open, c2.close)) > body * 2.5) score = 12;
-        if (c2.close > c2.open && c2.close < c1.close && c2.open > c1.open) score = 8;
+        // Hammer / pin bar bullish: lower wick panjang; body minimal 5% dari range (hindari doji)
+        const lowerWick = Math.min(c2.open, c2.close) - c2.low;
+        if (body > range2 * 0.05 && lowerWick > body * 2.5) score = Math.max(score, 12);
+        // Inside bar bullish: c2 close > open (candle hijau) dalam range c1
+        if (c2.close > c2.open && c2.low > c1.low && c2.high < c1.high) score = Math.max(score, 8);
     } else {
+        // Bearish engulf: c2 menutup di bawah low c1 dan buka di atas high c1
         if (c2.close < c1.low && c2.open > c1.high) score = 15;
         const body = Math.abs(c2.close - c2.open);
-        if ((Math.min(c2.open, c2.close) - c2.low) > body * 2.5) score = 12;
-        if (c2.close < c2.open && c2.close > c1.close && c2.open < c1.open) score = 8;
+        // Shooting star / pin bar bearish: upper wick panjang; body minimal 5% dari range (hindari doji)
+        const upperWick = c2.high - Math.max(c2.open, c2.close);
+        if (body > range2 * 0.05 && upperWick > body * 2.5) score = Math.max(score, 12);
+        // Inside bar bearish: c2 close < open (candle merah) dalam range c1
+        if (c2.close < c2.open && c2.low > c1.low && c2.high < c1.high) score = Math.max(score, 8);
     }
     return score;
 }
@@ -791,7 +801,18 @@ function scoreMacroBias(id, price, macroCandles) {
     let bull = Math.round(rawBull * adxMult); let bear = Math.round(rawBear * adxMult);
     const trendBull = bcTrend.score > 0; const trendBear = bcTrend.score < 0;
     const structBull = bcStruct.score > 0; const structBear = bcStruct.score < 0;
-    if ((trendBull && structBear) || (trendBear && structBull)) { bull = Math.round(bull * 0.65); bear = Math.round(bear * 0.65); f.conflict = 'TREND_STRUCT'; }
+    // Deteksi konflik TREND vs STRUCT: jika keduanya signifikan, blokir sinyal
+    const trendSignificant  = Math.abs(bcTrend.score) >= 16;
+    const structSignificant = Math.abs(bcStruct.score) >= 15;
+    if ((trendBull && structBear) || (trendBear && structBull)) {
+        f.conflict = 'TREND_STRUCT';
+        if (trendSignificant && structSignificant) {
+            // Konflik kuat — blokir sinyal sama sekali
+            return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, atr, ema21: bcTrend.ema21, bcZone };
+        }
+        // Konflik ringan — kurangi skor saja
+        bull = Math.round(bull * 0.65); bear = Math.round(bear * 0.65);
+    }
     const MAX = 72; const diff = Math.abs(bull - bear);
     let bias = 'NEUTRAL', score = 0;
     if (bull > bear && diff >= 10) { bias = 'BULL'; score = Math.min(100, Math.round((bull / MAX) * 100)); }
@@ -898,13 +919,22 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
         f.micro_cross = 'DEATH_X'; 
     }
 
-    // ── 6. MTF CONFLUENCE (max 25 pts) ────────────────────────────
+    // ── 6. MTF CONFLUENCE (max 25 pts, min -20 pts penalty) ──────
     const macroCandles = getMacroCandles(id);
     const mtf = getMTFConfirmation(id, price, macroCandles);
     f.mtf_score = mtf.score;
     f.mtf_5m = mtf.trend5m;
     f.mtf_15m = mtf.trend15m;
-    const mtfBonus = mtf.score;
+    // MTF bonus bersifat directional:
+    //   - score positif = MTF konfirmasi BUY → bonus untuk buy, penalty untuk sell
+    //   - score negatif = MTF konfirmasi SELL → bonus untuk sell, penalty untuk buy
+    const mtfRaw = mtf.score; // bisa negatif sekarang
+    let mtfBonus = 0;
+    if (direction === 'buy') {
+        mtfBonus = mtfRaw > 0 ? Math.min(mtfRaw, 25) : Math.max(mtfRaw, -20);
+    } else {
+        mtfBonus = mtfRaw < 0 ? Math.min(-mtfRaw, 25) : Math.max(-mtfRaw, -20);
+    }
 
     // ── 7. ORDER BLOCK (max 25 pts) ──────────────────────────────
     const ob = detectOrderBlock(microCandles, microATR);
@@ -934,7 +964,8 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     // ── QUALITY SUM ──────────────────────────────────────────────
     let quality = liquidScore + momScore + divergScore + zoneScore + microMACD_bonus +
                   mtfBonus + obScore + fvgScore + vpScore + paScore + microCrossScore;
-    quality = Math.min(100, quality);
+    // Clamp 0–100: mtfBonus bisa negatif (MTF berlawanan arah), wajar bila quality turun
+    quality = Math.min(100, Math.max(0, quality));
     f.quality = quality;
     f.in_zone = zoneScore > 0 || liquidScore > 0;
 
@@ -1674,10 +1705,16 @@ function initXAUWebSocket() {
                 const d = JSON.parse(e.data);
                 if (d.p) {
                     const p = parseFloat(d.p);
+                    if (isNaN(p) || p <= 100) return;
+                    // Refresh heartbeat SEBELUM cek duplikasi agar feed tidak dianggap stale
+                    xauLastHeartbeat = Date.now();
+                    wsStatus.xau = true;
+                    updateGlobalPulse();
+                    // Skip price update jika harga tidak berubah
                     if (p === rawXauPrice) return;
                     rawXauPrice = p;
                     const q = parseFloat(d.q) || 0;
-                    if (!isNaN(p) && p > 100) updateXAUDisplay(p, 'ok', q);
+                    updateXAUDisplay(p, 'ok', q);
                 }
             } catch(err) {}
         };
@@ -1742,16 +1779,22 @@ function initBTCWebSocket() {
             try {
                 const d = JSON.parse(e.data);
                 const p = parseFloat(d.p) + PRICE_OFFSET_BTC;
+                if (!p || isNaN(p) || p <= 1000) return;
+                // Refresh heartbeat & status SEBELUM cek duplikasi agar feed tidak dianggap stale
+                btcLastHeartbeat = Date.now();
+                wsStatus.btc = true;
+                updateGlobalPulse();
+                const el_btc = document.getElementById('ws-status-btc');
+                if (el_btc) { el_btc.textContent = '● LIVE'; el_btc.className = 'ws-status connected'; }
+                // Skip price update jika harga tidak berubah (UI & signal tidak perlu diupdate)
                 if (p === rawBtcPrice) return;
                 rawBtcPrice = p;
                 const q = parseFloat(d.q) || 0;
-                if (p && p > 1000 && !isNaN(p)) {
-                    btcLastHeartbeat = Date.now();
-                    pendingPriceData.btc = p;
-                    pendingSignalData.btc = true;
-                    throttledUpdateUI('btc');
-                    updateSignal('btc', p, q);
-                }
+                pendingPriceData.btc = p;
+                pendingSignalData.btc = true;
+                throttledUpdateUI('btc');
+                updateSignal('btc', p, q);
+                updateFeedBadge('btc', 'ok');
             } catch(err) {}
         };
         btcWs.onclose = () => {
