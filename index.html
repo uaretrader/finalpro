@@ -201,7 +201,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 .pde-reason-list { display: flex; flex-direction: column; gap: 3px; max-height: 56px; overflow: hidden; }
 .pde-reason-item { font-family: 'IBM Plex Mono', monospace; font-size: 0.40rem; color: var(--text-muted); letter-spacing: 0.5px; display: flex; align-items: center; gap: 5px; }
 .pde-reason-item::before { content: '▸'; color: var(--gold); font-size: 0.38rem; flex-shrink: 0; }
-.pde-risk-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 17px 7px; border-bottom: 1px solid var(--edge); }
+.pde-risk-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 17px 7px; }
 .pde-risk-badge { font-family: 'IBM Plex Mono', monospace; font-size: 0.38rem; padding: 2px 8px; border-radius: 2px; border: 1px solid transparent; letter-spacing: 1px; text-transform: uppercase; }
 .pde-risk-badge.low { color: var(--emerald); border-color: rgba(0,217,139,0.2); background: rgba(0,217,139,0.05); }
 .pde-risk-badge.medium { color: var(--amber); border-color: rgba(255,184,48,0.2); background: rgba(255,184,48,0.05); }
@@ -255,9 +255,7 @@ const LS_SCHEMA_VERSION    = 12;  // bumped untuk TP1 masuk winrate
 const ATR_FALLBACK         = { xau: 3.0, btc: 300 };
 const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
 const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
-const CONFIRMATION_WAIT_MS  = 3000;
-const PDE_GATE_CONFIDENCE   = 54;   // min PDE confidence to allow Confirmed
-const PDE_GATE_BYPASS_SCORE = 100;   // BCE macro score above this → skip PDE gate
+const CONFIRMATION_WAIT_MS = 2500;
 
 // ================================================================
 //  LIVE PRICE OFFSET
@@ -1988,30 +1986,7 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
             const mi2 = scoreMicroEntry(id, lp, microC, mb2);
             const stillValid = mb2.valid && (mb2.bias === 'BULL' ? 'buy' : 'sell') === direction && mi2.ready;
             if (stillValid) {
-                // ── PDE GATE ────────────────────────────────────────────
-                const pde          = pdeCache[id];
-                const bceStrong    = mb2.score >= PDE_GATE_BYPASS_SCORE;
-                const pdeDir       = pde ? pde.signal.toLowerCase() : null;   // 'buy'|'sell'|'neutral'
-                const pdeOk        = pde && pde.confidence >= PDE_GATE_CONFIDENCE && pdeDir === direction;
-                const pdeBlocked   = !bceStrong && pde && !pdeOk;
-
-                if (pdeBlocked) {
-                    // PDE disagrees — stay at L3, show HOLD notice
-                    const st = document.getElementById(`signal-text-${id}`);
-                    const reason = pde.confidence < PDE_GATE_CONFIDENCE
-                        ? `PDE LOW (${pde.confidence}%)`
-                        : `PDE ${pde.signal}`;
-                    if (st) {
-                        st.innerText = 'PDE HOLD';
-                        st.style.color = 'var(--amber)';
-                        setTimeout(() => updateSignalUIOnly(id), 3000);
-                    }
-                    showToast(`⚠ ${reason} — Confirmation withheld`);
-                    // signal stays at L3 (not reset, not confirmed) — next price tick re-evaluates
-                } else {
-                    executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType);
-                }
-                // ────────────────────────────────────────────────────────
+                executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType);
             } else {
                 resetSignal(id);
                 const st = document.getElementById(`signal-text-${id}`);
@@ -2261,7 +2236,7 @@ function updateSignalUIOnly(id) {
             st.style.color = 'var(--amber)'; 
         }
         else { 
-            st.innerText = '— WAIT'; 
+            st.innerText = 'WAIT'; 
             st.style.color = 'var(--text-dim)'; 
         }
     }
@@ -2432,7 +2407,7 @@ function buildCardHTML(id, label) {
             <div class="dot" id="l2-${id}"></div>
             <div class="dot" id="l3-${id}"></div>
           </div>
-          <span id="signal-text-${id}">— WAIT</span>
+          <span id="signal-text-${id}">WAIT</span>
           </div>
         <div class="card-level-grid">
           <div class="level-item" onclick="window.copyValue('${id}','entry')">
@@ -2456,10 +2431,10 @@ function buildCardHTML(id, label) {
           <span class="ebadge off" id="eb-mcross-${id}">MCX</span>
           <span class="ebadge off" id="eb-flow-${id}">FLW</span>
           <span class="ebadge off" id="eb-conflict-${id}">ALIGN</span>
-          <span class="ebadge off" id="eb-macd-${id}">MOM</span>
-          </div>
-          
-     <!-- ═══ PATTERN DETECTION ENGINE PANEL ═══════════════════ -->
+          <span class="ebadge off" id="eb-macd-${id}">MOM</span>          
+    </div>
+    
+         <!-- ═══ PATTERN DETECTION ENGINE PANEL ═══════════════════ -->
         <div class="pde-panel">
           <div class="pde-header">
             <span class="pde-title">Pattern Detection Engine</span>
@@ -2512,15 +2487,15 @@ function buildCardHTML(id, label) {
           <div class="pde-risk-row">
             <span class="pde-risk-badge medium" id="pde-risk-${id}">MED RISK</span>
             <span class="pde-quality-badge" id="pde-eq-${id}">ENTRY QUAL</span>
-            </div>
-    <!-- ═══════════════════════════════════════════════════════ -->
-      </div>
+          </div>
+        </div>
+        <!-- ═══════════════════════════════════════════════════════ -->
         <div class="stats-grid" id="history-panel-${id}">
           <div class="stats-item"><span class="stats-label" style="color:var(--gold)">TP1</span><span class="stats-value be-value" id="stats-retrace-${id}">0</span></div>
           <div class="stats-item"><span class="stats-label">TP2</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div>
           <div class="stats-item"><span class="stats-label">SL HIT</span><span class="stats-value" id="stats-sl-${id}" style="color:var(--danger)">0</span></div>
           <div class="stats-item"><span class="stats-label" style="color:var(--gold)">WINRATE</span><span class="stats-value winrate-value" id="stats-winrate-${id}">0%</span></div>
-        </div>        
+        </div>
       </div>
     </div>`;
 }
