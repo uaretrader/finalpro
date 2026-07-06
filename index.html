@@ -2236,7 +2236,7 @@ function updateSignalUIOnly(id) {
             st.style.color = 'var(--amber)'; 
         }
         else { 
-            st.innerText = 'WAIT'; 
+            st.innerText = '— WAIT'; 
             st.style.color = 'var(--text-dim)'; 
         }
     }
@@ -2407,7 +2407,7 @@ function buildCardHTML(id, label) {
             <div class="dot" id="l2-${id}"></div>
             <div class="dot" id="l3-${id}"></div>
           </div>
-          <span id="signal-text-${id}">WAIT</span>
+          <span id="signal-text-${id}">— WAIT</span>
           </div>
         <div class="card-level-grid">
           <div class="level-item" onclick="window.copyValue('${id}','entry')">
