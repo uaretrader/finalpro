@@ -420,11 +420,25 @@ function calcADX(candles, period) {
 function calcBCTrend(closes, atr) {
     const n = closes.length;
     const ema21  = calcEMA(closes, Math.min(21, n - 1));
-    const ema50  = calcEMA(closes, Math.min(50, n - 1));
-    const ema200Period = n >= 200 ? 200 : n >= 100 ? 100 : n >= 50 ? 50 : Math.max(20, n - 1);
-    const ema200 = calcEMA(closes, ema200Period);
-    const hasEma200 = n >= 200;
-    if (!ema21 || !ema50 || !ema200) return { trend: 'NEUTRAL', score: 0, ema21, ema50, ema200 };
+    const ema50Period = Math.min(50, n - 1);
+    const ema50  = calcEMA(closes, ema50Period);
+    // FIX (signal berlawanan / LOCKED-BUY vs market SELL):
+    // Formula lama membuat ema200Period collapse ke periode yang SAMA PERSIS dengan ema50Period
+    // untuk n=35..49 (rentang MACRO_MIN), dan nyaris sama untuk n=50..99. Akibatnya "ema200"
+    // bukan EMA-200 sungguhan, cuma kloning ema50 — sehingga perbandingan ema50 vs ema200
+    // (dipakai untuk klaim fullBull/fullBear/STRONG_BULL/STRONG_BEAR, konfirmasi tren jangka
+    // panjang) jadi murni noise angka, bisa memicu bias BULL/BEAR palsu tanpa konfirmasi tren
+    // jangka panjang riil. hasEma200 sudah dihitung sebelumnya tapi TIDAK PERNAH dipakai untuk
+    // menggerbang logic ini — itu bug-nya. Sekarang ema200 hanya dianggap valid jika periodenya
+    // benar-benar terpisah jauh dari ema50 (>= +40 periode); jika belum cukup data, fullBull/
+    // fullBear/zoneBull/zoneBear dinonaktifkan dan sistem jatuh ke klasifikasi EMA21 vs EMA50
+    // saja (skor lebih kecil, tidak mengklaim konfirmasi jangka panjang yang belum ada).
+    const MIN_EMA200_GAP = 40;
+    let ema200Period = n >= 200 ? 200 : n >= 100 ? 100 : null;
+    if (ema200Period === null && (n - 1) >= ema50Period + MIN_EMA200_GAP) ema200Period = n - 1;
+    const ema200 = ema200Period !== null ? calcEMA(closes, ema200Period) : null;
+    const hasEma200 = ema200 !== null;
+    if (!ema21 || !ema50) return { trend: 'NEUTRAL', score: 0, ema21, ema50, ema200, hasEma200 };
     const SLOPE_WINDOW = Math.min(10, n - 2);
     const ema21Prev = SLOPE_WINDOW > 0 ? calcEMA(closes.slice(0, -SLOPE_WINDOW), Math.min(21, n - SLOPE_WINDOW - 1)) : null;
     const ema50Prev = SLOPE_WINDOW > 0 ? calcEMA(closes.slice(0, -SLOPE_WINDOW), Math.min(50, n - SLOPE_WINDOW - 1)) : null;
@@ -440,14 +454,14 @@ function calcBCTrend(closes, atr) {
         : null;
     const justCrossedUp   = ema21_lb !== null && ema50_lb !== null && ema21_lb < ema50_lb && ema21 >= ema50;
     const justCrossedDown = ema21_lb !== null && ema50_lb !== null && ema21_lb > ema50_lb && ema21 <= ema50;
-    const fullBull = ema21 > ema50 && ema50 > ema200;
-    const fullBear = ema21 < ema50 && ema50 < ema200;
-    const zoneBull = ema21 > ema50 && ema21 < ema200;
-    const zoneBear = ema21 < ema50 && ema21 > ema200;
+    const fullBull = hasEma200 ? (ema21 > ema50 && ema50 > ema200) : false;
+    const fullBear = hasEma200 ? (ema21 < ema50 && ema50 < ema200) : false;
+    const zoneBull = hasEma200 ? (ema21 > ema50 && ema21 < ema200) : false;
+    const zoneBear = hasEma200 ? (ema21 < ema50 && ema21 > ema200) : false;
     let trend = 'NEUTRAL', score = 0;
-    if      (justCrossedUp   && ema21 <= ema200)  { trend = 'BULL_X';      score =  16; }
+    if      (justCrossedUp   && (!hasEma200 || ema21 <= ema200))  { trend = 'BULL_X';      score =  16; }
     else if (justCrossedUp   && fullBull)          { trend = 'BULL_X_BULL'; score =  28; }
-    else if (justCrossedDown && ema21 >= ema200)  { trend = 'BEAR_X';      score = -16; }
+    else if (justCrossedDown && (!hasEma200 || ema21 >= ema200))  { trend = 'BEAR_X';      score = -16; }
     else if (justCrossedDown && fullBear)          { trend = 'BEAR_X_BEAR'; score = -28; }
     else if (fullBull && slope21 >  SLOPE_MIN && slope50 > 0) { trend = 'STRONG_BULL'; score =  30; }
     else if (fullBull && slope21 >= -SLOPE_MIN)                { trend = 'BULL';        score =  22; }
@@ -457,6 +471,10 @@ function calcBCTrend(closes, atr) {
     else if (fullBear && slope21 >   SLOPE_MIN)                { trend = 'BEAR_PULL';   score = -12; }
     else if (zoneBull)                                         { trend = 'BULL_ZONE';   score =  10; }
     else if (zoneBear)                                         { trend = 'BEAR_ZONE';   score = -10; }
+    // Fallback saat ema200 belum genuine (n < 100): klasifikasi ringan dari EMA21 vs EMA50 saja,
+    // skor lebih kecil karena belum ada konfirmasi tren jangka panjang yang sesungguhnya.
+    else if (!hasEma200 && ema21 > ema50 && slope21 >  SLOPE_MIN) { trend = 'BULL_EARLY'; score =  14; }
+    else if (!hasEma200 && ema21 < ema50 && slope21 < -SLOPE_MIN) { trend = 'BEAR_EARLY'; score = -14; }
     return { trend, score, ema21, ema50, ema200, slope21, slope50, hasEma200, justCrossedUp, justCrossedDown };
 }
 
@@ -1218,7 +1236,7 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
 
 // ── 9. FALSE SIGNAL FILTER ─────────────────────────────────────
 
-function applyFalseSignalFilter(scored, candles) {
+function applyFalseSignalFilter(scored, candles, macroBias) {
     if (!scored || scored.signal === 'NEUTRAL') return scored;
     const warns = [];
     const closes = candles.map(c=>c.close);
@@ -1245,6 +1263,22 @@ function applyFalseSignalFilter(scored, candles) {
     // 6. Conflicting trend/structure (already handled in macroBias but double-check)
     if (scored.scores.trend > 5 && scored.scores.structure < -5) warns.push('Trend/struct conflict');
     if (scored.scores.trend < -5 && scored.scores.structure > 5) warns.push('Trend/struct conflict');
+
+    // 7. CROSS-ENGINE CONFLICT — PDE berlawanan arah dengan Main Confluence Engine.
+    //    Root cause "signal berlawanan": PDE (pattern engine) dan scoreMacroBias/scoreMicroEntry
+    //    (main lock engine) menilai kondisi yang sama secara independen, dengan threshold berbeda,
+    //    sehingga bisa menghasilkan arah yang bertentangan di UI yang sama. Main Bias adalah sumber
+    //    kebenaran arah di aplikasi ini (dipakai untuk L1/L2/L3 & eksekusi entry), jadi kalau macro
+    //    bias sudah VALID dan arahnya berlawanan dengan PDE, PDE HARUS di-override ke NEUTRAL —
+    //    bukan sekadar dikurangi confidence-nya — supaya tidak ada dua panah yang bertentangan
+    //    tampil bersamaan di kartu yang sama.
+    if (macroBias && macroBias.valid) {
+        const macroDir = macroBias.bias === 'BULL' ? 'buy' : 'sell';
+        if (scored.direction !== macroDir) {
+            return { ...scored, signal: 'NEUTRAL', confidence: Math.round(scored.confidence * 0.3),
+                     warnings: ['Conflict vs Main Bias (' + macroBias.bias + ')'] };
+        }
+    }
 
     // Penalize confidence for each warning
     const penalty = warns.length * 8;
@@ -1293,7 +1327,7 @@ let pdeCache = { xau: null, btc: null };
 function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
     try {
         let scored = runPatternScoringEngine(id, price, macroCandles, microCandles, macroBias);
-        scored = applyFalseSignalFilter(scored, macroCandles.length > 0 ? macroCandles : microCandles);
+        scored = applyFalseSignalFilter(scored, macroCandles.length > 0 ? macroCandles : microCandles, macroBias);
         const confGrade = getConfidenceLabel(scored.confidence, scored.signal);
         const risk = getRiskLabel(scored);
         const eq = getEntryQuality(scored);
@@ -1317,7 +1351,7 @@ function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
             risk_cls: risk.cls,
             eq_cls: eq.cls,
             scores: scored.scores,
-            reasoning: scored.reasoning.slice(0,8),
+            reasoning: (scored.warnings && scored.warnings.length > 0 ? scored.warnings.concat(scored.reasoning) : scored.reasoning).slice(0,8),
             warnings: scored.warnings || [],
             patterns: scored.patterns,
             smcData: scored.smcData,
