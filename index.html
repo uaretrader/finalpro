@@ -1678,6 +1678,31 @@ function scoreMacroBias(id, price, macroCandles) {
 }
 
 // ================================================================
+//  PREMIUM / DISCOUNT ZONE (SMC equilibrium / OTE-style range gate)
+// ================================================================
+function calcPremiumDiscountZone(candles, price, atr, lookback) {
+    lookback = lookback || 30;
+    if (!candles || candles.length < 15 || !atr) {
+        return { zone: 'MID', equilibrium: price, swingHigh: price, swingLow: price, range: 0 };
+    }
+    const rc = candles.slice(-lookback);
+    const swingHigh = Math.max(...rc.map(c => c.high));
+    const swingLow  = Math.min(...rc.map(c => c.low));
+    const range = swingHigh - swingLow;
+    if (range <= 0) return { zone: 'MID', equilibrium: price, swingHigh, swingLow, range: 0 };
+
+    const equilibrium = swingLow + range * 0.5;
+    // Small neutral band around 50% so borderline prints don't flip-flop the gate
+    const buffer = Math.max(range * 0.08, atr * 0.15);
+
+    let zone = 'MID';
+    if (price > equilibrium + buffer) zone = 'PREMIUM';   // atas / mahal
+    else if (price < equilibrium - buffer) zone = 'DISCOUNT'; // bawah / murah
+
+    return { zone, equilibrium, swingHigh, swingLow, range };
+}
+
+// ================================================================
 //  BC MICRO ENTRY SCORER
 // ================================================================
 function scoreMicroEntry(id, price, microCandles, macroBias) {
@@ -1708,6 +1733,17 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     f.rsi = rsi9 ? rsi9.toFixed(1) : null;
     const { bias, ema21: macroEMA21, atr: macroATR, bcZone } = macroBias;
     const direction = bias === 'BULL' ? 'buy' : 'sell';
+
+    // 0. PREMIUM / DISCOUNT GATE — forces entry AFTER pullback/retrace
+    //    BUY only allowed in DISCOUNT/MID (cheap/bawah), SELL only in PREMIUM/MID (mahal/atas)
+    const macroCandles = getMacroCandles(id);
+    const pd = calcPremiumDiscountZone(macroCandles, price, macroATR);
+    f.pd_zone = pd.zone;
+    const pdBlocksBuy  = direction === 'buy'  && pd.zone === 'PREMIUM';
+    const pdBlocksSell = direction === 'sell' && pd.zone === 'DISCOUNT';
+    let pdScore = 0;
+    if (direction === 'buy'  && pd.zone === 'DISCOUNT') pdScore = 10;
+    else if (direction === 'sell' && pd.zone === 'PREMIUM') pdScore = 10;
 
     // 1. BC LIQUID (40 pts)
     const bcLiquid  = calcBCLiquid(microCandles, microATR);
@@ -1768,7 +1804,6 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     else if (direction === 'sell' && microDeathX) { microCrossScore = 15; f.micro_cross = 'DEATH_X'; }
 
     // 6. MTF CONFLUENCE (max 25 pts, min -20 pts penalty)
-    const macroCandles = getMacroCandles(id);
     const mtf = getMTFConfirmation(id, price, macroCandles);
     f.mtf_score = mtf.score;
     f.mtf_5m = mtf.trend5m;
@@ -1808,14 +1843,19 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 
     // QUALITY SUM
     let quality = liquidScore + momScore + divergScore + zoneScore + microMACD_bonus +
-                  mtfBonus + obScore + fvgScore + vpScore + paScore + microCrossScore;
+                  mtfBonus + obScore + fvgScore + vpScore + paScore + microCrossScore + pdScore;
     quality = Math.min(100, Math.max(0, quality));
     f.quality = quality;
     f.in_zone = zoneScore > 0 || liquidScore > 0;
+    f.pd_blocked = pdBlocksBuy || pdBlocksSell;
 
     const hasLiquidOrZone = liquidScore > 0 || zoneScore >= 8 || obScore > 0 || fvgScore > 0;
-    const ready = quality >= MICRO_READY_THRESHOLD && hasLiquidOrZone;
-    const lockable = quality >= MICRO_LOCK_THRESHOLD && hasLiquidOrZone;
+    // HARD GATE: never let BUY fire while price sits in PREMIUM (mahal/atas),
+    // never let SELL fire while price sits in DISCOUNT (murah/bawah).
+    // This forces execution to happen only after pullback/retrace into the
+    // correct (cheap-for-buy / expensive-for-sell) side of the range.
+    const ready    = quality >= MICRO_READY_THRESHOLD && hasLiquidOrZone && !pdBlocksBuy && !pdBlocksSell;
+    const lockable = quality >= MICRO_LOCK_THRESHOLD  && hasLiquidOrZone && !pdBlocksBuy && !pdBlocksSell;
 
     return { ready, lockable, direction, quality, factors: f, zoneType };
 }
