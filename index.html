@@ -69,14 +69,6 @@ header::after {
 .pulse.disconnected { background: var(--crimson); animation: blink 0.5s infinite; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
 .header-right { display: flex; align-items: center; gap: 10px; }
-.switch-pair-btn {
-    background: transparent; border: 1px solid var(--edge-bright); color: var(--text-muted);
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.61rem; font-weight: 500;
-    padding: 5px 13px; border-radius: var(--radius-sm); cursor: pointer;
-    transition: all 0.2s ease; letter-spacing: 1.5px; text-transform: uppercase;
-}
-.switch-pair-btn:hover { border-color: var(--gold); color: var(--gold); }
-.switch-pair-btn:active, .switch-pair-btn.btn-highlight { border-color: var(--gold); color: var(--gold); transform: scale(0.96); box-shadow: var(--gold-glow); }
 .pair-card { display: none; }
 .pair-card.active { display: block; }
 .card {
@@ -224,9 +216,6 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
         <div class="sys-status">
             <div><span class="pulse" id="globalPulse"></span>GLOBAL LIVE</div>
         </div>
-        <button class="switch-pair-btn" id="switchPairBtn">
-            <span id="switchLabel">XAUUSD</span>
-        </button>
     </div>
 </header>
 
@@ -258,17 +247,15 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 // ================================================================
 
 const LS_SCHEMA_VERSION    = 13;
-const ATR_FALLBACK         = { xau: 3.0, btc: 300 };
-const BTC_WS_URL           = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
+const ATR_FALLBACK         = { xau: 3.0 };
 const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
 const CONFIRMATION_WAIT_MS = 3000;
 
 const PRICE_OFFSET_XAU = -2.1;
-const PRICE_OFFSET_BTC = -52;
 const COOLDOWN_AFTER_SL_MS = 30000;
 
-const MACRO_DUR = { xau: 60000, btc: 60000 };
-const MICRO_DUR = { xau: 15000, btc: 15000 };
+const MACRO_DUR = { xau: 60000 };
+const MICRO_DUR = { xau: 15000 };
 
 const MACRO_MIN = 35;
 const MICRO_MIN = 10;
@@ -288,7 +275,7 @@ const ZONE_MAX     = 12;
 function checkAndMigrateSchema() {
     const v = parseInt(localStorage.getItem('ura_schema_ver') || '1', 10);
     if (v < LS_SCHEMA_VERSION) {
-        ['xau','btc'].forEach(id => {
+        ['xau'].forEach(id => {
             localStorage.removeItem(`ura_state_${id}`);
             localStorage.removeItem(`ura_stats_${id}`);
             localStorage.removeItem(`ura_zones_${id}`);
@@ -497,7 +484,7 @@ function calcBCStruct(candles) {
 // ================================================================
 //  BC ZONE
 // ================================================================
-let sdZones = { xau: { demand: [], supply: [], updatedAt: 0 }, btc: { demand: [], supply: [], updatedAt: 0 } };
+let sdZones = { xau: { demand: [], supply: [], updatedAt: 0 } };
 function loadZones(id) {
     try {
         const raw = localStorage.getItem(`ura_zones_${id}`);
@@ -1339,7 +1326,7 @@ function getEntryQuality(scored) {
 }
 
 // ── PATTERN DETECTION ENGINE — MAIN ─────────────────────────────
-let pdeCache = { xau: null, btc: null };
+let pdeCache = { xau: null };
 
 function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
     try {
@@ -1875,7 +1862,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
         if (direction === 'buy') { const lowestLow = Math.min(...recent.map(c => c.low)); structuralSL = lowestLow - atr * 0.12; }
         else { const highestHigh = Math.max(...recent.map(c => c.high)); structuralSL = highestHigh + atr * 0.12; }
     }
-    const minSL = id === 'xau' ? 12.5 : 250;
+    const minSL = 12.5; // XAU only — value unchanged from previous id==='xau' branch
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
@@ -2128,23 +2115,19 @@ function recordSignalResult(id, type) {
 }
 
 // ── Global Variables ──────────────────────────────────────────────
-let state = { xau: null, btc: null }; let wsStatus = { xau: false, btc: false };
-let activePairId = localStorage.getItem('ura_active_pair') || 'xau'; let performanceStats = {};
-let pendingConfirmation = { xau: null, btc: null }; let tapCounters = { xau: 0, btc: 0 }; let tapTimers = { xau: null, btc: null };
-let historyTapCounters = { xau: 0, btc: 0 }; let historyTapTimers = { xau: null, btc: null };
-const TAP_TIMEOUT = 500; let pendingPriceData = { xau: null, btc: null }; let pendingSignalData = { xau: false, btc: false };
-let rafPending = { xau: false, btc: false }; let pendingSaveData = { xau: null, btc: null }; let pendingSaveTimer = { xau: null, btc: null };
-const SAVE_INTERVAL = 1200; let signalDebounceTimer = { xau: null, btc: null }; const SIGNAL_DEBOUNCE_MS = 15;
+let state = { xau: null }; let wsStatus = { xau: false };
+let activePairId = 'xau'; let performanceStats = {};
+let pendingConfirmation = { xau: null }; let tapCounters = { xau: 0 }; let tapTimers = { xau: null };
+let historyTapCounters = { xau: 0 }; let historyTapTimers = { xau: null };
+const TAP_TIMEOUT = 500; let pendingPriceData = { xau: null }; let pendingSignalData = { xau: false };
+let rafPending = { xau: false }; let pendingSaveData = { xau: null }; let pendingSaveTimer = { xau: null };
+const SAVE_INTERVAL = 1200; let signalDebounceTimer = { xau: null }; const SIGNAL_DEBOUNCE_MS = 15;
 
-let marketData = { xau: { macro: { candles: [], current: null, start: 0 }, micro: { candles: [], current: null, start: 0 }, atr: 0, price: 0 },
-                   btc: { macro: { candles: [], current: null, start: 0 }, micro: { candles: [], current: null, start: 0 }, atr: 0, price: 0 } };
-let macroBiasCache = { xau: null, btc: null };
+let marketData = { xau: { macro: { candles: [], current: null, start: 0 }, micro: { candles: [], current: null, start: 0 }, atr: 0, price: 0 } };
+let macroBiasCache = { xau: null };
 
 let rawXauPrice = null;
-let rawBtcPrice = null;
 let xauFetching = false;
-let btcFetching = false;
-let btcLastHeartbeat = Date.now();
 
 // ── Candle Build ──────────────────────────────────────────────────
 function buildTFCandle(tf, dur, maxCandles, price, vol) {
@@ -2168,7 +2151,7 @@ function getMicroCandles(id) { return marketData[id].micro.candles.filter(c => c
 
 // ── Historical Init ───────────────────────────────────────────────
 async function initHistoricalCandles(id) {
-    const symbol = id === 'xau' ? 'XAUUSDT' : 'BTCUSDT'; const limit = 250;
+    const symbol = 'XAUUSDT'; const limit = 250;
     const sources = [`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1m&limit=${limit}`,
                      `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1m&limit=${limit}`];
     for (const url of sources) {
@@ -2184,10 +2167,10 @@ async function initHistoricalCandles(id) {
             if (mc.length >= MACRO_MIN) macroBiasCache[id] = null; return true;
         } catch(e) {}
     }
-    const basePrices = { xau: 3300, btc: 105000 }; seedCandles(id, basePrices[id]); return false;
+    seedCandles(id, 3300); return false;
 }
 function seedMicroCandles(id, base) {
-    const isXau = id === 'xau'; const step = isXau ? 1.2 : 120; const nMicro = 20;
+    const step = 1.2; const nMicro = 20; // XAU only — value unchanged from previous isXau branch
     marketData[id].micro.candles = []; let price = base;
     for (let i = 0; i < nMicro; i++) {
         const open = price + (Math.random() - 0.5) * step * 0.04;
@@ -2199,7 +2182,7 @@ function seedMicroCandles(id, base) {
     }
 }
 function seedCandles(id, base) {
-    const isXau = id === 'xau'; const step = isXau ? 1.2 : 120; const nMacro = 55;
+    const step = 1.2; const nMacro = 55; // XAU only — value unchanged from previous isXau branch
     marketData[id].macro.candles = []; let price = base;
     for (let i = 0; i < nMacro; i++) {
         const drift = (Math.random() - 0.48) * step * 0.05; price += drift;
@@ -2347,7 +2330,7 @@ function updateFeedBadge(id, status) {
     else if (status === 'fallback') { el.textContent = '⚡ REST'; el.classList.add('fallback'); }
     else                       { el.textContent = '✕ ERR';  el.classList.add('err'); }
 }
-function updateGlobalPulse() { const el = document.getElementById('globalPulse'); if (el) el.className = (wsStatus.xau || wsStatus.btc) ? 'pulse connected' : 'pulse disconnected'; }
+function updateGlobalPulse() { const el = document.getElementById('globalPulse'); if (el) el.className = wsStatus.xau ? 'pulse connected' : 'pulse disconnected'; }
 function cancelPendingConfirmation(id) {
     if (!pendingConfirmation[id]) return;
     if (pendingConfirmation[id].timerId) clearTimeout(pendingConfirmation[id].timerId);
@@ -2550,110 +2533,36 @@ function initXAUWebSocket() {
     } catch(err) { updateFeedBadge('xau', 'fallback'); }
 }
 
-let btcWs = null, btcReconnectTimer = null, btcReconnectAttempts = 0;
-async function btcFetchRestPrice() {
-    if (btcFetching) return;
-    btcFetching = true;
-    try {
-        const urls = ['https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT'];
-        for (const url of urls) {
-            try {
-                const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 7000);
-                const resp = await fetch(url, { signal: ctrl.signal }); clearTimeout(tid);
-                if (!resp.ok) continue; const data = await resp.json();
-                if (data?.price) {
-                    const p = parseFloat(data.price) + PRICE_OFFSET_BTC;
-                    if (p > 1000 && !isNaN(p)) {
-                        btcLastHeartbeat = Date.now(); pendingPriceData.btc = p; pendingSignalData.btc = true;
-                        throttledUpdateUI('btc'); updateSignal('btc', p, 0); wsStatus.btc = true; updateGlobalPulse();
-                        updateFeedBadge('btc', 'fallback'); return true;
-                    }
-                }
-            } catch(e) {}
-        }
-        updateFeedBadge('btc', 'err'); return false;
-    } finally { btcFetching = false; }
-}
-function initBTCWebSocket() {
-    if (btcWs) { try { btcWs.close(); } catch(e) {} btcWs = null; }
-    if (btcReconnectTimer) clearTimeout(btcReconnectTimer);
-    try {
-        btcWs = new WebSocket(BTC_WS_URL);
-        const wst = setTimeout(() => { if (btcWs && btcWs.readyState !== WebSocket.OPEN) { try { btcWs.close(); } catch(e) {} btcWs = null; updateFeedBadge('btc', 'fallback'); wsStatus.btc = false; } }, 7000);
-        btcWs.onopen = () => { clearTimeout(wst); btcReconnectAttempts = 0; wsStatus.btc = true; const el = document.getElementById('ws-status-btc'); if (el) { el.textContent = '● LIVE'; el.className = 'ws-status connected'; } updateFeedBadge('btc', 'ok'); updateGlobalPulse(); updateSignalUIOnly('btc'); };
-        btcWs.onmessage = (e) => {
-            try {
-                const d = JSON.parse(e.data);
-                const p = parseFloat(d.p) + PRICE_OFFSET_BTC;
-                if (!p || isNaN(p) || p <= 1000) return;
-                btcLastHeartbeat = Date.now(); wsStatus.btc = true; updateGlobalPulse();
-                const el_btc = document.getElementById('ws-status-btc');
-                if (el_btc) { el_btc.textContent = '● LIVE'; el_btc.className = 'ws-status connected'; }
-                if (p === rawBtcPrice) return;
-                rawBtcPrice = p;
-                const q = parseFloat(d.q) || 0;
-                pendingPriceData.btc = p; pendingSignalData.btc = true; throttledUpdateUI('btc');
-                updateSignal('btc', p, q); updateFeedBadge('btc', 'ok');
-            } catch(err) {}
-        };
-        btcWs.onclose = () => {
-            wsStatus.btc = false; updateFeedBadge('btc', 'fallback'); updateGlobalPulse(); updateSignalUIOnly('btc');
-            const delay = Math.min(1000 * Math.pow(2, btcReconnectAttempts), 30000);
-            btcReconnectAttempts++;
-            btcReconnectTimer = setTimeout(() => initBTCWebSocket(), delay);
-        };
-        btcWs.onerror = () => { wsStatus.btc = false; updateFeedBadge('btc', 'fallback'); updateGlobalPulse(); };
-    } catch(err) { wsStatus.btc = false; updateFeedBadge('btc', 'err'); setTimeout(() => initBTCWebSocket(), 5000); }
-}
-function switchPair() {
-    activePairId = activePairId === 'xau' ? 'btc' : 'xau';
-    try { localStorage.setItem('ura_active_pair', activePairId); } catch(e) {}
-    const lb = document.getElementById('switchLabel'); if (lb) lb.innerText = activePairId === 'xau' ? 'XAUUSD' : 'BTCUSD';
-    document.querySelectorAll('.pair-card').forEach(c => c.classList.remove('active')); document.getElementById(`card-${activePairId}`)?.classList.add('active');
-    if (navigator.vibrate) navigator.vibrate(20);
-}
 
 function consolidatedPoll() {
     const xauConnected = xauWs && xauWs.readyState === WebSocket.OPEN;
     if (!xauConnected || (Date.now() - xauLastHeartbeat) > 6000) { if (!xauFetching) xauFetchRestPrice(); }
-    const btcConnected = btcWs && btcWs.readyState === WebSocket.OPEN;
-    if (!btcConnected || (Date.now() - btcLastHeartbeat) > 6000) { if (!btcFetching) btcFetchRestPrice(); }
     updateGlobalPulse();
 }
 
 // ── Init ──────────────────────────────────────────────────────────
 async function init() {
     checkAndMigrateSchema();
-    state.xau = loadState('xau'); state.btc = loadState('btc');
-    performanceStats.xau = loadPerformanceStats('xau'); performanceStats.btc = loadPerformanceStats('btc');
-    updateWinrate('xau'); updateWinrate('btc');
-    loadZones('xau'); loadZones('btc');
-    document.getElementById('terminals').innerHTML = buildCardHTML('xau', 'XAUUSD') + buildCardHTML('btc', 'BTCUSD');
+    state.xau = loadState('xau');
+    performanceStats.xau = loadPerformanceStats('xau');
+    updateWinrate('xau');
+    loadZones('xau');
+    document.getElementById('terminals').innerHTML = buildCardHTML('xau', 'XAUUSD');
 
     const bindTap = (el, handler) => { if (!el) return; let lastTap = 0; const h = (e) => { e.preventDefault(); const now = Date.now(); if (now - lastTap < 80) return; lastTap = now; handler(); }; el.addEventListener('touchstart', h, { passive: false }); el.addEventListener('click', h); };
     bindTap(document.getElementById('signal-bar-xau'), () => handleSignalBarTap('xau'));
-    bindTap(document.getElementById('signal-bar-btc'), () => handleSignalBarTap('btc'));
     bindTap(document.getElementById('history-panel-xau'), () => handleHistoryPanelTap('xau'));
-    bindTap(document.getElementById('history-panel-btc'), () => handleHistoryPanelTap('btc'));
 
-    const btn = document.getElementById('switchPairBtn');
-    if (btn) { const nb = btn.cloneNode(true); btn.parentNode.replaceChild(nb, btn);
-        const ds = function(e) { e.preventDefault(); e.stopPropagation(); nb.classList.add('btn-highlight'); setTimeout(() => nb.classList.remove('btn-highlight'), 150); switchPair(); };
-        nb.addEventListener('click', ds); nb.addEventListener('touchstart', ds, { passive: false }); }
-
-    updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updatePerformanceUI('xau'); updatePerformanceUI('btc');
-    updateFeedBadge('xau', 'fallback'); updateFeedBadge('btc', 'fallback');
-    const el_xau = document.getElementById('ws-status-xau'); const el_btc = document.getElementById('ws-status-btc');
+    updateSignalUIOnly('xau'); updatePerformanceUI('xau');
+    updateFeedBadge('xau', 'fallback');
+    const el_xau = document.getElementById('ws-status-xau');
     if (el_xau) { el_xau.textContent = '● LOADING...'; el_xau.className = 'ws-status connected'; }
-    if (el_btc) { el_btc.textContent = '○ LOADING...'; el_btc.className = 'ws-status disconnected'; }
 
-    await Promise.all([ initHistoricalCandles('xau'), initHistoricalCandles('btc') ]);
+    await initHistoricalCandles('xau');
 
     initXAUWebSocket();
     await xauFetchRestPrice();
 
-    initBTCWebSocket();
-    await btcFetchRestPrice();
 
     updateGlobalPulse();
 
@@ -2662,8 +2571,7 @@ async function init() {
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
             if (!xauFetching) xauFetchRestPrice();
-            if (!btcFetching) btcFetchRestPrice();
-            updateSignalUIOnly('xau'); updateSignalUIOnly('btc'); updateGlobalPulse();
+            updateSignalUIOnly('xau'); updateGlobalPulse();
         }
     });
 }
