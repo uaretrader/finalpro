@@ -1570,14 +1570,34 @@ function checkPriceAction(candles, direction, atr) {
 }
 
 // ================================================================
-//  DYNAMIC RR (TIDAK DIUBAH)
+//  DYNAMIC RR — DIPERBAIKI (FIX: ATR SCALE MISMATCH)
 // ================================================================
-function calculateDynamicRR(atr, price) {
-    const volatilityPct = (atr / price) * 100;
+// BUG LAMA: volatilityPct = (atr / price) * 100 memakai ambang batas
+// (2.5% / 1.6% / 1.0%) yang dirancang untuk ATR harian, padahal ATR yang
+// dikirim ke sini adalah ATR-14 dari macro candle 1-menit. Untuk XAU/BTC,
+// rasio ATR-1m terhadap harga hampir selalu << 1.0%, sehingga cabang
+// "else" (rr = 1.6) SELALU terpilih — RR jadi konstan, tidak pernah
+// menyesuaikan kondisi volatilitas riil. Ini membuat jarak TP tidak
+// relevan dengan pergerakan pasar saat itu, sehingga signal lebih sering
+// "gagal" (kena SL) sebelum sempat mengonfirmasi arah yang benar.
+//
+// FIX: bandingkan ATR jangka pendek terhadap ATR baseline jangka lebih
+// panjang (rasio, bukan persentase dari harga) — otomatis menyesuaikan
+// skala untuk instrumen apa pun (XAU, BTC, forex) karena keduanya diukur
+// dalam satuan yang sama.
+//   ratio > 1.35 → volatilitas "meledak" relatif thd biasanya → ambil
+//                  profit lebih cepat (RR lebih kecil)
+//   ratio > 1.15 → volatilitas di atas rata-rata → RR sedikit lebih kecil
+//   ratio > 0.85 → volatilitas normal → RR standar
+//   ratio <= 0.85 → pasar lebih tenang dari biasanya → target bisa lebih
+//                  jauh karena noise lebih kecil
+function calculateDynamicRR(atr, atrBaseline) {
+    if (!atr || !atrBaseline || atrBaseline <= 0) return 1.5; // fallback aman jika histori ATR belum cukup
+    const ratio = atr / atrBaseline;
     let rr;
-    if (volatilityPct > 2.5) rr = 1.2;
-    else if (volatilityPct > 1.6) rr = 1.4;
-    else if (volatilityPct > 1.0) rr = 1.5;
+    if (ratio > 1.35) rr = 1.2;
+    else if (ratio > 1.15) rr = 1.4;
+    else if (ratio > 0.85) rr = 1.5;
     else rr = 1.6;
     return rr;
 }
@@ -1816,7 +1836,11 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
-    const rr = calculateDynamicRR(atr, entry);
+    // FIX: RR dihitung dari rasio ATR pendek vs ATR baseline (ATR-50 macro),
+    // bukan lagi ATR/price — lihat komentar di calculateDynamicRR()
+    const macroCandlesForRR = getMacroCandles(id);
+    const atrBaseline = calcATR(macroCandlesForRR, 50) || atr;
+    const rr = calculateDynamicRR(atr, atrBaseline);
     const tpD = slD * rr;
 
     s.l3 = true; s.confirmed = true;
@@ -1980,7 +2004,21 @@ function processSignal(id, price) {
     }
 
     // ── L3: Lock ─────────────────────────────────────────────────
-    if (s.l2 && !s.l3 && micro.lockable && micro.quality >= MICRO_LOCK_THRESHOLD) {
+    // FIX: tambahan hard gate terhadap trend 15m (higher timeframe). Sebelumnya
+    // mtf_15m hanya jadi bonus/penalti skor (bisa "ketutup" oleh faktor lain
+    // seperti liquidity sweep + OB + FVG), sehingga sistem bisa mengunci sinyal
+    // BUY meski struktur 15m sedang STRONG_BEAR — inilah salah satu penyebab
+    // utama kasus "signal buy, market malah turun". Sekarang, jika trend 15m
+    // secara jelas berlawanan arah dan cukup kuat, lock diblokir sepenuhnya
+    // walau micro quality sudah lolos threshold.
+    const mtf15m = micro.factors && micro.factors.mtf_15m;
+    const STRONG_OPPOSING_15M = {
+        buy:  ['STRONG_BEAR', 'BEAR_X_BEAR', 'BEAR'],
+        sell: ['STRONG_BULL', 'BULL_X_BULL', 'BULL']
+    };
+    const mtf15mBlocksLock = mtf15m && STRONG_OPPOSING_15M[currentDir] && STRONG_OPPOSING_15M[currentDir].includes(mtf15m);
+
+    if (s.l2 && !s.l3 && micro.lockable && micro.quality >= MICRO_LOCK_THRESHOLD && !mtf15mBlocksLock) {
         s.l3 = true; 
         pendingSignalData[id] = true; 
         throttledUpdateUI(id); 
@@ -2018,7 +2056,13 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
         if (macroC.length >= MACRO_MIN && microC.length >= MICRO_MIN) {
             const mb2 = scoreMacroBias(id, lp, macroC);
             const mi2 = scoreMicroEntry(id, lp, microC, mb2);
-            const stillValid = mb2.valid && (mb2.bias === 'BULL' ? 'buy' : 'sell') === direction && mi2.ready;
+            const mtf15m2 = mi2.factors && mi2.factors.mtf_15m;
+            const STRONG_OPPOSING_15M_2 = {
+                buy:  ['STRONG_BEAR', 'BEAR_X_BEAR', 'BEAR'],
+                sell: ['STRONG_BULL', 'BULL_X_BULL', 'BULL']
+            };
+            const mtf15m2Blocks = mtf15m2 && STRONG_OPPOSING_15M_2[direction] && STRONG_OPPOSING_15M_2[direction].includes(mtf15m2);
+            const stillValid = mb2.valid && (mb2.bias === 'BULL' ? 'buy' : 'sell') === direction && mi2.ready && !mtf15m2Blocks;
             if (stillValid) {
                 executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType);
             } else {
