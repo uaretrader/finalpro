@@ -1761,7 +1761,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 
     // 4. Zone proximity (15 pts)
     let zoneScore = 0, zoneType = 'NONE';
-    const snapDist = macroATR * 0.30;
+    const snapDist = macroATR * 0.35;
     if (direction === 'buy') {
         const nearEMA  = macroEMA21 && price <= macroEMA21 + snapDist && price >= macroEMA21 - snapDist * 0.6;
         const inDemand = bcZone && (bcZone.zone === 'DEMAND' || bcZone.zone === 'NEAR_DEMAND');
