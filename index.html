@@ -1651,7 +1651,7 @@ function scoreMacroBias(id, price, macroCandles) {
     if ((trendBull && structBear) || (trendBear && structBull)) {
         f.conflict = 'TREND_STRUCT';
         if (trendSignificant && structSignificant) {
-            return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, atr, ema21: bcTrend.ema21, bcZone };
+            return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, atr, ema21: bcTrend.ema21, ema50: bcTrend.ema50, bcZone };
         }
         bull = Math.round(bull * 0.65); bear = Math.round(bear * 0.65);
     }
@@ -1661,7 +1661,7 @@ function scoreMacroBias(id, price, macroCandles) {
     else if (bear > bull && diff >= 10) { bias = 'BEAR'; score = Math.min(100, Math.round((bear / MAX) * 100)); }
     else { score = Math.round(Math.max(bull, bear) * 0.55); }
     const valid = score >= BC_SCORE_MIN && bias !== 'NEUTRAL';
-    return { bias, score, factors: f, valid, adx, atr, ema21: bcTrend.ema21, bcZone };
+    return { bias, score, factors: f, valid, adx, atr, ema21: bcTrend.ema21, ema50: bcTrend.ema50, bcZone };
 }
 
 // ================================================================
@@ -1718,7 +1718,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
                          ? (ema9m_lb > ema21m_lb && ema9m <= ema21m) : false;
 
     f.rsi = rsi9 ? rsi9.toFixed(1) : null;
-    const { bias, ema21: macroEMA21, atr: macroATR, bcZone } = macroBias;
+    const { bias, ema21: macroEMA21, ema50: macroEMA50, atr: macroATR, bcZone } = macroBias;
     const direction = bias === 'BULL' ? 'buy' : 'sell';
 
     // 0. PREMIUM / DISCOUNT GATE — forces entry AFTER pullback/retrace
@@ -1761,17 +1761,17 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 
     // 4. Zone proximity (15 pts)
     let zoneScore = 0, zoneType = 'NONE';
-    const snapDist = macroATR * 0.30;
+    const snapDist = macroATR * 0.40;
     if (direction === 'buy') {
-        const nearEMA  = macroEMA21 && price <= macroEMA21 + snapDist && price >= macroEMA21 - snapDist * 0.6;
+        const nearEMA  = macroEMA50 && price <= macroEMA50 + snapDist && price >= macroEMA50 - snapDist * 0.6;
         const inDemand = bcZone && (bcZone.zone === 'DEMAND' || bcZone.zone === 'NEAR_DEMAND');
-        if (nearEMA) { zoneScore = 15; zoneType = 'EMA21'; }
+        if (nearEMA) { zoneScore = 15; zoneType = 'EMA50'; }
         else if (inDemand) { zoneScore = 15; zoneType = 'DEMAND'; }
         else if (rsi9 !== null && rsi9 < 42) { zoneScore = 8; zoneType = 'RSI_PB'; }
     } else {
-        const nearEMA  = macroEMA21 && price >= macroEMA21 - snapDist && price <= macroEMA21 + snapDist * 0.6;
+        const nearEMA  = macroEMA50 && price >= macroEMA50 - snapDist && price <= macroEMA50 + snapDist * 0.6;
         const inSupply = bcZone && (bcZone.zone === 'SUPPLY' || bcZone.zone === 'NEAR_SUPPLY');
-        if (nearEMA) { zoneScore = 15; zoneType = 'EMA21'; }
+        if (nearEMA) { zoneScore = 15; zoneType = 'EMA50'; }
         else if (inSupply) { zoneScore = 15; zoneType = 'SUPPLY'; }
         else if (rsi9 !== null && rsi9 > 58) { zoneScore = 8; zoneType = 'RSI_PB'; }
     }
