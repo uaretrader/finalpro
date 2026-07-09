@@ -104,6 +104,8 @@ header::after {
 .signal-bar.confirm-wait { background: rgba(240,165,0,0.04); animation: pulseBorder 1s infinite; }
 @keyframes pulseBorder { 0%, 100% { border-bottom-color: rgba(240,165,0,0.08); } 50% { border-bottom-color: rgba(240,165,0,0.45); } }
 .signal-dot-group { display: flex; gap: 7px; align-items: center; }
+.signal-mid-group { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.signal-timer { font-size: 0.58rem; font-weight: 600; letter-spacing: 1px; font-family: 'IBM Plex Mono', monospace; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface3); border: 1px solid var(--edge); transition: all 0.2s ease; }
 .dot.active { background: var(--emerald); border-color: var(--emerald); box-shadow: var(--emerald-glow); }
 .dot.active-down { background: var(--crimson); border-color: var(--crimson); box-shadow: var(--crimson-glow); }
@@ -253,6 +255,7 @@ const CONFIRMATION_WAIT_MS = 2000;
 
 const PRICE_OFFSET_XAU = -2.1;
 const COOLDOWN_AFTER_SL_MS = 30000;
+const SIGNAL_TIMEOUT_MS = 30 * 60 * 1000; // 30 menit — auto-reset kalau belum TP/SL dan breakeven belum armed
 
 const MACRO_DUR = { xau: 60000 };
 const MICRO_DUR = { xau: 15000 };
@@ -1926,6 +1929,16 @@ function processSignal(id, price) {
             resetSignal(id); return;
         }
 
+        // 2b. TIMEOUT — batalkan signal kalau 30 menit belum TP/SL DAN breakeven belum armed.
+        //     Begitu breakeven armed (posisi risk-free), timer ini otomatis tidak berlaku lagi
+        //     (dibiarkan jalan sampai TP penuh atau breakeven ter-trigger).
+        if (!s.breakevenArmed && Date.now() - s.confirmedAt >= SIGNAL_TIMEOUT_MS) {
+            state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
+            resetSignal(id);
+            showToast(`${id.toUpperCase()} ⏱ TIMEOUT 30m — signal dibatalkan`);
+            return;
+        }
+
         // 3. ARM BREAKEVEN (30% of TP distance)
         if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
             const tpDist = Math.abs(s.tp - s.entry);
@@ -2221,6 +2234,30 @@ function updateTracker(id, price) {
     if (t) { t.innerText = (Math.round(dist * 100) / 100).toFixed(2); t.style.color = dist >= 0 ? 'var(--emerald)' : 'var(--crimson)'; }
 }
 
+function updateCountdownUI(id) {
+    const s = state[id];
+    const el = document.getElementById(`timeout-${id}`);
+    if (!s || !el) return;
+
+    if (!s.confirmed) {
+        el.style.display = 'none';
+        return;
+    }
+    el.style.display = 'inline-block';
+    if (s.breakevenArmed) {
+        // Timer sudah tidak berlaku — posisi risk-free, dibiarkan jalan sampai TP penuh
+        el.innerText = 'OFF';
+        el.style.color = 'var(--text-dim)';
+        return;
+    }
+    const remaining = SIGNAL_TIMEOUT_MS - (Date.now() - s.confirmedAt);
+    if (remaining <= 0) { el.innerText = '00:00'; el.style.color = 'var(--danger)'; return; }
+    const mm = Math.floor(remaining / 60000);
+    const ss = Math.floor((remaining % 60000) / 1000);
+    el.innerText = `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+    el.style.color = remaining <= 5 * 60000 ? 'var(--amber)' : 'var(--text-dim)';
+}
+
 function updateSignalUIOnly(id) {
     const s = state[id];
     if (!s) return;
@@ -2342,7 +2379,9 @@ function resetSignal(id) {
     if (signalDebounceTimer[id]) { clearTimeout(signalDebounceTimer[id]); signalDebounceTimer[id] = null; }
     const kept = { lastPrice: s.lastPrice, cooldownUntil: s.cooldownUntil || 0 };
     Object.assign(s, createFreshState(), kept); pendingSignalData[id] = true; updateSignalUIOnly(id);
-    const t = document.getElementById(`tracker-${id}`); if (t) t.innerText = '0'; throttledSaveState(id); throttledUpdateUI(id);
+    const t = document.getElementById(`tracker-${id}`); if (t) t.innerText = '0';
+    const tm = document.getElementById(`timeout-${id}`); if (tm) tm.style.display = 'none';
+    throttledSaveState(id); throttledUpdateUI(id);
     requestAnimationFrame(() => { s.resetInProgress = false; }); setTimeout(() => { s.resetInProgress = false; }, 300);
 }
 function handleSignalBarTap(id) {
@@ -2381,10 +2420,13 @@ function buildCardHTML(id, label) {
         </div>
         <div class="signal-bar" id="signal-bar-${id}">
           <span>SIGNAL</span>
-          <div class="signal-dot-group">
-            <div class="dot" id="l1-${id}"></div>
-            <div class="dot" id="l2-${id}"></div>
-            <div class="dot" id="l3-${id}"></div>
+          <div class="signal-mid-group">
+            <div class="signal-dot-group">
+              <div class="dot" id="l1-${id}"></div>
+              <div class="dot" id="l2-${id}"></div>
+              <div class="dot" id="l3-${id}"></div>
+            </div>
+            <span class="signal-timer" id="timeout-${id}" style="display:none;">--:--</span>
           </div>
           <span id="signal-text-${id}">— WAIT</span>
         </div>
@@ -2440,19 +2482,7 @@ function buildCardHTML(id, label) {
               <span class="pde-meter-val" id="pde-meter-risk-val-${id}" style="color:var(--text-dim)">—</span>
             </div>
           </div>
-          
-          <div class="pde-reasoning">
-            <div class="pde-reasoning-title">Reasoning</div>
-            <div class="pde-reason-list" id="pde-reason-list-${id}">
-              <div class="pde-reason-item" style="color:var(--text-dim)">Waiting for data...</div>
-            </div>
-          </div>
-          <div class="pde-risk-row">
-            <span class="pde-risk-badge medium" id="pde-risk-${id}">MED RISK</span>
-            <span class="pde-quality-badge" id="pde-eq-${id}">ENTRY QUAL</span>
-          </div>
-        </div>
-        <!-- ═══════════════════════════════════════════════════════ -->
+          <!-- ═══════════════════════════════════════════════════════ -->
         <div class="stats-grid" id="history-panel-${id}">
           <div class="stats-item"><span class="stats-label" style="color:var(--gold)">TP1</span><span class="stats-value be-value" id="stats-retrace-${id}">0</span></div>
           <div class="stats-item"><span class="stats-label">TP2</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div>
@@ -2567,6 +2597,7 @@ async function init() {
     updateGlobalPulse();
 
     setInterval(consolidatedPoll, 3000);
+    setInterval(() => updateCountdownUI('xau'), 1000);
 
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
