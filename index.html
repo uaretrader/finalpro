@@ -263,7 +263,7 @@ const MICRO_DUR = { xau: 15000 };
 const MACRO_MIN = 35;
 const MICRO_MIN = 10;
 
-const BC_SCORE_MIN = 60;
+const BC_SCORE_MIN = 52;
 const ADX_MIN      = 20;
 
 const MICRO_READY_THRESHOLD = 48;
@@ -415,13 +415,13 @@ function calcBCTrend(closes, atr) {
     const ema200 = ema200Period !== null ? calcEMA(closes, ema200Period) : null;
     const hasEma200 = ema200 !== null;
     if (!ema21 || !ema50) return { trend: 'NEUTRAL', score: 0, ema21, ema50, ema200, hasEma200 };
-    const SLOPE_WINDOW = Math.min(10, n - 2);
+    const SLOPE_WINDOW = Math.min(6, n - 2);
     const ema21Prev = SLOPE_WINDOW > 0 ? calcEMA(closes.slice(0, -SLOPE_WINDOW), Math.min(21, n - SLOPE_WINDOW - 1)) : null;
     const ema50Prev = SLOPE_WINDOW > 0 ? calcEMA(closes.slice(0, -SLOPE_WINDOW), Math.min(50, n - SLOPE_WINDOW - 1)) : null;
     const slope21 = (ema21Prev && atr) ? (ema21 - ema21Prev) / atr : 0;
     const slope50 = (ema50Prev && atr) ? (ema50 - ema50Prev) / atr : 0;
     const SLOPE_MIN = 0.08;
-    const CROSS_LOOKBACK = Math.min(5, n - 2);
+    const CROSS_LOOKBACK = Math.min(3, n - 2);
     const ema21_lb = n > CROSS_LOOKBACK + 1
         ? calcEMA(closes.slice(0, -CROSS_LOOKBACK), Math.min(21, n - CROSS_LOOKBACK - 1))
         : null;
@@ -1644,8 +1644,20 @@ function scoreMacroBias(id, price, macroCandles) {
         else if (macd.hist < 0) { macdScore = -10; macdSig = 'BEAR_X'; }
         f.macd_sig = macdSig;
     }
-    const rawBull = Math.max(0, bcTrend.score) + Math.max(0, bcStruct.score) + Math.max(0, bcZone.score) + Math.max(0, bcFlow.score) + Math.max(0, macdScore);
-    const rawBear = Math.max(0, -bcTrend.score) + Math.max(0, -bcStruct.score) + Math.max(0, -bcZone.score) + Math.max(0, -bcFlow.score) + Math.max(0, -macdScore);
+
+    // PDE BOOST — Pattern Engine (leading, mis. pin bar/reversal) mempercepat konfirmasi
+    // bias trend (lagging, EMA-based) selama arahnya sepakat. Dibaca dari pdeCache hasil
+    // tick sebelumnya (bukan tick ini) supaya tidak ada circular dependency dengan runPatternEngine.
+    let pdeBoost = 0;
+    const pdePrev = pdeCache[id];
+    if (pdePrev && pdePrev.signal !== 'NEUTRAL' && pdePrev.confidence >= 75) {
+        if (pdePrev.signal === 'BUY') pdeBoost = 14;
+        else if (pdePrev.signal === 'SELL') pdeBoost = -14;
+    }
+    f.pde_boost = pdeBoost;
+
+    const rawBull = Math.max(0, bcTrend.score) + Math.max(0, bcStruct.score) + Math.max(0, bcZone.score) + Math.max(0, bcFlow.score) + Math.max(0, macdScore) + Math.max(0, pdeBoost);
+    const rawBear = Math.max(0, -bcTrend.score) + Math.max(0, -bcStruct.score) + Math.max(0, -bcZone.score) + Math.max(0, -bcFlow.score) + Math.max(0, -macdScore) + Math.max(0, -pdeBoost);
     let bull = Math.round(rawBull * adxMult); let bear = Math.round(rawBear * adxMult);
     const trendBull = bcTrend.score > 0; const trendBear = bcTrend.score < 0;
     const structBull = bcStruct.score > 0; const structBear = bcStruct.score < 0;
