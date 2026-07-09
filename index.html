@@ -2482,7 +2482,8 @@ function buildCardHTML(id, label) {
               <span class="pde-meter-val" id="pde-meter-risk-val-${id}" style="color:var(--text-dim)">—</span>
             </div>
           </div>
-          <!-- ═══════════════════════════════════════════════════════ -->
+          
+        <!-- ═══════════════════════════════════════════════════════ -->
         <div class="stats-grid" id="history-panel-${id}">
           <div class="stats-item"><span class="stats-label" style="color:var(--gold)">TP1</span><span class="stats-value be-value" id="stats-retrace-${id}">0</span></div>
           <div class="stats-item"><span class="stats-label">TP2</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div>
@@ -2583,7 +2584,7 @@ async function init() {
     bindTap(document.getElementById('signal-bar-xau'), () => handleSignalBarTap('xau'));
     bindTap(document.getElementById('history-panel-xau'), () => handleHistoryPanelTap('xau'));
 
-    updateSignalUIOnly('xau'); updatePerformanceUI('xau');
+    updateSignalUIOnly('xau'); updatePerformanceUI('xau'); updateCountdownUI('xau');
     updateFeedBadge('xau', 'fallback');
     const el_xau = document.getElementById('ws-status-xau');
     if (el_xau) { el_xau.textContent = '● LOADING...'; el_xau.className = 'ws-status connected'; }
