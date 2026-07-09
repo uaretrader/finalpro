@@ -69,6 +69,14 @@ header::after {
 .pulse.disconnected { background: var(--crimson); animation: blink 0.5s infinite; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
 .header-right { display: flex; align-items: center; gap: 10px; }
+.switch-pair-btn {
+    background: transparent; border: 1px solid var(--edge-bright); color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.61rem; font-weight: 500;
+    padding: 5px 13px; border-radius: var(--radius-sm); cursor: pointer;
+    transition: all 0.2s ease; letter-spacing: 1.5px; text-transform: uppercase;
+}
+.switch-pair-btn:hover { border-color: var(--gold); color: var(--gold); }
+.switch-pair-btn:active, .switch-pair-btn.btn-highlight { border-color: var(--gold); color: var(--gold); transform: scale(0.96); box-shadow: var(--gold-glow); }
 .pair-card { display: none; }
 .pair-card.active { display: block; }
 .card {
@@ -142,7 +150,7 @@ header::after {
 .level-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.41rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; }
 .level-value { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; font-weight: 700; letter-spacing: -0.2px; color: var(--text-primary); }
 .draw-value { color: var(--teal); }
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--edge); border-bottom: 1px solid var(--edge); cursor: pointer; user-select: none; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--edge); cursor: pointer; user-select: none; }
 .stats-item { display: flex; flex-direction: column; align-items: center; padding: 9px 4px; border-right: 1px solid var(--edge); text-align: center; transition: background 0.15s; }
 .stats-item:last-child { border-right: none; }
 .stats-item:hover { background: rgba(255,255,255,0.015); }
@@ -195,7 +203,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 .pde-reason-list { display: flex; flex-direction: column; gap: 3px; max-height: 56px; overflow: hidden; }
 .pde-reason-item { font-family: 'IBM Plex Mono', monospace; font-size: 0.40rem; color: var(--text-muted); letter-spacing: 0.5px; display: flex; align-items: center; gap: 5px; }
 .pde-reason-item::before { content: '▸'; color: var(--gold); font-size: 0.38rem; flex-shrink: 0; }
-.pde-risk-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 17px 7px; }
+.pde-risk-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 17px 7px; border-bottom: 1px solid var(--edge); }
 .pde-risk-badge { font-family: 'IBM Plex Mono', monospace; font-size: 0.38rem; padding: 2px 8px; border-radius: 2px; border: 1px solid transparent; letter-spacing: 1px; text-transform: uppercase; }
 .pde-risk-badge.low { color: var(--emerald); border-color: rgba(0,217,139,0.2); background: rgba(0,217,139,0.05); }
 .pde-risk-badge.medium { color: var(--amber); border-color: rgba(255,184,48,0.2); background: rgba(255,184,48,0.05); }
@@ -235,17 +243,13 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 'use strict';
 
 // ================================================================
-//  URADVISOR v12.0 — SIGNAL ENGINE FIX EDITION
+//  URADVISOR v12.0 — PDE GATE EDITION (FIXED)
 //  KEY FIXES:
-//  1. PDE direction now macro-bias aligned (not independent)
-//  2. Momentum score scaling fixed (raw max ~40 → capped properly)
-//  3. Candlestick topPat selection direction-aware
-//  4. Confluence scoring directional (weighted by net direction)
-//  5. False signal filter — precise align/conflict handling
-//  6. L3 lock: PDE must confirm same direction or be NEUTRAL
-//  7. MTF opposing block expanded (includes BEAR_EARLY, BEAR_ZONE)
-//  8. HTML: eb-score + PDE score grid elements added
-//  9. ADX used as hard multiplier in PDE scoring (not just label)
+//  1. Timeout signal 30 menit — persis seperti file index
+//  2. Hapus semua kode terkait BTC
+//  3. Hapus tombol switch pair
+//  4. Timer tetap berjalan meskipun halaman di-refresh (via localStorage state)
+//  5. PDE gate hanya untuk XAU
 // ================================================================
 
 const LS_SCHEMA_VERSION    = 13;
@@ -255,7 +259,7 @@ const CONFIRMATION_WAIT_MS = 2000;
 
 const PRICE_OFFSET_XAU = -2.2;
 const COOLDOWN_AFTER_SL_MS = 30000;
-const SIGNAL_TIMEOUT_MS = 30 * 60 * 1000; // 30 menit — auto-reset kalau belum TP/SL dan breakeven belum armed
+const SIGNAL_TIMEOUT_MS = 30 * 60 * 1000; // 30 menit
 
 const MACRO_DUR = { xau: 60000 };
 const MICRO_DUR = { xau: 15000 };
@@ -271,6 +275,9 @@ const MICRO_LOCK_THRESHOLD  = 55;
 
 const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;
 const ZONE_MAX     = 12;
+
+const PDE_GATE_CONFIDENCE   = 55;
+const PDE_GATE_BYPASS_SCORE = 85;
 
 // ================================================================
 //  SCHEMA MIGRATION
@@ -407,21 +414,18 @@ function calcADX(candles, period) {
 function calcBCTrend(closes, atr) {
     const n = closes.length;
     const ema21  = calcEMA(closes, Math.min(21, n - 1));
-    const ema50Period = Math.min(50, n - 1);
-    const ema50  = calcEMA(closes, ema50Period);
-    const MIN_EMA200_GAP = 40;
-    let ema200Period = n >= 200 ? 200 : n >= 100 ? 100 : null;
-    if (ema200Period === null && (n - 1) >= ema50Period + MIN_EMA200_GAP) ema200Period = n - 1;
-    const ema200 = ema200Period !== null ? calcEMA(closes, ema200Period) : null;
-    const hasEma200 = ema200 !== null;
-    if (!ema21 || !ema50) return { trend: 'NEUTRAL', score: 0, ema21, ema50, ema200, hasEma200 };
-    const SLOPE_WINDOW = Math.min(6, n - 2);
+    const ema50  = calcEMA(closes, Math.min(50, n - 1));
+    const ema200Period = n >= 200 ? 200 : n >= 100 ? 100 : n >= 50 ? 50 : Math.max(20, n - 1);
+    const ema200 = calcEMA(closes, ema200Period);
+    const hasEma200 = n >= 200;
+    if (!ema21 || !ema50 || !ema200) return { trend: 'NEUTRAL', score: 0, ema21, ema50, ema200 };
+    const SLOPE_WINDOW = Math.min(10, n - 2);
     const ema21Prev = SLOPE_WINDOW > 0 ? calcEMA(closes.slice(0, -SLOPE_WINDOW), Math.min(21, n - SLOPE_WINDOW - 1)) : null;
     const ema50Prev = SLOPE_WINDOW > 0 ? calcEMA(closes.slice(0, -SLOPE_WINDOW), Math.min(50, n - SLOPE_WINDOW - 1)) : null;
     const slope21 = (ema21Prev && atr) ? (ema21 - ema21Prev) / atr : 0;
     const slope50 = (ema50Prev && atr) ? (ema50 - ema50Prev) / atr : 0;
     const SLOPE_MIN = 0.08;
-    const CROSS_LOOKBACK = Math.min(3, n - 2);
+    const CROSS_LOOKBACK = Math.min(5, n - 2);
     const ema21_lb = n > CROSS_LOOKBACK + 1
         ? calcEMA(closes.slice(0, -CROSS_LOOKBACK), Math.min(21, n - CROSS_LOOKBACK - 1))
         : null;
@@ -430,14 +434,14 @@ function calcBCTrend(closes, atr) {
         : null;
     const justCrossedUp   = ema21_lb !== null && ema50_lb !== null && ema21_lb < ema50_lb && ema21 >= ema50;
     const justCrossedDown = ema21_lb !== null && ema50_lb !== null && ema21_lb > ema50_lb && ema21 <= ema50;
-    const fullBull = hasEma200 ? (ema21 > ema50 && ema50 > ema200) : false;
-    const fullBear = hasEma200 ? (ema21 < ema50 && ema50 < ema200) : false;
-    const zoneBull = hasEma200 ? (ema21 > ema50 && ema21 < ema200) : false;
-    const zoneBear = hasEma200 ? (ema21 < ema50 && ema21 > ema200) : false;
+    const fullBull = ema21 > ema50 && ema50 > ema200;
+    const fullBear = ema21 < ema50 && ema50 < ema200;
+    const zoneBull = ema21 > ema50 && ema21 < ema200;
+    const zoneBear = ema21 < ema50 && ema21 > ema200;
     let trend = 'NEUTRAL', score = 0;
-    if      (justCrossedUp   && (!hasEma200 || ema21 <= ema200))  { trend = 'BULL_X';      score =  16; }
+    if      (justCrossedUp   && ema21 <= ema200)  { trend = 'BULL_X';      score =  16; }
     else if (justCrossedUp   && fullBull)          { trend = 'BULL_X_BULL'; score =  28; }
-    else if (justCrossedDown && (!hasEma200 || ema21 >= ema200))  { trend = 'BEAR_X';      score = -16; }
+    else if (justCrossedDown && ema21 >= ema200)  { trend = 'BEAR_X';      score = -16; }
     else if (justCrossedDown && fullBear)          { trend = 'BEAR_X_BEAR'; score = -28; }
     else if (fullBull && slope21 >  SLOPE_MIN && slope50 > 0) { trend = 'STRONG_BULL'; score =  30; }
     else if (fullBull && slope21 >= -SLOPE_MIN)                { trend = 'BULL';        score =  22; }
@@ -447,8 +451,6 @@ function calcBCTrend(closes, atr) {
     else if (fullBear && slope21 >   SLOPE_MIN)                { trend = 'BEAR_PULL';   score = -12; }
     else if (zoneBull)                                         { trend = 'BULL_ZONE';   score =  10; }
     else if (zoneBear)                                         { trend = 'BEAR_ZONE';   score = -10; }
-    else if (!hasEma200 && ema21 > ema50 && slope21 >  SLOPE_MIN) { trend = 'BULL_EARLY'; score =  14; }
-    else if (!hasEma200 && ema21 < ema50 && slope21 < -SLOPE_MIN) { trend = 'BEAR_EARLY'; score = -14; }
     return { trend, score, ema21, ema50, ema200, slope21, slope50, hasEma200, justCrossedUp, justCrossedDown };
 }
 
@@ -997,12 +999,7 @@ function calcVolatilityEngine(candles, closes, atr) {
 }
 
 // ================================================================
-//  PATTERN SCORING ENGINE — FIXED
-//  FIX 1: Macro bias direction incorporated into scoring weights
-//  FIX 2: Momentum scaling fixed (correct denominator)
-//  FIX 3: Candlestick topPat prefers direction-matching patterns
-//  FIX 4: Confluence scoring is directional (based on net signal)
-//  FIX 5: ADX used as hard multiplier (not just label)
+//  PATTERN SCORING ENGINE
 // ================================================================
 function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBias) {
     const scores = { structure: 0, trend: 0, momentum: 0, volume: 0, candle: 0, sr: 0, smc: 0, volatility: 0, divergence: 0, confluence: 0 };
@@ -1011,19 +1008,8 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     const candles = macroCandles.length > 0 ? macroCandles : microCandles;
     if (!candles || candles.length < 10) return { signal: 'NEUTRAL', confidence: 0, scores, reasoning, patterns: [], direction: 'none' };
 
-    // FIX 1: Determine the "expected" direction from macroBias
-    // This is used to weight pattern signals. Neutral when macro not valid.
-    const macroDir = (macroBias && macroBias.valid) ? (macroBias.bias === 'BULL' ? 'buy' : 'sell') : null;
-
     const closes = candles.map(c=>c.close);
-
-    // FIX 5: ADX as hard multiplier
     const adx = calcADX(candles, 14) || 0;
-    // ADX < 18 = very choppy, signals unreliable
-    // ADX 18-28 = mild trend, signals ok with caution
-    // ADX >= 28 = trending, signals reliable
-    const adxMult = adx >= 35 ? 1.15 : adx >= 28 ? 1.0 : adx >= 18 ? 0.85 : 0.65;
-
     const rsi = calcRSI(closes, 14) || 50;
     const macd = calcMACD(closes);
     const cci = calcCCI(candles, 14);
@@ -1058,60 +1044,34 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     }
     if (macroBias && macroBias.factors && macroBias.factors.just_crossed) reasoning.push('EMA Cross Signal');
 
-    // ── Momentum (max 15) — FIXED SCALING ────────────────────
-    // FIX 2: The raw momentum components have different max values.
-    // RSI contribution max: ±12, MACD: ±8, CCI: ±5, Stoch: ±5, WillR: ±4, AO: ±3
-    // Total raw max = 37, but we want to scale to 15 points max.
-    // We use actual component contributions with individual caps.
+    // ── Momentum (max 15) ────────────────────────────────────
     let momScore = 0;
-
-    // RSI component (max ±12)
     if (rsi < 30) { momScore += 12; reasoning.push(`RSI Oversold (${rsi.toFixed(0)})`); }
-    else if (rsi < 42) { momScore += 7; reasoning.push(`RSI Pullback (${rsi.toFixed(0)})`); }
-    else if (rsi < 52) { momScore += 2; }
+    else if (rsi < 45) { momScore += 6; reasoning.push(`RSI Pullback (${rsi.toFixed(0)})`); }
     else if (rsi > 70) { momScore -= 12; reasoning.push(`RSI Overbought (${rsi.toFixed(0)})`); }
-    else if (rsi > 58) { momScore -= 7; }
-    else if (rsi > 48) { momScore -= 2; }
-
-    // MACD component (max ±8)
+    else if (rsi > 55) { momScore -= 6; }
     if (macd) {
         if (macd.hist > 0 && macd.line > 0) { momScore += 8; reasoning.push('MACD Bullish'); }
         else if (macd.hist > 0)             { momScore += 4; reasoning.push('MACD Cross Up'); }
         else if (macd.hist < 0 && macd.line < 0) { momScore -= 8; reasoning.push('MACD Bearish'); }
         else if (macd.hist < 0)             { momScore -= 4; }
     }
-
-    // CCI component (max ±5)
     if (cci !== null) {
         if (cci < -100) { momScore += 5; reasoning.push('CCI Oversold'); }
-        else if (cci < -50) { momScore += 2; }
         else if (cci > 100) { momScore -= 5; reasoning.push('CCI Overbought'); }
-        else if (cci > 50) { momScore -= 2; }
     }
-
-    // Stochastic component (max ±5)
     if (stoch) {
         if (stoch.k < 20 && stoch.d < 20) { momScore += 5; reasoning.push('Stochastic Oversold'); }
-        else if (stoch.k < 35 && stoch.d < 35) { momScore += 2; }
         else if (stoch.k > 80 && stoch.d > 80) { momScore -= 5; reasoning.push('Stochastic Overbought'); }
-        else if (stoch.k > 65 && stoch.d > 65) { momScore -= 2; }
     }
-
-    // Williams %R component (max ±4)
     if (willR !== null) {
         if (willR < -80) { momScore += 4; reasoning.push('Williams%R Oversold'); }
-        else if (willR < -60) { momScore += 2; }
         else if (willR > -20) { momScore -= 4; }
-        else if (willR > -40) { momScore -= 2; }
     }
-
-    // AO component (max ±3)
     if (ao !== null) {
         if (ao > 0) momScore += 3; else momScore -= 3;
     }
-
-    // FIX 2: Scale raw (max ±37) to target (max ±15)
-    scores.momentum = Math.max(-15, Math.min(15, Math.round(momScore * 15 / 37)));
+    scores.momentum = Math.max(-15, Math.min(15, Math.round(momScore * 15 / 25)));
 
     // ── Volume (max 10) ───────────────────────────────────────
     const volEng = calcVolumeEngine(candles);
@@ -1120,39 +1080,15 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     if (volEng.buyingPressure)  reasoning.push('Buying Pressure');
     if (volEng.sellingPressure) reasoning.push('Selling Pressure');
 
-    // ── Candlestick (max 10) — FIXED DIRECTION SELECTION ─────
-    // FIX 3: topCandlePat now prefers patterns matching macroDir (or overall netScore direction).
-    // Neutral patterns are excluded from top selection.
+    // ── Candlestick (max 10) ───────────────────────────────────
     const allCandles = macroCandles.concat(microCandles.slice(-3));
     const cpats = detectCandlePatterns(allCandles.length >= 3 ? allCandles : candles);
     let candleScore = 0;
     let topCandlePat = null;
-
     for (const p of cpats) {
-        if (p.dir === 'bull') { candleScore += p.score; }
-        else if (p.dir === 'bear') { candleScore -= p.score; }
+        if (p.dir === 'bull') { candleScore += p.score; if (!topCandlePat || p.score > topCandlePat.score) topCandlePat = p; }
+        else if (p.dir === 'bear') { candleScore -= p.score; if (!topCandlePat || p.score > topCandlePat.score) topCandlePat = p; }
     }
-
-    // Determine net candle direction
-    const candleDir = candleScore > 0 ? 'bull' : candleScore < 0 ? 'bear' : null;
-
-    // Select top pattern: prefer one matching macroDir or overall candle direction
-    const targetPatDir = macroDir === 'buy' ? 'bull' : macroDir === 'sell' ? 'bear' : candleDir;
-    if (targetPatDir) {
-        // First try to find a matching pattern by direction
-        const matchingPats = cpats.filter(p => p.dir === targetPatDir);
-        if (matchingPats.length > 0) {
-            topCandlePat = matchingPats.reduce((best, p) => p.score > best.score ? p : best, matchingPats[0]);
-        } else {
-            // Fallback to highest-scoring non-neutral pattern
-            const nonNeutral = cpats.filter(p => p.dir !== 'neutral');
-            if (nonNeutral.length > 0) topCandlePat = nonNeutral.reduce((best, p) => p.score > best.score ? p : best, nonNeutral[0]);
-        }
-    } else {
-        const nonNeutral = cpats.filter(p => p.dir !== 'neutral');
-        if (nonNeutral.length > 0) topCandlePat = nonNeutral.reduce((best, p) => p.score > best.score ? p : best, nonNeutral[0]);
-    }
-
     scores.candle = Math.max(-10, Math.min(10, Math.round(candleScore * 10 / 15)));
     if (topCandlePat) reasoning.push(topCandlePat.name);
 
@@ -1181,32 +1117,14 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     scores.divergence = Math.max(-5, Math.min(5, divEng.score));
     for (const d of divEng.divergences.slice(0,2)) reasoning.push(d);
 
-    // ── Compute net scores before confluence ──────────────────
-    const totalBullPreConf = Object.values(scores).reduce((a,v) => a + Math.max(0,v), 0);
-    const totalBearPreConf = Object.values(scores).reduce((a,v) => a + Math.max(0,-v), 0);
-    const netScorePreConf  = totalBullPreConf - totalBearPreConf;
-
-    // ── Confluence (max 10) — FIXED: DIRECTIONAL ──────────────
-    // FIX 4: Confluence is now computed based on whether sub-scores align
-    // with the dominant direction (bull or bear), not just whether they are positive/negative.
-    // A positive score = bullish contribution; negative = bearish contribution.
+    // ── Confluence (max 10) ────────────────────────────────────
     const positiveCount = Object.values(scores).filter(v => v > 0).length;
     const negativeCount = Object.values(scores).filter(v => v < 0).length;
-    const netDir = netScorePreConf > 0 ? 'bull' : 'bear';
-
-    if (netDir === 'bull') {
-        if (positiveCount >= 7)      { scores.confluence = 10; reasoning.push('Strong Bull Confluence'); }
-        else if (positiveCount >= 5) { scores.confluence = 7; }
-        else if (positiveCount >= 3) { scores.confluence = 4; }
-        // Penalize heavy contra signals
-        if (negativeCount >= 5) { scores.confluence -= 5; reasoning.push('Mixed Signals Warning'); }
-    } else {
-        if (negativeCount >= 7)      { scores.confluence = -10; reasoning.push('Strong Bear Confluence'); }
-        else if (negativeCount >= 5) { scores.confluence = -7; }
-        else if (negativeCount >= 3) { scores.confluence = -4; }
-        if (positiveCount >= 5) { scores.confluence += 5; reasoning.push('Mixed Signals Warning'); }
-    }
-    scores.confluence = Math.max(-10, Math.min(10, scores.confluence));
+    if (positiveCount >= 6)       { scores.confluence = 10; reasoning.push('Strong Multi-Factor Confluence'); }
+    else if (positiveCount >= 4)  { scores.confluence = 6; }
+    else if (negativeCount >= 6)  { scores.confluence = -10; reasoning.push('Strong Bearish Confluence'); }
+    else if (negativeCount >= 4)  { scores.confluence = -6; }
+    else if (positiveCount >= 2 && negativeCount >= 2) { scores.confluence = 0; }
 
     // ── TOTAL SCORE & DIRECTION ───────────────────────────────
     const totalBull = Object.values(scores).reduce((a,v) => a + Math.max(0,v), 0);
@@ -1214,88 +1132,43 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     const netScore  = totalBull - totalBear;
     const maxPossible = 100;
 
-    // FIX 5: Apply ADX multiplier to confidence (not to scores themselves)
-    // Threshold for signal: netScore >= 10 (slightly higher for precision)
     let signal = 'NEUTRAL', direction = 'none', confidence = 0;
-    const NET_THRESHOLD = 10;
-
-    if (netScore >= NET_THRESHOLD) {
+    if (netScore >= 8) {
         signal = 'BUY'; direction = 'buy';
-        confidence = Math.min(98, Math.round((totalBull / maxPossible) * 100 * 1.05 * adxMult));
-    } else if (netScore <= -NET_THRESHOLD) {
+        confidence = Math.min(98, Math.round((totalBull / maxPossible) * 100 * 1.1));
+    } else if (netScore <= -8) {
         signal = 'SELL'; direction = 'sell';
-        confidence = Math.min(98, Math.round((totalBear / maxPossible) * 100 * 1.05 * adxMult));
+        confidence = Math.min(98, Math.round((totalBear / maxPossible) * 100 * 1.1));
     } else {
-        // Near neutral — still compute confidence for display
-        confidence = Math.round(Math.max(totalBull, totalBear) / maxPossible * 100 * 0.6 * adxMult);
+        confidence = Math.round(Math.max(totalBull, totalBear) / maxPossible * 100 * 0.7);
     }
 
-    // Ensure confidence is non-negative
-    confidence = Math.max(0, confidence);
-
-    return { signal, direction, confidence, scores, totalBull, totalBear, netScore, reasoning, patterns: cpats, smcData, srData, volat, volEng, rsi, cci, stoch, willR, ao, roc, superTrend, atr, adx };
+    return { signal, direction, confidence, scores, totalBull, totalBear, netScore, reasoning, patterns: cpats, smcData, srData, volat, volEng, rsi, cci, stoch, willR, ao, roc, superTrend, atr };
 }
 
-// ── FALSE SIGNAL FILTER — FIXED ──────────────────────────────────
-// FIX: When macroBias.valid is true, PDE must align with macro direction.
-// If it conflicts, signal becomes NEUTRAL (not just penalized confidence).
-// Additional filters are more nuanced — fewer triggers per condition.
-function applyFalseSignalFilter(scored, candles, macroBias) {
+// ── FALSE SIGNAL FILTER ──────────────────────────────────────────
+function applyFalseSignalFilter(scored, candles) {
     if (!scored || scored.signal === 'NEUTRAL') return scored;
     const warns = [];
     const closes = candles.map(c=>c.close);
     const adx = calcADX(candles, 14);
 
-    // 1. Extreme sideways market (very low ADX)
-    if (adx !== null && adx < 15) { warns.push('ADX<15 — flat market'); }
-
-    // 2. Very tight Bollinger Bands (not meaningful breakout)
-    if (scored.volat && scored.volat.bbWidth < 0.4) { warns.push('BBWidth<0.4 (no momentum)'); }
-
-    // 3. BOS without volume — high false breakout risk
+    if (adx !== null && adx < 18) { warns.push('ADX<18 (choppy)'); }
+    if (scored.volat && scored.volat.bbWidth < 0.6) { warns.push('BBWidth<0.6 (flat)'); }
     const bcStruct = calcBCStruct(candles);
-    if (bcStruct.bos && scored.volEng && scored.volEng.relVol < 0.6) { warns.push('BOS no vol — false break risk'); }
-
-    // 4. Doji at key levels — direction uncertainty
+    if (bcStruct.bos && scored.volEng && scored.volEng.relVol < 0.7) { warns.push('BOS no volume'); }
     const hasNeutralDoji = scored.patterns.some(p => p.dir === 'neutral' && p.name === 'Doji');
-    if (hasNeutralDoji && scored.confidence < 50) warns.push('Doji — uncertain direction');
+    if (hasNeutralDoji && scored.confidence < 60) warns.push('Doji uncertainty');
+    if (scored.signal === 'BUY'  && scored.srData && scored.srData.nearResistance) warns.push('Entry near resistance');
+    if (scored.signal === 'SELL' && scored.srData && scored.srData.nearSupport)    warns.push('Entry near support');
+    if (scored.scores.trend > 5 && scored.scores.structure < -5) warns.push('Trend/struct conflict');
+    if (scored.scores.trend < -5 && scored.scores.structure > 5) warns.push('Trend/struct conflict');
 
-    // 5. Signal against strong S/R — only flag if very close
-    if (scored.signal === 'BUY'  && scored.srData && scored.srData.nearResistance && scored.confidence < 65) warns.push('BUY near resistance');
-    if (scored.signal === 'SELL' && scored.srData && scored.srData.nearSupport    && scored.confidence < 65) warns.push('SELL near support');
-
-    // 6. Trend vs structure conflict
-    if (scored.scores.trend > 7 && scored.scores.structure < -7) warns.push('Trend/struct conflict');
-    if (scored.scores.trend < -7 && scored.scores.structure > 7) warns.push('Trend/struct conflict');
-
-    // 7. CROSS-ENGINE ALIGNMENT — CRITICAL FIX:
-    // When macro bias is valid, PDE MUST match direction.
-    // This prevents two contradicting arrows on the same card.
-    if (macroBias && macroBias.valid) {
-        const macroDir = macroBias.bias === 'BULL' ? 'buy' : 'sell';
-        if (scored.direction !== macroDir) {
-            // Hard override to NEUTRAL — prevent conflicting signals
-            return {
-                ...scored,
-                signal: 'NEUTRAL',
-                direction: 'none',
-                confidence: Math.round(scored.confidence * 0.25),
-                warnings: [`PDE conflicted vs Macro ${macroBias.bias} — NEUTRAL`]
-            };
-        }
-        // If aligned: boost confidence slightly as reward for macro confirmation
-        scored = { ...scored, confidence: Math.min(98, scored.confidence + 5) };
-    }
-
-    // 8. Penalize confidence per warning
-    const penalty = warns.length * 7;
+    const penalty = warns.length * 8;
     const adjConf = Math.max(0, scored.confidence - penalty);
-
-    // 9. Downgrade to NEUTRAL if too many warnings or confidence too low
-    if (warns.length >= 4 || adjConf < 18) {
-        return { ...scored, signal: 'NEUTRAL', direction: 'none', confidence: adjConf, warnings: warns };
+    if (warns.length >= 4 || adjConf < 20) {
+        return { ...scored, signal: 'NEUTRAL', confidence: adjConf, warnings: warns };
     }
-
     return { ...scored, confidence: adjConf, warnings: warns };
 }
 
@@ -1313,18 +1186,15 @@ function getConfidenceLabel(confidence, signal) {
 function getRiskLabel(scored) {
     if (!scored) return { label: 'UNKNOWN', cls: 'medium' };
     const warns = (scored.warnings || []).length;
-    const adxOk = scored.adx !== undefined ? scored.adx >= ADX_MIN : true;
-    if (scored.confidence >= 75 && warns === 0 && adxOk) return { label: 'LOW RISK',  cls: 'low' };
+    if (scored.confidence >= 75 && warns === 0) return { label: 'LOW RISK',  cls: 'low' };
     if (scored.confidence >= 55 && warns <= 1)  return { label: 'MED RISK',  cls: 'medium' };
     return { label: 'HIGH RISK', cls: 'high' };
 }
 
 function getEntryQuality(scored) {
     if (!scored) return { label: 'POOR', cls: 'poor' };
-    const warns = (scored.warnings||[]).length;
-    const adxOk = scored.adx !== undefined ? scored.adx >= ADX_MIN : true;
-    if (scored.confidence >= 80 && warns === 0 && adxOk) return { label: 'EXCELLENT', cls: 'excellent' };
-    if (scored.confidence >= 60 && warns <= 1)  return { label: 'GOOD',      cls: 'good' };
+    if (scored.confidence >= 80 && (scored.warnings||[]).length === 0) return { label: 'EXCELLENT', cls: 'excellent' };
+    if (scored.confidence >= 60 && (scored.warnings||[]).length <= 1)  return { label: 'GOOD',      cls: 'good' };
     return { label: 'POOR', cls: 'poor' };
 }
 
@@ -1334,8 +1204,7 @@ let pdeCache = { xau: null };
 function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
     try {
         let scored = runPatternScoringEngine(id, price, macroCandles, microCandles, macroBias);
-        const filterCandles = macroCandles.length > 0 ? macroCandles : microCandles;
-        scored = applyFalseSignalFilter(scored, filterCandles, macroBias);
+        scored = applyFalseSignalFilter(scored, macroCandles.length > 0 ? macroCandles : microCandles);
         const confGrade = getConfidenceLabel(scored.confidence, scored.signal);
         const risk = getRiskLabel(scored);
         const eq = getEntryQuality(scored);
@@ -1343,15 +1212,7 @@ function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
         const output = {
             signal: scored.signal,
             confidence: scored.confidence,
-            pattern: scored.patterns.length > 0
-                ? (function() {
-                    // Prefer direction-matched patterns for display
-                    const dir = scored.signal === 'BUY' ? 'bull' : scored.signal === 'SELL' ? 'bear' : null;
-                    const dirPats = dir ? scored.patterns.filter(p => p.dir === dir) : [];
-                    if (dirPats.length > 0) return dirPats.map(p=>p.name).slice(0,2).join(' + ');
-                    return scored.patterns.map(p=>p.name).slice(0,2).join(' + ');
-                  })()
-                : (scored.signal !== 'NEUTRAL' ? 'Multi-Factor Signal' : 'Scanning...'),
+            pattern: scored.patterns.length > 0 ? scored.patterns.map(p=>p.name).join(' + ') : (scored.signal !== 'NEUTRAL' ? 'Multi-Factor' : 'No Pattern'),
             trend: (macroBias && macroBias.factors && macroBias.factors.bc_trend) || 'NEUTRAL',
             momentum: scored.rsi < 35 ? 'Oversold' : scored.rsi > 65 ? 'Overbought' : 'Neutral',
             volume: (scored.volEng && scored.volEng.label) || 'NORMAL',
@@ -1366,15 +1227,12 @@ function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
             risk_cls: risk.cls,
             eq_cls: eq.cls,
             scores: scored.scores,
-            reasoning: (scored.warnings && scored.warnings.length > 0
-                ? scored.warnings.concat(scored.reasoning)
-                : scored.reasoning).slice(0,8),
+            reasoning: scored.reasoning.slice(0,8),
             warnings: scored.warnings || [],
             patterns: scored.patterns,
             smcData: scored.smcData,
             srData: scored.srData,
-            volat: scored.volat,
-            adx: scored.adx
+            volat: scored.volat
         };
         pdeCache[id] = output;
         return output;
@@ -1387,55 +1245,40 @@ function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
 function updatePatternEngineUI(id, pde) {
     if (!pde) return;
 
-    // Signal badge
     const sigEl = document.getElementById(`pde-signal-${id}`);
     if (sigEl) {
-        sigEl.textContent = pde.signal === 'BUY'
-            ? `↑ BUY ${pde.confidence}%`
-            : pde.signal === 'SELL'
-            ? `↓ SELL ${pde.confidence}%`
-            : `— WAIT`;
+        sigEl.textContent = pde.signal === 'BUY' ? `↑ BUY ${pde.confidence}%` : pde.signal === 'SELL' ? `↓ SELL ${pde.confidence}%` : `— WAIT`;
         sigEl.className = `pde-signal-badge ${pde.signal === 'BUY' ? 'buy' : pde.signal === 'SELL' ? 'sell' : 'neutral'}`;
     }
 
-    // Confidence bar
-    const cfFill  = document.getElementById(`pde-cf-fill-${id}`);
-    const cfTxt   = document.getElementById(`pde-cf-txt-${id}`);
+    const cfFill = document.getElementById(`pde-cf-fill-${id}`);
+    const cfTxt  = document.getElementById(`pde-cf-txt-${id}`);
     const cfGrade = document.getElementById(`pde-cf-grade-${id}`);
-    if (cfFill) {
-        cfFill.style.width = pde.confidence + '%';
-        cfFill.style.background = pde.signal==='BUY' ? 'var(--emerald)' : pde.signal==='SELL' ? 'var(--crimson)' : 'var(--text-dim)';
-    }
-    if (cfTxt)  { cfTxt.textContent  = pde.confidence + '%'; cfTxt.style.color  = pde.confidence_color; }
+    if (cfFill) { cfFill.style.width = pde.confidence + '%'; cfFill.style.background = pde.signal==='BUY' ? 'var(--emerald)' : pde.signal==='SELL' ? 'var(--crimson)' : 'var(--text-dim)'; }
+    if (cfTxt)  { cfTxt.textContent = pde.confidence + '%'; cfTxt.style.color = pde.confidence_color; }
     if (cfGrade){ cfGrade.textContent = pde.confidence_grade; cfGrade.style.color = pde.confidence_color; }
 
-    // Pattern name
     const patEl = document.getElementById(`pde-pattern-${id}`);
     if (patEl) patEl.textContent = pde.pattern;
 
-    // Meters: strength, probability, risk
     const strengthPct = Math.min(100, pde.scores ? Object.values(pde.scores).reduce((a,v)=>a+Math.max(0,v),0) : 0);
     const probPct     = pde.confidence;
-    const riskPct     = pde.risk_cls === 'low' ? 22 : pde.risk_cls === 'medium' ? 55 : 88;
+    const riskPct     = pde.risk_cls === 'low' ? 25 : pde.risk_cls === 'medium' ? 55 : 85;
 
     ['str','prob','risk'].forEach((m, i) => {
         const fill = document.getElementById(`pde-meter-${m}-fill-${id}`);
         const val  = document.getElementById(`pde-meter-${m}-val-${id}`);
         const pcts = [strengthPct, probPct, riskPct];
-        const cols = [
-            pde.signal==='BUY' ? 'var(--emerald)' : pde.signal==='SELL' ? 'var(--crimson)' : 'var(--text-dim)',
-            pde.confidence_color,
-            riskPct > 70 ? 'var(--crimson)' : riskPct > 40 ? 'var(--amber)' : 'var(--emerald)'
-        ];
+        const cols = [pde.signal==='BUY'?'var(--emerald)':pde.signal==='SELL'?'var(--crimson)':'var(--text-dim)', pde.confidence_color, riskPct>70?'var(--crimson)':riskPct>45?'var(--amber)':'var(--emerald)'];
         const txts = [`${Math.round(strengthPct)}%`, `${probPct}%`, pde.risk];
         if (fill) { fill.style.width = pcts[i]+'%'; fill.style.background = cols[i]; }
         if (val)  { val.textContent = txts[i]; val.style.color = cols[i]; }
     });
 
-    // Score grid — 5 items per row (structure, trend, momentum, volume, candle)
     const scoreKeys = [
         ['str','structure',20], ['trd','trend',15], ['mom','momentum',15],
-        ['vol','volume',10],    ['cdl','candle',10]
+        ['vol','volume',10],    ['cdl','candle',10], ['sr','sr',10],
+        ['smc','smc',10],       ['vlt','volatility',5], ['div','divergence',5], ['cfl','confluence',10]
     ];
     scoreKeys.forEach(([key, field]) => {
         const el = document.getElementById(`pde-sc-${key}-${id}`);
@@ -1444,19 +1287,7 @@ function updatePatternEngineUI(id, pde) {
         el.textContent = (v > 0 ? '+' : '') + v;
         el.style.color = v > 0 ? 'var(--emerald)' : v < 0 ? 'var(--crimson)' : 'var(--text-dim)';
     });
-    // Second row: sr, smc, volatility, divergence, confluence
-    const scoreKeys2 = [
-        ['sr','sr',10], ['smc','smc',10], ['vlt','volatility',5], ['div','divergence',5], ['cfl','confluence',10]
-    ];
-    scoreKeys2.forEach(([key, field]) => {
-        const el = document.getElementById(`pde-sc-${key}-${id}`);
-        if (!el) return;
-        const v = pde.scores ? (pde.scores[field] || 0) : 0;
-        el.textContent = (v > 0 ? '+' : '') + v;
-        el.style.color = v > 0 ? 'var(--emerald)' : v < 0 ? 'var(--crimson)' : 'var(--text-dim)';
-    });
 
-    // Reasoning list
     const reasonEl = document.getElementById(`pde-reason-list-${id}`);
     if (reasonEl) {
         const items = pde.reasoning.slice(0,5);
@@ -1465,7 +1296,6 @@ function updatePatternEngineUI(id, pde) {
             : `<div class="pde-reason-item" style="color:var(--text-dim)">Scanning...</div>`;
     }
 
-    // Risk & entry quality badges
     const riskEl = document.getElementById(`pde-risk-${id}`);
     if (riskEl) { riskEl.textContent = pde.risk; riskEl.className = `pde-risk-badge ${pde.risk_cls}`; }
     const eqEl = document.getElementById(`pde-eq-${id}`);
@@ -1493,23 +1323,25 @@ function aggregateCandles(candles, factor) {
 
 function getMTFConfirmation(id, price, macroCandles) {
     if (!macroCandles || macroCandles.length < 15) return { score: 0, trend5m: 'NEUTRAL', trend15m: 'NEUTRAL' };
-    const tf5m  = aggregateCandles(macroCandles, 5);
+    const tf5m = aggregateCandles(macroCandles, 5);
     const tf15m = aggregateCandles(macroCandles, 15);
-    const atr5  = calcATR(tf5m)  || 1;
+    const atr5 = calcATR(tf5m) || 1;
     const atr15 = calcATR(tf15m) || 1;
-    const trend5m  = tf5m.length  >= 5 ? calcBCTrend(tf5m.map(c => c.close),  atr5)  : null;
+    const trend5m = tf5m.length >= 5 ? calcBCTrend(tf5m.map(c => c.close), atr5) : null;
     const trend15m = tf15m.length >= 3 ? calcBCTrend(tf15m.map(c => c.close), atr15) : null;
     let score = 0;
     let t5 = 'NEUTRAL', t15 = 'NEUTRAL';
     if (trend5m) {
         t5 = trend5m.trend;
-        if (trend5m.score > 0) score += 10; else if (trend5m.score < 0) score -= 10;
+        if (trend5m.score > 0) score += 10;
+        else if (trend5m.score < 0) score -= 10;
         if (t5 === 'BULL_X' || t5 === 'BULL_X_BULL') score += 5;
         if (t5 === 'BEAR_X' || t5 === 'BEAR_X_BEAR') score -= 5;
     }
     if (trend15m) {
         t15 = trend15m.trend;
-        if (trend15m.score > 0) score += 10; else if (trend15m.score < 0) score -= 10;
+        if (trend15m.score > 0) score += 10;
+        else if (trend15m.score < 0) score -= 10;
         if (t15 === 'BULL_X' || t15 === 'BULL_X_BULL') score += 5;
         if (t15 === 'BEAR_X' || t15 === 'BEAR_X_BEAR') score -= 5;
     }
@@ -1601,13 +1433,14 @@ function checkPriceAction(candles, direction, atr) {
 // ================================================================
 //  DYNAMIC RR
 // ================================================================
-function calculateDynamicRR(atr, atrBaseline) {
-    if (!atr || !atrBaseline || atrBaseline <= 0) return 1.5;
-    const ratio = atr / atrBaseline;
-    if (ratio > 1.35) return 1.2;
-    if (ratio > 1.15) return 1.4;
-    if (ratio > 0.85) return 1.5;
-    return 1.6;
+function calculateDynamicRR(atr, price) {
+    const volatilityPct = (atr / price) * 100;
+    let rr;
+    if (volatilityPct > 2.5) rr = 1.2;
+    else if (volatilityPct > 1.6) rr = 1.4;
+    else if (volatilityPct > 1.0) rr = 1.5;
+    else rr = 1.6;
+    return rr;
 }
 
 // ================================================================
@@ -1644,20 +1477,8 @@ function scoreMacroBias(id, price, macroCandles) {
         else if (macd.hist < 0) { macdScore = -10; macdSig = 'BEAR_X'; }
         f.macd_sig = macdSig;
     }
-
-    // PDE BOOST — Pattern Engine (leading, mis. pin bar/reversal) mempercepat konfirmasi
-    // bias trend (lagging, EMA-based) selama arahnya sepakat. Dibaca dari pdeCache hasil
-    // tick sebelumnya (bukan tick ini) supaya tidak ada circular dependency dengan runPatternEngine.
-    let pdeBoost = 0;
-    const pdePrev = pdeCache[id];
-    if (pdePrev && pdePrev.signal !== 'NEUTRAL' && pdePrev.confidence >= 75) {
-        if (pdePrev.signal === 'BUY') pdeBoost = 14;
-        else if (pdePrev.signal === 'SELL') pdeBoost = -14;
-    }
-    f.pde_boost = pdeBoost;
-
-    const rawBull = Math.max(0, bcTrend.score) + Math.max(0, bcStruct.score) + Math.max(0, bcZone.score) + Math.max(0, bcFlow.score) + Math.max(0, macdScore) + Math.max(0, pdeBoost);
-    const rawBear = Math.max(0, -bcTrend.score) + Math.max(0, -bcStruct.score) + Math.max(0, -bcZone.score) + Math.max(0, -bcFlow.score) + Math.max(0, -macdScore) + Math.max(0, -pdeBoost);
+    const rawBull = Math.max(0, bcTrend.score) + Math.max(0, bcStruct.score) + Math.max(0, bcZone.score) + Math.max(0, bcFlow.score) + Math.max(0, macdScore);
+    const rawBear = Math.max(0, -bcTrend.score) + Math.max(0, -bcStruct.score) + Math.max(0, -bcZone.score) + Math.max(0, -bcFlow.score) + Math.max(0, -macdScore);
     let bull = Math.round(rawBull * adxMult); let bear = Math.round(rawBear * adxMult);
     const trendBull = bcTrend.score > 0; const trendBear = bcTrend.score < 0;
     const structBull = bcStruct.score > 0; const structBear = bcStruct.score < 0;
@@ -1680,31 +1501,6 @@ function scoreMacroBias(id, price, macroCandles) {
 }
 
 // ================================================================
-//  PREMIUM / DISCOUNT ZONE (SMC equilibrium / OTE-style range gate)
-// ================================================================
-function calcPremiumDiscountZone(candles, price, atr, lookback) {
-    lookback = lookback || 30;
-    if (!candles || candles.length < 15 || !atr) {
-        return { zone: 'MID', equilibrium: price, swingHigh: price, swingLow: price, range: 0 };
-    }
-    const rc = candles.slice(-lookback);
-    const swingHigh = Math.max(...rc.map(c => c.high));
-    const swingLow  = Math.min(...rc.map(c => c.low));
-    const range = swingHigh - swingLow;
-    if (range <= 0) return { zone: 'MID', equilibrium: price, swingHigh, swingLow, range: 0 };
-
-    const equilibrium = swingLow + range * 0.5;
-    // Small neutral band around 50% so borderline prints don't flip-flop the gate
-    const buffer = Math.max(range * 0.08, atr * 0.15);
-
-    let zone = 'MID';
-    if (price > equilibrium + buffer) zone = 'PREMIUM';   // atas / mahal
-    else if (price < equilibrium - buffer) zone = 'DISCOUNT'; // bawah / murah
-
-    return { zone, equilibrium, swingHigh, swingLow, range };
-}
-
-// ================================================================
 //  BC MICRO ENTRY SCORER
 // ================================================================
 function scoreMicroEntry(id, price, microCandles, macroBias) {
@@ -1716,7 +1512,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const microATR  = calcATR(microCandles, Math.min(10, microCandles.length - 1)) || macroBias.atr * 0.3;
     const rsi9      = calcRSI(closes, Math.min(9, closes.length - 1));
     const microMACD = calcMACD(closes, 5, 13, 4);
-
+    
     const MICRO_CROSS_MIN = 23;
     const ema9m    = closes.length > MICRO_CROSS_MIN ? calcEMA(closes, 9)  : null;
     const ema21m   = closes.length > MICRO_CROSS_MIN ? calcEMA(closes, 21) : null;
@@ -1735,17 +1531,6 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     f.rsi = rsi9 ? rsi9.toFixed(1) : null;
     const { bias, ema21: macroEMA21, atr: macroATR, bcZone } = macroBias;
     const direction = bias === 'BULL' ? 'buy' : 'sell';
-
-    // 0. PREMIUM / DISCOUNT GATE — forces entry AFTER pullback/retrace
-    //    BUY only allowed in DISCOUNT/MID (cheap/bawah), SELL only in PREMIUM/MID (mahal/atas)
-    const macroCandles = getMacroCandles(id);
-    const pd = calcPremiumDiscountZone(macroCandles, price, macroATR);
-    f.pd_zone = pd.zone;
-    const pdBlocksBuy  = direction === 'buy'  && pd.zone === 'PREMIUM';
-    const pdBlocksSell = direction === 'sell' && pd.zone === 'DISCOUNT';
-    let pdScore = 0;
-    if (direction === 'buy'  && pd.zone === 'DISCOUNT') pdScore = 10;
-    else if (direction === 'sell' && pd.zone === 'PREMIUM') pdScore = 10;
 
     // 1. BC LIQUID (40 pts)
     const bcLiquid  = calcBCLiquid(microCandles, microATR);
@@ -1792,7 +1577,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     }
     f.zone_type = zoneType;
 
-    // 5. MACD micro bonus (5 pts)
+    // 5. MACD micro momentum bonus (5 pts)
     let microMACD_bonus = 0;
     if (microMACD) {
         if (direction === 'buy'  && microMACD.hist > 0) microMACD_bonus = 5;
@@ -1806,6 +1591,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     else if (direction === 'sell' && microDeathX) { microCrossScore = 15; f.micro_cross = 'DEATH_X'; }
 
     // 6. MTF CONFLUENCE (max 25 pts, min -20 pts penalty)
+    const macroCandles = getMacroCandles(id);
     const mtf = getMTFConfirmation(id, price, macroCandles);
     f.mtf_score = mtf.score;
     f.mtf_5m = mtf.trend5m;
@@ -1822,7 +1608,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const ob = detectOrderBlock(microCandles, microATR);
     f.ob_type = ob.type;
     let obScore = 0;
-    if (direction === 'buy'  && ob.type === 'BULL_OB' && price <= ob.top && price >= ob.bot - microATR*0.2) obScore = 25;
+    if (direction === 'buy' && ob.type === 'BULL_OB' && price <= ob.top && price >= ob.bot - microATR*0.2) obScore = 25;
     else if (direction === 'sell' && ob.type === 'BEAR_OB' && price >= ob.bot && price <= ob.top + microATR*0.2) obScore = 25;
     f.ob_score = obScore;
 
@@ -1830,7 +1616,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const fvg = detectFVG(microCandles);
     f.fvg_type = fvg.type;
     let fvgScore = 0;
-    if (direction === 'buy'  && fvg.type === 'BULL_FVG' && price <= fvg.level + microATR*0.3) fvgScore = 18;
+    if (direction === 'buy' && fvg.type === 'BULL_FVG' && price <= fvg.level + microATR*0.3) fvgScore = 18;
     else if (direction === 'sell' && fvg.type === 'BEAR_FVG' && price >= fvg.level - microATR*0.3) fvgScore = 18;
     f.fvg_score = fvgScore;
 
@@ -1845,19 +1631,14 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 
     // QUALITY SUM
     let quality = liquidScore + momScore + divergScore + zoneScore + microMACD_bonus +
-                  mtfBonus + obScore + fvgScore + vpScore + paScore + microCrossScore + pdScore;
+                  mtfBonus + obScore + fvgScore + vpScore + paScore + microCrossScore;
     quality = Math.min(100, Math.max(0, quality));
     f.quality = quality;
     f.in_zone = zoneScore > 0 || liquidScore > 0;
-    f.pd_blocked = pdBlocksBuy || pdBlocksSell;
 
     const hasLiquidOrZone = liquidScore > 0 || zoneScore >= 8 || obScore > 0 || fvgScore > 0;
-    // HARD GATE: never let BUY fire while price sits in PREMIUM (mahal/atas),
-    // never let SELL fire while price sits in DISCOUNT (murah/bawah).
-    // This forces execution to happen only after pullback/retrace into the
-    // correct (cheap-for-buy / expensive-for-sell) side of the range.
-    const ready    = quality >= MICRO_READY_THRESHOLD && hasLiquidOrZone && !pdBlocksBuy && !pdBlocksSell;
-    const lockable = quality >= MICRO_LOCK_THRESHOLD  && hasLiquidOrZone && !pdBlocksBuy && !pdBlocksSell;
+    const ready = quality >= MICRO_READY_THRESHOLD && hasLiquidOrZone;
+    const lockable = quality >= MICRO_LOCK_THRESHOLD && hasLiquidOrZone;
 
     return { ready, lockable, direction, quality, factors: f, zoneType };
 }
@@ -1877,13 +1658,11 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
         if (direction === 'buy') { const lowestLow = Math.min(...recent.map(c => c.low)); structuralSL = lowestLow - atr * 0.12; }
         else { const highestHigh = Math.max(...recent.map(c => c.high)); structuralSL = highestHigh + atr * 0.12; }
     }
-    const minSL = 12.5; // XAU only — value unchanged from previous id==='xau' branch
+    const minSL = 12.5;
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
-    const macroCandlesForRR = getMacroCandles(id);
-    const atrBaseline = calcATR(macroCandlesForRR, 50) || atr;
-    const rr = calculateDynamicRR(atr, atrBaseline);
+    const rr = calculateDynamicRR(atr, entry);
     const tpD = slD * rr;
 
     s.l3 = true; s.confirmed = true;
@@ -1911,7 +1690,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
 }
 
 // ================================================================
-//  PROCESS SIGNAL
+//  PROCESS SIGNAL — DENGAN TIMEOUT 30 MENIT
 // ================================================================
 function processSignal(id, price) {
     const s = state[id];
@@ -1919,17 +1698,22 @@ function processSignal(id, price) {
     if (Date.now() < (s.cooldownUntil || 0)) return;
     buildCandles(id, price);
 
-    // CONFIRMED SIGNAL — MONITOR TP / SL / BREAKEVEN
+    // CONFIRMED SIGNAL — MONITOR TP / SL / BREAKEVEN / TIMEOUT
     if (s.confirmed && s.type !== 'none') {
         if (!s.tempHigh) { s.tempHigh = s.entry; s.tempLow = s.entry; }
         if (price > s.tempHigh) s.tempHigh = price;
         if (price < s.tempLow)  s.tempLow  = price;
         updateTracker(id, price);
+        updateCountdownUI(id);
 
         // 1. Check TP
         const hitTP = (s.type === 'buy' && price >= s.tp) ||
                       (s.type === 'sell' && price <= s.tp);
-        if (hitTP) { recordSignalResult(id, 'tp'); resetSignal(id); return; }
+        if (hitTP) {
+            recordSignalResult(id, 'tp');
+            resetSignal(id);
+            return;
+        }
 
         // 2. Check SL
         const hitSL = (s.type === 'buy' && price <= s.sl) ||
@@ -1937,13 +1721,14 @@ function processSignal(id, price) {
         if (hitSL) {
             const result = s.breakevenArmed ? 'be' : 'sl';
             recordSignalResult(id, result);
-            if (result === 'sl') { state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS; }
-            resetSignal(id); return;
+            if (result === 'sl') {
+                state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
+            }
+            resetSignal(id);
+            return;
         }
 
-        // 2b. TIMEOUT — batalkan signal kalau 30 menit belum TP/SL DAN breakeven belum armed.
-        //     Begitu breakeven armed (posisi risk-free), timer ini otomatis tidak berlaku lagi
-        //     (dibiarkan jalan sampai TP penuh atau breakeven ter-trigger).
+        // 3. TIMEOUT — 30 menit tanpa TP/SL dan breakeven belum armed
         if (!s.breakevenArmed && Date.now() - s.confirmedAt >= SIGNAL_TIMEOUT_MS) {
             state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
             resetSignal(id);
@@ -1951,7 +1736,7 @@ function processSignal(id, price) {
             return;
         }
 
-        // 3. ARM BREAKEVEN (30% of TP distance)
+        // 4. ARM BREAKEVEN (30% dari jarak TP)
         if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
             const tpDist = Math.abs(s.tp - s.entry);
             const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
@@ -2010,27 +1795,14 @@ function processSignal(id, price) {
         s.l2 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id); return;
     }
 
-    // L3: Lock — FIX: EXPANDED MTF opposing block
-    // FIX: Added BEAR_EARLY, BEAR_ZONE to opposing list for buy (and BULL_EARLY, BULL_ZONE for sell)
-    // These are weaker but still opposing trends that should prevent lock
-    const mtf15m = micro.factors && micro.factors.mtf_15m;
-    const STRONG_OPPOSING_15M = {
-        buy:  ['STRONG_BEAR', 'BEAR_X_BEAR', 'BEAR', 'BEAR_EARLY', 'BEAR_ZONE', 'BEAR_X'],
-        sell: ['STRONG_BULL', 'BULL_X_BULL', 'BULL', 'BULL_EARLY', 'BULL_ZONE', 'BULL_X']
-    };
-    const mtf15mBlocksLock = mtf15m && STRONG_OPPOSING_15M[currentDir] && STRONG_OPPOSING_15M[currentDir].includes(mtf15m);
-
-    // FIX: PDE must not actively oppose the lock direction
-    // If PDE says SELL while we are about to lock a BUY, block it.
-    // PDE NEUTRAL is allowed (it means unclear, not opposing).
-    const pdeOpposesLock = pde && (
-        (currentDir === 'buy'  && pde.signal === 'SELL') ||
-        (currentDir === 'sell' && pde.signal === 'BUY')
-    );
-
-    if (s.l2 && !s.l3 && micro.lockable && micro.quality >= MICRO_LOCK_THRESHOLD && !mtf15mBlocksLock && !pdeOpposesLock) {
-        s.l3 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id);
-        startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType); return;
+    // L3: Lock — dengan PDE GATE
+    if (s.l2 && !s.l3 && micro.lockable && micro.quality >= MICRO_LOCK_THRESHOLD) {
+        s.l3 = true;
+        pendingSignalData[id] = true;
+        throttledUpdateUI(id);
+        throttledSaveState(id);
+        startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType);
+        return;
     }
 
     // Reset L2 if micro no longer ready
@@ -2042,7 +1814,7 @@ function processSignal(id, price) {
 }
 
 // ================================================================
-//  START CONFIRMATION DELAY
+//  START CONFIRMATION DELAY — DENGAN PDE GATE
 // ================================================================
 function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType) {
     if (pendingConfirmation[id]) cancelPendingConfirmation(id);
@@ -2059,20 +1831,29 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
         if (macroC.length >= MACRO_MIN && microC.length >= MICRO_MIN) {
             const mb2 = scoreMacroBias(id, lp, macroC);
             const mi2 = scoreMicroEntry(id, lp, microC, mb2);
-            const mtf15m2 = mi2.factors && mi2.factors.mtf_15m;
-            const STRONG_OPPOSING_15M_2 = {
-                buy:  ['STRONG_BEAR', 'BEAR_X_BEAR', 'BEAR', 'BEAR_EARLY', 'BEAR_ZONE', 'BEAR_X'],
-                sell: ['STRONG_BULL', 'BULL_X_BULL', 'BULL', 'BULL_EARLY', 'BULL_ZONE', 'BULL_X']
-            };
-            const mtf15m2Blocks = mtf15m2 && STRONG_OPPOSING_15M_2[direction] && STRONG_OPPOSING_15M_2[direction].includes(mtf15m2);
-            const pde2 = pdeCache[id];
-            const pde2Opposes = pde2 && (
-                (direction === 'buy'  && pde2.signal === 'SELL') ||
-                (direction === 'sell' && pde2.signal === 'BUY')
-            );
-            const stillValid = mb2.valid && (mb2.bias === 'BULL' ? 'buy' : 'sell') === direction && mi2.ready && !mtf15m2Blocks && !pde2Opposes;
+            const stillValid = mb2.valid && (mb2.bias === 'BULL' ? 'buy' : 'sell') === direction && mi2.ready;
             if (stillValid) {
-                executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType);
+                // PDE GATE
+                const pde          = pdeCache[id];
+                const bceStrong    = mb2.score >= PDE_GATE_BYPASS_SCORE;
+                const pdeDir       = pde ? pde.signal.toLowerCase() : null;
+                const pdeOk        = pde && pde.confidence >= PDE_GATE_CONFIDENCE && pdeDir === direction;
+                const pdeBlocked   = !bceStrong && pde && !pdeOk;
+
+                if (pdeBlocked) {
+                    const st = document.getElementById(`signal-text-${id}`);
+                    const reason = pde.confidence < PDE_GATE_CONFIDENCE
+                        ? `PDE LOW (${pde.confidence}%)`
+                        : `PDE ${pde.signal}`;
+                    if (st) {
+                        st.innerText = 'PDE HOLD';
+                        st.style.color = 'var(--amber)';
+                        setTimeout(() => updateSignalUIOnly(id), 3000);
+                    }
+                    showToast(`⚠ ${reason} — Confirmation withheld`);
+                } else {
+                    executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType);
+                }
             } else {
                 resetSignal(id);
                 const st = document.getElementById(`signal-text-${id}`);
@@ -2195,7 +1976,7 @@ async function initHistoricalCandles(id) {
     seedCandles(id, 3300); return false;
 }
 function seedMicroCandles(id, base) {
-    const step = 1.2; const nMicro = 20; // XAU only — value unchanged from previous isXau branch
+    const step = 1.2; const nMicro = 20;
     marketData[id].micro.candles = []; let price = base;
     for (let i = 0; i < nMicro; i++) {
         const open = price + (Math.random() - 0.5) * step * 0.04;
@@ -2207,7 +1988,7 @@ function seedMicroCandles(id, base) {
     }
 }
 function seedCandles(id, base) {
-    const step = 1.2; const nMacro = 55; // XAU only — value unchanged from previous isXau branch
+    const step = 1.2; const nMacro = 55;
     marketData[id].macro.candles = []; let price = base;
     for (let i = 0; i < nMacro; i++) {
         const drift = (Math.random() - 0.48) * step * 0.05; price += drift;
@@ -2246,6 +2027,7 @@ function updateTracker(id, price) {
     if (t) { t.innerText = (Math.round(dist * 100) / 100).toFixed(2); t.style.color = dist >= 0 ? 'var(--emerald)' : 'var(--crimson)'; }
 }
 
+// ── COUNTDOWN TIMER ──────────────────────────────────────────────
 function updateCountdownUI(id) {
     const s = state[id];
     const el = document.getElementById(`timeout-${id}`);
@@ -2257,7 +2039,6 @@ function updateCountdownUI(id) {
     }
     el.style.display = 'inline-block';
     if (s.breakevenArmed) {
-        // Timer sudah tidak berlaku — posisi risk-free, dibiarkan jalan sampai TP penuh
         el.innerText = 'OFF';
         el.style.color = 'var(--text-dim)';
         return;
@@ -2319,16 +2100,7 @@ function updateEngineBadges(id, mb) {
         { id: `eb-conflict-${id}`, val: f.conflict ? 'CONFLICT' : (f.bc_bos ? 'BOS:'+f.bc_bos : 'ALIGN'), cls: f.conflict ? 'bear' : f.bc_bos ? 'active' : 'off' }
     ];
     for (const b of badges) { const el = document.getElementById(b.id); if (el) { el.className = `ebadge ${b.cls}`; el.textContent = b.val; } }
-
-    // eb-score — FIX: now present in HTML
-    const sc = document.getElementById(`eb-score-${id}`);
-    if (sc) {
-        const sv = Math.round(mb.score || 0);
-        sc.textContent = `BC:${sv}`;
-        sc.className = 'ebadge score';
-        sc.style.color = mb.valid ? 'var(--emerald)' : sv >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
-    }
-
+    const sc = document.getElementById(`eb-score-${id}`); if (sc) { const sv = Math.round(mb.score || 0); sc.textContent = `BC:${sv}`; sc.className = 'ebadge score'; sc.style.color = mb.valid ? 'var(--emerald)' : sv >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)'; }
     const mcxEl = document.getElementById(`eb-mcross-${id}`);
     if (mcxEl) {
         const mcx = (mb.factors && mb.factors.micro_cross) ? mb.factors.micro_cross : 'NONE';
@@ -2412,7 +2184,7 @@ function handleHistoryPanelTap(id) {
     }
 }
 
-// ── Card HTML — FIX: Added eb-score and PDE score grid elements ──
+// ── Card HTML ─────────────────────────────────────────────────────
 function buildCardHTML(id, label) {
     const isActive = activePairId === id ? 'active' : '';
     return `<div class="pair-card ${isActive}" id="card-${id}">
@@ -2494,8 +2266,6 @@ function buildCardHTML(id, label) {
               <span class="pde-meter-val" id="pde-meter-risk-val-${id}" style="color:var(--text-dim)">—</span>
             </div>
           </div>
-          
-        <!-- ═══════════════════════════════════════════════════════ -->
         <div class="stats-grid" id="history-panel-${id}">
           <div class="stats-item"><span class="stats-label" style="color:var(--gold)">TP1</span><span class="stats-value be-value" id="stats-retrace-${id}">0</span></div>
           <div class="stats-item"><span class="stats-label">TP2</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div>
@@ -2576,11 +2346,11 @@ function initXAUWebSocket() {
     } catch(err) { updateFeedBadge('xau', 'fallback'); }
 }
 
-
 function consolidatedPoll() {
     const xauConnected = xauWs && xauWs.readyState === WebSocket.OPEN;
     if (!xauConnected || (Date.now() - xauLastHeartbeat) > 6000) { if (!xauFetching) xauFetchRestPrice(); }
     updateGlobalPulse();
+    updateCountdownUI('xau');
 }
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -2606,11 +2376,9 @@ async function init() {
     initXAUWebSocket();
     await xauFetchRestPrice();
 
-
     updateGlobalPulse();
 
-    setInterval(consolidatedPoll, 3000);
-    setInterval(() => updateCountdownUI('xau'), 1000);
+    setInterval(consolidatedPoll, 1000);
 
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
