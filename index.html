@@ -1658,7 +1658,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
         if (direction === 'buy') { const lowestLow = Math.min(...recent.map(c => c.low)); structuralSL = lowestLow - atr * 0.12; }
         else { const highestHigh = Math.max(...recent.map(c => c.high)); structuralSL = highestHigh + atr * 0.12; }
     }
-    const minSL = 12.5;
+    const minSL = 8;
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
@@ -1740,7 +1740,7 @@ function processSignal(id, price) {
         if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
             const tpDist = Math.abs(s.tp - s.entry);
             const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
-            if (moved >= tpDist * 0.30) {
+            if (moved >= tpDist * 0.45) {
                 s.sl = s.entry;
                 s.breakevenArmed = true;
                 throttledSaveState(id);
