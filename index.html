@@ -1433,14 +1433,13 @@ function checkPriceAction(candles, direction, atr) {
 // ================================================================
 //  DYNAMIC RR
 // ================================================================
-function calculateDynamicRR(atr, price) {
-    const volatilityPct = (atr / price) * 100;
-    let rr;
-    if (volatilityPct > 2.5) rr = 1.2;
-    else if (volatilityPct > 1.6) rr = 1.4;
-    else if (volatilityPct > 1.0) rr = 1.5;
-    else rr = 1.6;
-    return rr;
+function calculateDynamicRR(atr, atrBaseline) {
+    if (!atr || !atrBaseline || atrBaseline <= 0) return 1.5;
+    const ratio = atr / atrBaseline;
+    if (ratio > 1.35) return 1.2;
+    if (ratio > 1.15) return 1.4;
+    if (ratio > 0.85) return 1.5;
+    return 1.6;
 }
 
 // ================================================================
@@ -1662,7 +1661,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
-    const rr = calculateDynamicRR(atr, entry);
+    const rr = calculateDynamicRR(atr, calcATR(getMacroCandles(id), 50) || atr);
     const tpD = slD * rr;
 
     s.l3 = true; s.confirmed = true;
