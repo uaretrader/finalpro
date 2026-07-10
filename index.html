@@ -1661,7 +1661,7 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
         }
     }
 
-    let slDistance = atr * 1.2;
+    let slDistance = atr * 1.4;
     const sr = detectSupportResistance(macroCandles, entry, atr);
     if (direction === 'buy' && sr.nearSupport) {
         slDistance = Math.max(atr * 0.8, entry - sr.periodLow);
