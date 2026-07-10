@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport"/>
-<title>URADVISOR v12.0 — BLUE CHART ENGINE + SMC ULTRA + PDE</title>
+<title>URADVISOR v11.4 — XAU BLUE CHART ENGINE + SMC ULTRA + PDE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -69,16 +69,14 @@ header::after {
 .pulse.disconnected { background: var(--crimson); animation: blink 0.5s infinite; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
 .header-right { display: flex; align-items: center; gap: 10px; }
-.switch-pair-btn {
-    background: transparent; border: 1px solid var(--edge-bright); color: var(--text-muted);
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.61rem; font-weight: 500;
-    padding: 5px 13px; border-radius: var(--radius-sm); cursor: pointer;
-    transition: all 0.2s ease; letter-spacing: 1.5px; text-transform: uppercase;
+.pair-card { display: block; }
+.signal-center-slot { display: flex; align-items: center; justify-content: center; min-width: 60px; }
+.signal-timer-inline {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 700;
+    letter-spacing: 3px; color: var(--text-muted); display: none;
 }
-.switch-pair-btn:hover { border-color: var(--gold); color: var(--gold); }
-.switch-pair-btn:active, .switch-pair-btn.btn-highlight { border-color: var(--gold); color: var(--gold); transform: scale(0.96); box-shadow: var(--gold-glow); }
-.pair-card { display: none; }
-.pair-card.active { display: block; }
+.signal-timer-inline.amber { color: var(--amber); }
+.signal-timer-inline.danger { color: var(--crimson); }
 .card {
     background: var(--surface); border: 1px solid var(--edge); border-radius: 2px;
     padding: 0; margin-bottom: 10px; box-shadow: var(--shadow-deep); overflow: hidden; position: relative;
@@ -112,8 +110,6 @@ header::after {
 .signal-bar.confirm-wait { background: rgba(240,165,0,0.04); animation: pulseBorder 1s infinite; }
 @keyframes pulseBorder { 0%, 100% { border-bottom-color: rgba(240,165,0,0.08); } 50% { border-bottom-color: rgba(240,165,0,0.45); } }
 .signal-dot-group { display: flex; gap: 7px; align-items: center; }
-.signal-mid-group { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.signal-timer { font-size: 0.58rem; font-weight: 600; letter-spacing: 1px; font-family: 'IBM Plex Mono', monospace; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface3); border: 1px solid var(--edge); transition: all 0.2s ease; }
 .dot.active { background: var(--emerald); border-color: var(--emerald); box-shadow: var(--emerald-glow); }
 .dot.active-down { background: var(--crimson); border-color: var(--crimson); box-shadow: var(--crimson-glow); }
@@ -203,7 +199,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 .pde-reason-list { display: flex; flex-direction: column; gap: 3px; max-height: 56px; overflow: hidden; }
 .pde-reason-item { font-family: 'IBM Plex Mono', monospace; font-size: 0.40rem; color: var(--text-muted); letter-spacing: 0.5px; display: flex; align-items: center; gap: 5px; }
 .pde-reason-item::before { content: '▸'; color: var(--gold); font-size: 0.38rem; flex-shrink: 0; }
-.pde-risk-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 17px 7px; border-bottom: 1px solid var(--edge); }
+.pde-risk-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 17px 7px; }
 .pde-risk-badge { font-family: 'IBM Plex Mono', monospace; font-size: 0.38rem; padding: 2px 8px; border-radius: 2px; border: 1px solid transparent; letter-spacing: 1px; text-transform: uppercase; }
 .pde-risk-badge.low { color: var(--emerald); border-color: rgba(0,217,139,0.2); background: rgba(0,217,139,0.05); }
 .pde-risk-badge.medium { color: var(--amber); border-color: rgba(255,184,48,0.2); background: rgba(255,184,48,0.05); }
@@ -220,11 +216,11 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <header>
     <div class="brand">
         <h1>ur<span>advisor</span></h1>
-        <div class="brand-sub">URA V12.0 · PDE</div>
+        <div class="brand-sub">URA V11.2</div>
     </div>
     <div class="header-right">
         <div class="sys-status">
-            <div><span class="pulse" id="globalPulse"></span>GLOBAL LIVE</div>
+            <div><span class="pulse" id="globalPulse"></span>SYS LIVE</div>
         </div>
     </div>
 </header>
@@ -232,8 +228,8 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <div id="terminals"></div>
 
 <footer>
-    BLUE CHART ENGINE v12.0 · SMC ULTRA · MTF CONFLUENCE · OB/FVG · DYNAMIC RR<br>
-    PATTERN DETECTION ENGINE · 11-MODULE SCORING · MACRO-ALIGNED · SMART MONEY · DIVERGENCE
+    BLUE CHART ENGINE v11.3 · SMC ULTRA · MTF CONFLUENCE · OB/FVG · DYNAMIC RR<br>
+    PATTERN DETECTION ENGINE · 11-MODULE SCORING · CANDLESTICK · SMART MONEY · DIVERGENCE
 </footer>
 </div>
 <div id="toast"></div>
@@ -243,41 +239,44 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 'use strict';
 
 // ================================================================
-//  URADVISOR v12.0 — PDE GATE EDITION (FIXED)
-//  KEY FIXES:
-//  1. Timeout signal 30 menit — persis seperti file index
-//  2. Hapus semua kode terkait BTC
-//  3. Hapus tombol switch pair
-//  4. Timer tetap berjalan meskipun halaman di-refresh (via localStorage state)
-//  5. PDE gate hanya untuk XAU
+//  URADVISOR — BLUE CHART ENGINE v11.2  [SMC ULTRA EDITION]
+//  TP1 MASUK WINRATE:
+//  - BE → TP1
+//  - TP1 masuk perhitungan winrate
+//  - Winrate = (TP2 + TP1) / (TP2 + TP1 + SL)
 // ================================================================
 
-const LS_SCHEMA_VERSION    = 13;
+const LS_SCHEMA_VERSION    = 12;  // bumped untuk TP1 masuk winrate
 const ATR_FALLBACK         = { xau: 3.0 };
 const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
 const CONFIRMATION_WAIT_MS = 2000;
+const SIGNAL_TIMEOUT_MS    = 30 * 60 * 1000; // 30 menit
 
-const PRICE_OFFSET_XAU = -2;
-const COOLDOWN_AFTER_SL_MS = 30000;
-const SIGNAL_TIMEOUT_MS = 30 * 60 * 1000; // 30 menit
+// ================================================================
+//  LIVE PRICE OFFSET
+// ================================================================
+const PRICE_OFFSET_XAU = -2.2;
+const COOLDOWN_AFTER_SL_MS = 30000; // 30 detik — sama dengan timeout cooldown
 
+// ── Blue Chart Timeframe Durations ────────────────────────────────
 const MACRO_DUR = { xau: 60000 };
 const MICRO_DUR = { xau: 15000 };
 
+// ── Candle minimums ───────────────────────────────────────────────
 const MACRO_MIN = 35;
 const MICRO_MIN = 10;
 
-const BC_SCORE_MIN = 55;
+// ── Blue Chart Score thresholds ───────────────────────────────────
+const BC_SCORE_MIN = 65;
 const ADX_MIN      = 20;
 
-const MICRO_READY_THRESHOLD = 48;
+// ── Micro entry thresholds ──────────────────────────────────────
+const MICRO_READY_THRESHOLD = 50;
 const MICRO_LOCK_THRESHOLD  = 55;
 
-const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;
+// ── Persistent Zone TTL & limits ─────────────────────────────────
+const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;   // 4 hours
 const ZONE_MAX     = 12;
-
-const PDE_GATE_CONFIDENCE   = 55;
-const PDE_GATE_BYPASS_SCORE = 85;
 
 // ================================================================
 //  SCHEMA MIGRATION
@@ -294,6 +293,7 @@ function checkAndMigrateSchema() {
     }
 }
 
+// ── Toast ────────────────────────────────────────────────────────
 let _tt = null;
 function showToast(msg) {
     const el = document.getElementById('toast');
@@ -305,7 +305,7 @@ function showToast(msg) {
 }
 
 // ================================================================
-//  INDICATOR LIBRARY
+//  INDICATOR LIBRARY (TIDAK DIUBAH)
 // ================================================================
 
 function calcEMA(arr, period) {
@@ -409,7 +409,7 @@ function calcADX(candles, period) {
 }
 
 // ================================================================
-//  BC TREND
+//  BC TREND (TIDAK DIUBAH)
 // ================================================================
 function calcBCTrend(closes, atr) {
     const n = closes.length;
@@ -455,7 +455,7 @@ function calcBCTrend(closes, atr) {
 }
 
 // ================================================================
-//  BC STRUCT
+//  BC STRUCT (TIDAK DIUBAH)
 // ================================================================
 function calcBCStruct(candles) {
     if (!candles || candles.length < 20) return { struct: 'UNCLEAR', bos: null, choch: false, swingHighs: [], swingLows: [] };
@@ -487,7 +487,7 @@ function calcBCStruct(candles) {
 }
 
 // ================================================================
-//  BC ZONE
+//  BC ZONE (TIDAK DIUBAH)
 // ================================================================
 let sdZones = { xau: { demand: [], supply: [], updatedAt: 0 } };
 function loadZones(id) {
@@ -572,7 +572,7 @@ function calcBCZoneFallback(candles, price, atr) {
 }
 
 // ================================================================
-//  BC FLOW
+//  BC FLOW (TIDAK DIUBAH)
 // ================================================================
 function calcBCFlow(candles, lookback) {
     lookback = lookback || 10;
@@ -600,7 +600,7 @@ function calcBCFlow(candles, lookback) {
 }
 
 // ================================================================
-//  BC LIQUID
+//  BC LIQUID (TIDAK DIUBAH)
 // ================================================================
 function calcBCLiquid(candles, atr) {
     if (!candles || candles.length < 8) return { sweep: 'NONE', quality: 0 };
@@ -627,7 +627,7 @@ function calcBCLiquid(candles, atr) {
 }
 
 // ================================================================
-//  BC DIVERG
+//  BC DIVERG (TIDAK DIUBAH)
 // ================================================================
 function calcBCDiverg(candles, closes, rsi) {
     if (!candles || candles.length < 20 || rsi === null) return { diverg: 'NONE', strength: 0 };
@@ -660,8 +660,12 @@ function calcBCDiverg(candles, closes, rsi) {
 }
 
 // ================================================================
-//  ADVANCED PDE — ADDITIONAL INDICATORS
+//  ══════════════════════════════════════════════════════════════
+//  ║  ADVANCED BUY/SELL PATTERN DETECTION ENGINE               ║
+//  ══════════════════════════════════════════════════════════════
 // ================================================================
+
+// ── 1. ADDITIONAL INDICATORS ────────────────────────────────────
 
 function calcCCI(candles, period) {
     period = period || 14;
@@ -733,7 +737,7 @@ function calcSuperTrend(candles, period, mult) {
     period = period || 10; mult = mult || 3;
     if (!candles || candles.length < period + 1) return null;
     const n = candles.length;
-    let stDir = 1;
+    let stDir = 1; // 1 = uptrend, -1 = downtrend
     let prevUp = 0, prevDn = 0, prevST = 0;
     for (let i = period; i < n; i++) {
         const sl = candles.slice(i - period, i);
@@ -754,7 +758,8 @@ function calcSuperTrend(candles, period, mult) {
     return { direction: stDir, value: prevST, bull: stDir === 1, bear: stDir === -1, dist: Math.abs(last.close - prevST) };
 }
 
-// ── CANDLESTICK PATTERN DETECTOR ────────────────────────────────
+// ── 2. CANDLESTICK PATTERN DETECTOR ────────────────────────────
+
 function detectCandlePatterns(candles) {
     if (!candles || candles.length < 3) return [];
     const patterns = [];
@@ -771,43 +776,68 @@ function detectCandlePatterns(candles) {
     const uw2 = c2.high - Math.max(c2.open, c2.close);
     const lw2 = Math.min(c2.open, c2.close) - c2.low;
 
-    // Single-candle
+    // ── Single-candle patterns (c3) ─────────────────────────────
+    // Doji
     if (body3 < range3 * 0.08 && range3 > 0) patterns.push({ name: 'Doji', dir: 'neutral', score: 4 });
+    // Spinning Top
     if (body3 < range3 * 0.25 && lw3 > body3 * 0.5 && uw3 > body3 * 0.5) patterns.push({ name: 'Spinning Top', dir: 'neutral', score: 3 });
+    // Hammer (bullish)
     if (c3.close >= c3.open && lw3 > body3 * 2.0 && uw3 < body3 * 0.6 && body3 > range3 * 0.05) patterns.push({ name: 'Hammer', dir: 'bull', score: 10 });
+    // Inverted Hammer (bullish potential)
     if (c3.close >= c3.open && uw3 > body3 * 2.0 && lw3 < body3 * 0.6 && body3 > range3 * 0.05) patterns.push({ name: 'Inverted Hammer', dir: 'bull', score: 7 });
+    // Shooting Star (bearish)
     if (c3.close <= c3.open && uw3 > body3 * 2.0 && lw3 < body3 * 0.5 && body3 > range3 * 0.05) patterns.push({ name: 'Shooting Star', dir: 'bear', score: 10 });
+    // Hanging Man (bearish)
     if (c3.close <= c3.open && lw3 > body3 * 2.0 && uw3 < body3 * 0.5 && body3 > range3 * 0.05) patterns.push({ name: 'Hanging Man', dir: 'bear', score: 7 });
+    // Marubozu Bull
     if (c3.close > c3.open && uw3 < range3 * 0.05 && lw3 < range3 * 0.05 && body3 > range3 * 0.85) patterns.push({ name: 'Bullish Marubozu', dir: 'bull', score: 12 });
+    // Marubozu Bear
     if (c3.close < c3.open && uw3 < range3 * 0.05 && lw3 < range3 * 0.05 && body3 > range3 * 0.85) patterns.push({ name: 'Bearish Marubozu', dir: 'bear', score: 12 });
+    // Pin Bar Bull
     if (lw3 > range3 * 0.60 && body3 < range3 * 0.25) patterns.push({ name: 'Bullish Pin Bar', dir: 'bull', score: 11 });
+    // Pin Bar Bear
     if (uw3 > range3 * 0.60 && body3 < range3 * 0.25) patterns.push({ name: 'Bearish Pin Bar', dir: 'bear', score: 11 });
 
-    // Two-candle
+    // ── Two-candle patterns (c2, c3) ───────────────────────────
+    // Bullish Engulfing: c2 bearish, c3 bullish and engulfs c2
     if (c2.close < c2.open && c3.close > c3.open && c3.open <= c2.close && c3.close >= c2.open) patterns.push({ name: 'Bullish Engulfing', dir: 'bull', score: 15 });
+    // Bearish Engulfing: c2 bullish, c3 bearish and engulfs c2
     if (c2.close > c2.open && c3.close < c3.open && c3.open >= c2.close && c3.close <= c2.open) patterns.push({ name: 'Bearish Engulfing', dir: 'bear', score: 15 });
+    // Bullish Harami: c2 bearish large, c3 small bullish inside
     if (c2.close < c2.open && body2 > range2 * 0.6 && c3.close > c3.open && c3.open > c2.close && c3.close < c2.open && body3 < body2 * 0.5) patterns.push({ name: 'Bullish Harami', dir: 'bull', score: 8 });
+    // Bearish Harami: c2 bullish large, c3 small bearish inside
     if (c2.close > c2.open && body2 > range2 * 0.6 && c3.close < c3.open && c3.open < c2.close && c3.close > c2.open && body3 < body2 * 0.5) patterns.push({ name: 'Bearish Harami', dir: 'bear', score: 8 });
+    // Inside Bar
     if (c3.high < c2.high && c3.low > c2.low) patterns.push({ name: 'Inside Bar', dir: c3.close > c3.open ? 'bull' : 'bear', score: 7 });
+    // Outside Bar
     if (c3.high > c2.high && c3.low < c2.low) patterns.push({ name: 'Outside Bar', dir: c3.close > c3.open ? 'bull' : 'bear', score: 8 });
+    // Tweezer Bottom: similar lows, c2 bear c3 bull
     if (c2.close < c2.open && c3.close > c3.open && Math.abs(c3.low - c2.low) < (range2 + range3) * 0.06) patterns.push({ name: 'Tweezer Bottom', dir: 'bull', score: 9 });
+    // Tweezer Top: similar highs, c2 bull c3 bear
     if (c2.close > c2.open && c3.close < c3.open && Math.abs(c3.high - c2.high) < (range2 + range3) * 0.06) patterns.push({ name: 'Tweezer Top', dir: 'bear', score: 9 });
 
-    // Three-candle
+    // ── Three-candle patterns (c1, c2, c3) ─────────────────────
+    // Morning Star: c1 bearish, c2 small, c3 bullish strong
     if (c1.close < c1.open && body1 > range1*0.5 && body2 < range2*0.35 && c3.close > c3.open && body3 > range3*0.5 && c3.close > (c1.open+c1.close)/2) patterns.push({ name: 'Morning Star', dir: 'bull', score: 14 });
+    // Evening Star: c1 bullish, c2 small, c3 bearish strong
     if (c1.close > c1.open && body1 > range1*0.5 && body2 < range2*0.35 && c3.close < c3.open && body3 > range3*0.5 && c3.close < (c1.open+c1.close)/2) patterns.push({ name: 'Evening Star', dir: 'bear', score: 14 });
+    // Three White Soldiers
+    const c_2 = n>=4 ? candles[n-4] : null;
     if (c1.close>c1.open && c2.close>c2.open && c3.close>c3.open && c2.close>c1.close && c3.close>c2.close && c2.open>c1.open && c3.open>c2.open) patterns.push({ name: 'Three White Soldiers', dir: 'bull', score: 14 });
+    // Three Black Crows
     if (c1.close<c1.open && c2.close<c2.open && c3.close<c3.open && c2.close<c1.close && c3.close<c2.close && c2.open<c1.open && c3.open<c2.open) patterns.push({ name: 'Three Black Crows', dir: 'bear', score: 14 });
 
     return patterns;
 }
 
-// ── SUPPORT / RESISTANCE ENGINE ──────────────────────────────────
+// ── 3. SUPPORT / RESISTANCE ENGINE ─────────────────────────────
+
 function detectSupportResistance(candles, price, atr) {
     if (!candles || candles.length < 30 || !atr) return { levels: [], nearSupport: false, nearResistance: false, score: 0 };
     const rc = candles.slice(-60);
     const tol = atr * 0.35;
     const levels = [];
+    // Find pivot highs/lows
     for (let i = 2; i < rc.length - 2; i++) {
         const isPivotHigh = rc[i].high > rc[i-1].high && rc[i].high > rc[i-2].high && rc[i].high > rc[i+1].high && rc[i].high > rc[i+2].high;
         const isPivotLow  = rc[i].low  < rc[i-1].low  && rc[i].low  < rc[i-2].low  && rc[i].low  < rc[i+1].low  && rc[i].low  < rc[i+2].low;
@@ -822,6 +852,7 @@ function detectSupportResistance(candles, price, atr) {
             else { const lv = levels.find(l => l.type === 'support' && Math.abs(l.price - rc[i].low) < tol); if (lv) lv.touches++; }
         }
     }
+    // Daily / weekly high/low proxies (extreme of lookback)
     const allHighs = rc.map(c=>c.high); const allLows = rc.map(c=>c.low);
     const periodHigh = Math.max(...allHighs); const periodLow = Math.min(...allLows);
     const nearResistance = levels.some(l => l.type === 'resistance' && Math.abs(price - l.price) < tol * 1.5);
@@ -834,13 +865,15 @@ function detectSupportResistance(candles, price, atr) {
     return { levels, nearSupport: nearSupport || nearPeriodLow, nearResistance: nearResistance || nearPeriodHigh, periodHigh, periodLow, score };
 }
 
-// ── SMART MONEY ENGINE ───────────────────────────────────────────
+// ── 4. ENHANCED SMART MONEY ENGINE ─────────────────────────────
+
 function detectSmartMoneyConcepts(candles, price, atr) {
     if (!candles || candles.length < 20 || !atr) return { concepts: [], score: 0, premiumDiscount: 'MID', ote: false };
     const rc = candles.slice(-30);
     const concepts = [];
     let score = 0;
 
+    // Equal Highs / Equal Lows
     const recentHighs = rc.slice(-10).map(c=>c.high); const recentLows = rc.slice(-10).map(c=>c.low);
     const maxH = Math.max(...recentHighs); const minL = Math.min(...recentLows);
     const eqHighCount = recentHighs.filter(h => Math.abs(h - maxH) < atr * 0.15).length;
@@ -848,9 +881,11 @@ function detectSmartMoneyConcepts(candles, price, atr) {
     if (eqHighCount >= 2) { concepts.push('Equal Highs'); score -= 5; }
     if (eqLowCount  >= 2) { concepts.push('Equal Lows');  score += 5; }
 
+    // Liquidity Pool above/below
     if (price < minL + atr * 0.5 && eqLowCount >= 2)  { concepts.push('Liquidity Pool Below'); score += 8; }
     if (price > maxH - atr * 0.5 && eqHighCount >= 2) { concepts.push('Liquidity Pool Above'); score -= 8; }
 
+    // Premium / Discount Zone (relative to swing range)
     const swingRange = maxH - minL;
     const equil = minL + swingRange * 0.5;
     const ote_lo = minL + swingRange * 0.618;
@@ -859,35 +894,44 @@ function detectSmartMoneyConcepts(candles, price, atr) {
     if (premiumDiscount === 'DISCOUNT') { concepts.push('Discount Zone'); score += 10; }
     if (premiumDiscount === 'PREMIUM')  { concepts.push('Premium Zone');  score -= 10; }
 
+    // OTE (Optimal Trade Entry) — 61.8%–78.6% retracement
     const ote = price >= ote_lo - atr * 0.2 && price <= ote_hi + atr * 0.2;
     if (ote) { concepts.push('OTE Zone'); score += 8; }
 
+    // Mitigation Block — strong opposite move after OB
     const bodies = rc.map(c=>Math.abs(c.close-c.open));
     const avgBody = bodies.reduce((a,b)=>a+b,0) / bodies.length;
+    let mitigation = false;
     for (let i = 2; i < rc.length - 1; i++) {
         const bodyI = Math.abs(rc[i].close - rc[i].open);
         if (bodyI > avgBody * 2 && rc[i].close < rc[i].open) {
+            // Check if price came back to that zone
             if (price >= rc[i].low - atr * 0.2 && price <= rc[i].open + atr * 0.2) {
-                concepts.push('Mitigation Block'); score += 7; break;
+                concepts.push('Mitigation Block'); score += 7; mitigation = true; break;
             }
         }
     }
+
+    // Breaker Block — OB that price broke through then returned to
+    let breaker = false;
     for (let i = 2; i < rc.length - 3; i++) {
         const bodyI = Math.abs(rc[i].close - rc[i].open);
         if (bodyI > avgBody * 1.5 && rc[i].close > rc[i].open) {
             const brokeThrough = rc.slice(i+1).some(c => c.low < rc[i].low);
             const retesting = price >= rc[i].low - atr * 0.25 && price <= rc[i].high + atr * 0.25;
-            if (brokeThrough && retesting) { concepts.push('Breaker Block'); score -= 6; break; }
+            if (brokeThrough && retesting) { concepts.push('Breaker Block'); score -= 6; breaker = true; break; }
         }
     }
 
+    // Inducement — small swings before a larger move
     const last5Lows = rc.slice(-5).map(c=>c.low); const min5Low = Math.min(...last5Lows);
     if (price > min5Low && price - min5Low < atr * 1.5) { concepts.push('Inducement Zone'); score += 6; }
 
     return { concepts, score: Math.max(-20, Math.min(20, score)), premiumDiscount, ote, swingHigh: maxH, swingLow: minL };
 }
 
-// ── ENHANCED DIVERGENCE ENGINE ───────────────────────────────────
+// ── 5. ENHANCED DIVERGENCE ENGINE ──────────────────────────────
+
 function detectEnhancedDivergence(candles, closes, atr) {
     if (!candles || candles.length < 20) return { divergences: [], score: 0 };
     const divergences = [];
@@ -903,6 +947,7 @@ function detectEnhancedDivergence(candles, closes, atr) {
     }
     if (pts.length < 8) return { divergences, score };
 
+    // Find swing points
     const swLows = [], swHighs = [];
     for (let i = 2; i < pts.length - 1; i++) {
         if (pts[i].low  <= pts[i-1].low  && pts[i].low  <= pts[i+1].low)  swLows.push(pts[i]);
@@ -912,23 +957,36 @@ function detectEnhancedDivergence(candles, closes, atr) {
     const rsiNow = calcRSI(closes, 14);
     if (rsiNow === null) return { divergences, score };
 
+    // Regular Bullish Divergence: price lower low, RSI higher low
     if (swLows.length >= 2) {
         const sl1 = swLows[swLows.length-2], sl2 = swLows[swLows.length-1];
-        if (sl2.price < sl1.price && sl2.rsi > sl1.rsi + 1.5) { divergences.push('Regular Bullish Div (RSI)'); score += 5; }
+        if (sl2.price < sl1.price && sl2.rsi > sl1.rsi + 1.5) {
+            divergences.push('Regular Bullish Div (RSI)'); score += 5;
+        }
     }
+    // Regular Bearish Divergence: price higher high, RSI lower high
     if (swHighs.length >= 2) {
         const sh1 = swHighs[swHighs.length-2], sh2 = swHighs[swHighs.length-1];
-        if (sh2.price > sh1.price && sh2.rsi < sh1.rsi - 1.5) { divergences.push('Regular Bearish Div (RSI)'); score -= 5; }
+        if (sh2.price > sh1.price && sh2.rsi < sh1.rsi - 1.5) {
+            divergences.push('Regular Bearish Div (RSI)'); score -= 5;
+        }
     }
+    // Hidden Bullish Divergence: price higher low, RSI lower low
     if (swLows.length >= 2) {
         const sl1 = swLows[swLows.length-2], sl2 = swLows[swLows.length-1];
-        if (sl2.price > sl1.price && sl2.rsi < sl1.rsi - 1.5) { divergences.push('Hidden Bullish Div (RSI)'); score += 4; }
+        if (sl2.price > sl1.price && sl2.rsi < sl1.rsi - 1.5) {
+            divergences.push('Hidden Bullish Div (RSI)'); score += 4;
+        }
     }
+    // Hidden Bearish Divergence: price lower high, RSI higher high
     if (swHighs.length >= 2) {
         const sh1 = swHighs[swHighs.length-2], sh2 = swHighs[swHighs.length-1];
-        if (sh2.price < sh1.price && sh2.rsi > sh1.rsi + 1.5) { divergences.push('Hidden Bearish Div (RSI)'); score -= 4; }
+        if (sh2.price < sh1.price && sh2.rsi > sh1.rsi + 1.5) {
+            divergences.push('Hidden Bearish Div (RSI)'); score -= 4;
+        }
     }
 
+    // MACD Divergence using closing prices
     const macd = calcMACD(closes);
     if (macd && Math.abs(macd.hist) > 0) {
         if (macd.hist > 0 && rsiNow < 50)  { divergences.push('MACD Bull Cross'); score += 3; }
@@ -938,7 +996,8 @@ function detectEnhancedDivergence(candles, closes, atr) {
     return { divergences, score: Math.max(-10, Math.min(10, score)) };
 }
 
-// ── VOLUME ENGINE ────────────────────────────────────────────────
+// ── 6. VOLUME ENGINE ────────────────────────────────────────────
+
 function calcVolumeEngine(candles) {
     if (!candles || candles.length < 10) return { label: 'UNKNOWN', relVol: 1, score: 0 };
     const rc = candles.slice(-10);
@@ -949,6 +1008,7 @@ function calcVolumeEngine(candles) {
     const lastC = candles[candles.length-1];
     const isBullCandle = lastC.close > lastC.open;
 
+    // Buying vs Selling Pressure
     let buyVol = 0, sellVol = 0;
     for (const c of rc) {
         const range = c.high - c.low; if (range === 0) continue;
@@ -970,12 +1030,14 @@ function calcVolumeEngine(candles) {
     return { label, relVol: parseFloat(relVol.toFixed(2)), volDelta: parseFloat(volDelta.toFixed(3)), buyingPressure: volDelta > 0.1, sellingPressure: volDelta < -0.1, score: Math.max(-15, Math.min(15, score)) };
 }
 
-// ── VOLATILITY ENGINE ────────────────────────────────────────────
+// ── 7. VOLATILITY ENGINE ────────────────────────────────────────
+
 function calcVolatilityEngine(candles, closes, atr) {
     if (!candles || candles.length < 20 || !atr) return { label: 'NORMAL', bbWidth: 0, expansion: false, compression: false, score: 0, breakoutProb: 50 };
     const bb = calcBollingerBands(closes, 20, 2);
     if (!bb) return { label: 'NORMAL', bbWidth: 0, expansion: false, compression: false, score: 0, breakoutProb: 50 };
 
+    // ATR relative to recent average ATR
     const rc = candles.slice(-20);
     const recentATRs = [];
     for (let i = 5; i < rc.length; i++) {
@@ -998,9 +1060,11 @@ function calcVolatilityEngine(candles, closes, atr) {
     return { label, bbWidth: parseFloat(bb.width.toFixed(2)), pctB: parseFloat(bb.pctB.toFixed(1)), expansion, compression, relATR: parseFloat(relATR.toFixed(2)), breakoutProb: Math.round(breakoutProb), score };
 }
 
-// ================================================================
-//  PATTERN SCORING ENGINE
-// ================================================================
+// ── 8. SCORING ENGINE (100 points) ─────────────────────────────
+//  Market Structure: 20 | Trend: 15 | Momentum: 15 | Volume: 10
+//  Candlestick: 10 | S/R: 10 | Smart Money: 10
+//  Volatility: 5 | Divergence: 5 | Confluence: 10 = 100
+
 function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBias) {
     const scores = { structure: 0, trend: 0, momentum: 0, volume: 0, candle: 0, sr: 0, smc: 0, volatility: 0, divergence: 0, confluence: 0 };
     const reasoning = [];
@@ -1019,7 +1083,7 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     const roc = calcROC(closes, 10);
     const superTrend = calcSuperTrend(candles, 10, 3);
 
-    // ── Market Structure (max 20) ─────────────────────────────
+    // ── Market Structure (max 20) ──────────────────────────────
     const struct = calcBCStruct(candles);
     const structScore = struct.score || 0;
     if (structScore > 0) {
@@ -1033,7 +1097,7 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     if (struct.bos === 'BEAR') reasoning.push('Break of Structure (Bear)');
     if (struct.choch) reasoning.push('Change of Character');
 
-    // ── Trend (max 15) ────────────────────────────────────────
+    // ── Trend (max 15) ─────────────────────────────────────────
     const trendData = macroBias && macroBias.factors ? macroBias.factors.bc_trend : null;
     const trendScore = (macroBias && macroBias.factors && macroBias.factors.bc_trend_score) || 0;
     const stScale = Math.min(15, Math.round(Math.abs(trendScore) * 15 / 30));
@@ -1044,7 +1108,7 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     }
     if (macroBias && macroBias.factors && macroBias.factors.just_crossed) reasoning.push('EMA Cross Signal');
 
-    // ── Momentum (max 15) ────────────────────────────────────
+    // ── Momentum (max 15) ──────────────────────────────────────
     let momScore = 0;
     if (rsi < 30) { momScore += 12; reasoning.push(`RSI Oversold (${rsi.toFixed(0)})`); }
     else if (rsi < 45) { momScore += 6; reasoning.push(`RSI Pullback (${rsi.toFixed(0)})`); }
@@ -1073,7 +1137,7 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     }
     scores.momentum = Math.max(-15, Math.min(15, Math.round(momScore * 15 / 25)));
 
-    // ── Volume (max 10) ───────────────────────────────────────
+    // ── Volume (max 10) ────────────────────────────────────────
     const volEng = calcVolumeEngine(candles);
     scores.volume = Math.max(-10, Math.min(10, Math.round(volEng.score * 10 / 15)));
     if (volEng.label === 'SPIKE') reasoning.push(`Volume Spike (${volEng.relVol}x)`);
@@ -1092,13 +1156,13 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     scores.candle = Math.max(-10, Math.min(10, Math.round(candleScore * 10 / 15)));
     if (topCandlePat) reasoning.push(topCandlePat.name);
 
-    // ── Support / Resistance (max 10) ─────────────────────────
+    // ── Support / Resistance (max 10) ──────────────────────────
     const srData = detectSupportResistance(candles, price, atr);
     scores.sr = Math.max(-10, Math.min(10, srData.score));
     if (srData.nearSupport)    reasoning.push('Near Support Level');
     if (srData.nearResistance) reasoning.push('Near Resistance Level');
 
-    // ── Smart Money (max 10) ──────────────────────────────────
+    // ── Smart Money (max 10) ───────────────────────────────────
     const smcData = detectSmartMoneyConcepts(candles, price, atr);
     scores.smc = Math.max(-10, Math.min(10, Math.round(smcData.score * 10 / 20)));
     for (const c of smcData.concepts.slice(0,2)) reasoning.push(c);
@@ -1106,13 +1170,13 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     if (smcData.premiumDiscount === 'DISCOUNT') reasoning.push('Discount Zone');
     if (smcData.premiumDiscount === 'PREMIUM')  reasoning.push('Premium Zone');
 
-    // ── Volatility (max 5) ────────────────────────────────────
+    // ── Volatility (max 5) ─────────────────────────────────────
     const volat = calcVolatilityEngine(candles, closes, atr);
     scores.volatility = Math.max(-5, Math.min(5, volat.score));
-    if (volat.compression) reasoning.push(`BB Compression (Breakout: ${volat.breakoutProb}%)`);
+    if (volat.compression) reasoning.push(`BB Compression (Breakout Prob: ${volat.breakoutProb}%)`);
     if (volat.expansion)   reasoning.push('Volatility Expansion');
 
-    // ── Divergence (max 5) ────────────────────────────────────
+    // ── Divergence (max 5) ─────────────────────────────────────
     const divEng = detectEnhancedDivergence(candles, closes, atr);
     scores.divergence = Math.max(-5, Math.min(5, divEng.score));
     for (const d of divEng.divergences.slice(0,2)) reasoning.push(d);
@@ -1126,7 +1190,7 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     else if (negativeCount >= 4)  { scores.confluence = -6; }
     else if (positiveCount >= 2 && negativeCount >= 2) { scores.confluence = 0; }
 
-    // ── TOTAL SCORE & DIRECTION ───────────────────────────────
+    // ── TOTAL SCORE & DIRECTION ────────────────────────────────
     const totalBull = Object.values(scores).reduce((a,v) => a + Math.max(0,v), 0);
     const totalBear = Object.values(scores).reduce((a,v) => a + Math.max(0,-v), 0);
     const netScore  = totalBull - totalBear;
@@ -1146,33 +1210,49 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     return { signal, direction, confidence, scores, totalBull, totalBear, netScore, reasoning, patterns: cpats, smcData, srData, volat, volEng, rsi, cci, stoch, willR, ao, roc, superTrend, atr };
 }
 
-// ── FALSE SIGNAL FILTER ──────────────────────────────────────────
+// ── 9. FALSE SIGNAL FILTER ─────────────────────────────────────
+
 function applyFalseSignalFilter(scored, candles) {
     if (!scored || scored.signal === 'NEUTRAL') return scored;
     const warns = [];
     const closes = candles.map(c=>c.close);
     const adx = calcADX(candles, 14);
 
+    // 1. Sideway market (low ADX)
     if (adx !== null && adx < 18) { warns.push('ADX<18 (choppy)'); }
+
+    // 2. Volatility too low
     if (scored.volat && scored.volat.bbWidth < 0.6) { warns.push('BBWidth<0.6 (flat)'); }
+
+    // 3. Breakout without volume
     const bcStruct = calcBCStruct(candles);
     if (bcStruct.bos && scored.volEng && scored.volEng.relVol < 0.7) { warns.push('BOS no volume'); }
+
+    // 4. Pattern incomplete (inside bar without direction)
     const hasNeutralDoji = scored.patterns.some(p => p.dir === 'neutral' && p.name === 'Doji');
     if (hasNeutralDoji && scored.confidence < 60) warns.push('Doji uncertainty');
+
+    // 5. Signal against strong S/R
     if (scored.signal === 'BUY'  && scored.srData && scored.srData.nearResistance) warns.push('Entry near resistance');
     if (scored.signal === 'SELL' && scored.srData && scored.srData.nearSupport)    warns.push('Entry near support');
+
+    // 6. Conflicting trend/structure (already handled in macroBias but double-check)
     if (scored.scores.trend > 5 && scored.scores.structure < -5) warns.push('Trend/struct conflict');
     if (scored.scores.trend < -5 && scored.scores.structure > 5) warns.push('Trend/struct conflict');
 
+    // Penalize confidence for each warning
     const penalty = warns.length * 8;
     const adjConf = Math.max(0, scored.confidence - penalty);
+
+    // If too many warnings, downgrade to NEUTRAL
     if (warns.length >= 4 || adjConf < 20) {
         return { ...scored, signal: 'NEUTRAL', confidence: adjConf, warnings: warns };
     }
     return { ...scored, confidence: adjConf, warnings: warns };
 }
 
-// ── CONFIDENCE LABEL ────────────────────────────────────────────
+// ── 10. CONFIDENCE ENGINE ────────────────────────────────────────
+
 function getConfidenceLabel(confidence, signal) {
     if (signal === 'NEUTRAL') return { label: 'NEUTRAL', color: 'var(--text-dim)' };
     if (confidence >= 90) return { label: 'EXCELLENT',   color: 'var(--emerald)' };
@@ -1185,6 +1265,8 @@ function getConfidenceLabel(confidence, signal) {
 
 function getRiskLabel(scored) {
     if (!scored) return { label: 'UNKNOWN', cls: 'medium' };
+    const bullCount = Object.values(scored.scores).filter(v=>v>0).length;
+    const bearCount = Object.values(scored.scores).filter(v=>v<0).length;
     const warns = (scored.warnings || []).length;
     if (scored.confidence >= 75 && warns === 0) return { label: 'LOW RISK',  cls: 'low' };
     if (scored.confidence >= 55 && warns <= 1)  return { label: 'MED RISK',  cls: 'medium' };
@@ -1198,7 +1280,8 @@ function getEntryQuality(scored) {
     return { label: 'POOR', cls: 'poor' };
 }
 
-// ── PATTERN DETECTION ENGINE — MAIN ─────────────────────────────
+// ── 11. PATTERN DETECTION ENGINE — MAIN ─────────────────────────
+
 let pdeCache = { xau: null };
 
 function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
@@ -1209,6 +1292,7 @@ function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
         const risk = getRiskLabel(scored);
         const eq = getEntryQuality(scored);
 
+        // Build output object
         const output = {
             signal: scored.signal,
             confidence: scored.confidence,
@@ -1232,7 +1316,11 @@ function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
             patterns: scored.patterns,
             smcData: scored.smcData,
             srData: scored.srData,
-            volat: scored.volat
+            volat: scored.volat,
+            // Macro trend direction for PDE display
+            macro_bias: macroBias ? macroBias.bias : 'NEUTRAL',
+            macro_bullPct: macroBias ? (macroBias.bullPct || 0) : 0,
+            macro_bearPct: macroBias ? (macroBias.bearPct || 0) : 0
         };
         pdeCache[id] = output;
         return output;
@@ -1241,16 +1329,30 @@ function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
     }
 }
 
-// ── PDE UI UPDATE ────────────────────────────────────────────────
+// ── 12. PDE UI UPDATE ────────────────────────────────────────────
+
 function updatePatternEngineUI(id, pde) {
     if (!pde) return;
 
+    // Signal badge — tampilkan arah tren macro: BULL X% / BEAR X%
     const sigEl = document.getElementById(`pde-signal-${id}`);
     if (sigEl) {
-        sigEl.textContent = pde.signal === 'BUY' ? `↑ BUY ${pde.confidence}%` : pde.signal === 'SELL' ? `↓ SELL ${pde.confidence}%` : `— WAIT`;
-        sigEl.className = `pde-signal-badge ${pde.signal === 'BUY' ? 'buy' : pde.signal === 'SELL' ? 'sell' : 'neutral'}`;
+        const bPct = pde.macro_bullPct || 0;
+        const sPct = pde.macro_bearPct || 0;
+        if (pde.macro_bias === 'BULL') {
+            sigEl.textContent = `↑ BULL ${bPct}%`;
+            sigEl.className = 'pde-signal-badge buy';
+        } else if (pde.macro_bias === 'BEAR') {
+            sigEl.textContent = `↓ BEAR ${sPct}%`;
+            sigEl.className = 'pde-signal-badge sell';
+        } else {
+            // Neutral — tampilkan kedua persen
+            sigEl.textContent = `BULL ${bPct}% · BEAR ${sPct}%`;
+            sigEl.className = 'pde-signal-badge neutral';
+        }
     }
 
+    // Confidence bar
     const cfFill = document.getElementById(`pde-cf-fill-${id}`);
     const cfTxt  = document.getElementById(`pde-cf-txt-${id}`);
     const cfGrade = document.getElementById(`pde-cf-grade-${id}`);
@@ -1258,9 +1360,11 @@ function updatePatternEngineUI(id, pde) {
     if (cfTxt)  { cfTxt.textContent = pde.confidence + '%'; cfTxt.style.color = pde.confidence_color; }
     if (cfGrade){ cfGrade.textContent = pde.confidence_grade; cfGrade.style.color = pde.confidence_color; }
 
+    // Pattern name
     const patEl = document.getElementById(`pde-pattern-${id}`);
     if (patEl) patEl.textContent = pde.pattern;
 
+    // Meters: strength, probability, risk
     const strengthPct = Math.min(100, pde.scores ? Object.values(pde.scores).reduce((a,v)=>a+Math.max(0,v),0) : 0);
     const probPct     = pde.confidence;
     const riskPct     = pde.risk_cls === 'low' ? 25 : pde.risk_cls === 'medium' ? 55 : 85;
@@ -1275,12 +1379,13 @@ function updatePatternEngineUI(id, pde) {
         if (val)  { val.textContent = txts[i]; val.style.color = cols[i]; }
     });
 
+    // Score grid
     const scoreKeys = [
         ['str','structure',20], ['trd','trend',15], ['mom','momentum',15],
         ['vol','volume',10],    ['cdl','candle',10], ['sr','sr',10],
         ['smc','smc',10],       ['vlt','volatility',5], ['div','divergence',5], ['cfl','confluence',10]
     ];
-    scoreKeys.forEach(([key, field]) => {
+    scoreKeys.forEach(([key, field, max]) => {
         const el = document.getElementById(`pde-sc-${key}-${id}`);
         if (!el) return;
         const v = pde.scores ? (pde.scores[field] || 0) : 0;
@@ -1288,6 +1393,7 @@ function updatePatternEngineUI(id, pde) {
         el.style.color = v > 0 ? 'var(--emerald)' : v < 0 ? 'var(--crimson)' : 'var(--text-dim)';
     });
 
+    // Reasoning list
     const reasonEl = document.getElementById(`pde-reason-list-${id}`);
     if (reasonEl) {
         const items = pde.reasoning.slice(0,5);
@@ -1296,6 +1402,7 @@ function updatePatternEngineUI(id, pde) {
             : `<div class="pde-reason-item" style="color:var(--text-dim)">Scanning...</div>`;
     }
 
+    // Risk & entry quality badges
     const riskEl = document.getElementById(`pde-risk-${id}`);
     if (riskEl) { riskEl.textContent = pde.risk; riskEl.className = `pde-risk-badge ${pde.risk_cls}`; }
     const eqEl = document.getElementById(`pde-eq-${id}`);
@@ -1303,7 +1410,7 @@ function updatePatternEngineUI(id, pde) {
 }
 
 // ================================================================
-//  MTF CONFLUENCE
+//  MTF CONFLUENCE (TIDAK DIUBAH)
 // ================================================================
 function aggregateCandles(candles, factor) {
     if (!candles || candles.length < factor) return [];
@@ -1347,11 +1454,12 @@ function getMTFConfirmation(id, price, macroCandles) {
     }
     if (trend5m && trend15m && trend5m.score > 0 && trend15m.score > 0) score += 5;
     if (trend5m && trend15m && trend5m.score < 0 && trend15m.score < 0) score -= 5;
+    // Kembalikan skor signed (positif = bullish, negatif = bearish)
     return { score, trend5m: t5, trend15m: t15 };
 }
 
 // ================================================================
-//  ORDER BLOCK DETECTION
+//  ORDER BLOCK DETECTION (TIDAK DIUBAH)
 // ================================================================
 function detectOrderBlock(candles, atr) {
     if (!candles || candles.length < 20) return { type: 'NONE', top: 0, bot: 0, strength: 0 };
@@ -1371,7 +1479,7 @@ function detectOrderBlock(candles, atr) {
 }
 
 // ================================================================
-//  FVG DETECTION
+//  FVG DETECTION (TIDAK DIUBAH)
 // ================================================================
 function detectFVG(candles) {
     if (!candles || candles.length < 3) return { type: 'NONE', level: 0, gap: 0 };
@@ -1388,7 +1496,7 @@ function detectFVG(candles) {
 }
 
 // ================================================================
-//  VOLUME PROFILE (POC)
+//  VOLUME PROFILE (POC) (TIDAK DIUBAH)
 // ================================================================
 function calcVolumeProfile(candles, price, atr) {
     if (!candles || candles.length < 10) return { nearPOC: false, pocLevel: 0, score: 0 };
@@ -1406,7 +1514,7 @@ function calcVolumeProfile(candles, price, atr) {
 }
 
 // ================================================================
-//  PRICE ACTION FILTER
+//  PRICE ACTION FILTER (TIDAK DIUBAH)
 // ================================================================
 function checkPriceAction(candles, direction, atr) {
     if (!candles || candles.length < 2) return 0;
@@ -1415,31 +1523,43 @@ function checkPriceAction(candles, direction, atr) {
     let score = 0;
     const range2 = c2.high - c2.low;
     if (direction === 'buy') {
+        // Bullish engulf: c2 menutup di atas high c1 dan buka di bawah low c1
         if (c2.close > c1.high && c2.open < c1.low) score = 15;
         const body = Math.abs(c2.close - c2.open);
+        // Hammer / pin bar bullish: lower wick panjang; body minimal 5% dari range (hindari doji)
         const lowerWick = Math.min(c2.open, c2.close) - c2.low;
         if (body > range2 * 0.05 && lowerWick > body * 2.5) score = Math.max(score, 12);
+        // Inside bar bullish: c2 close > open (candle hijau) dalam range c1
         if (c2.close > c2.open && c2.low > c1.low && c2.high < c1.high) score = Math.max(score, 8);
     } else {
+        // Bearish engulf: c2 menutup di bawah low c1 dan buka di atas high c1
         if (c2.close < c1.low && c2.open > c1.high) score = 15;
         const body = Math.abs(c2.close - c2.open);
+        // Shooting star / pin bar bearish: upper wick panjang; body minimal 5% dari range (hindari doji)
         const upperWick = c2.high - Math.max(c2.open, c2.close);
         if (body > range2 * 0.05 && upperWick > body * 2.5) score = Math.max(score, 12);
+        // Inside bar bearish: c2 close < open (candle merah) dalam range c1
         if (c2.close < c2.open && c2.low > c1.low && c2.high < c1.high) score = Math.max(score, 8);
     }
     return score;
 }
 
 // ================================================================
-//  DYNAMIC RR
+//  DYNAMIC RR — dikalibrasi untuk XAU (ATR range $2–30 per 1-min bar)
+//  Threshold berdasarkan ATR absolut agar benar-benar dinamis:
+//    ATR > 18  → pasar sangat volatile → RR ketat 1.2
+//    ATR > 10  → volatile normal-tinggi  → RR 1.4
+//    ATR >  5  → volatilitas sedang      → RR 1.5
+//    ATR ≤  5  → pasar tenang            → RR longgar 1.6
 // ================================================================
-function calculateDynamicRR(atr, atrBaseline) {
-    if (!atr || !atrBaseline || atrBaseline <= 0) return 1.5;
-    const ratio = atr / atrBaseline;
-    if (ratio > 1.35) return 1.2;
-    if (ratio > 1.15) return 1.4;
-    if (ratio > 0.85) return 1.5;
-    return 1.6;
+function calculateDynamicRR(atr, price) {
+    let rr;
+    // Gunakan ATR absolut — jauh lebih representatif untuk XAU
+    if      (atr > 18) rr = 1.2;
+    else if (atr > 10) rr = 1.4;
+    else if (atr >  5) rr = 1.5;
+    else               rr = 1.6;
+    return rr;
 }
 
 // ================================================================
@@ -1481,13 +1601,16 @@ function scoreMacroBias(id, price, macroCandles) {
     let bull = Math.round(rawBull * adxMult); let bear = Math.round(rawBear * adxMult);
     const trendBull = bcTrend.score > 0; const trendBear = bcTrend.score < 0;
     const structBull = bcStruct.score > 0; const structBear = bcStruct.score < 0;
+    // Deteksi konflik TREND vs STRUCT: jika keduanya signifikan, blokir sinyal
     const trendSignificant  = Math.abs(bcTrend.score) >= 16;
     const structSignificant = Math.abs(bcStruct.score) >= 15;
     if ((trendBull && structBear) || (trendBear && structBull)) {
         f.conflict = 'TREND_STRUCT';
         if (trendSignificant && structSignificant) {
+            // Konflik kuat — blokir sinyal sama sekali
             return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, atr, ema21: bcTrend.ema21, bcZone };
         }
+        // Konflik ringan — kurangi skor saja
         bull = Math.round(bull * 0.65); bear = Math.round(bear * 0.65);
     }
     const MAX = 72; const diff = Math.abs(bull - bear);
@@ -1496,11 +1619,14 @@ function scoreMacroBias(id, price, macroCandles) {
     else if (bear > bull && diff >= 10) { bias = 'BEAR'; score = Math.min(100, Math.round((bear / MAX) * 100)); }
     else { score = Math.round(Math.max(bull, bear) * 0.55); }
     const valid = score >= BC_SCORE_MIN && bias !== 'NEUTRAL';
-    return { bias, score, factors: f, valid, adx, atr, ema21: bcTrend.ema21, bcZone };
+    // Compute bull/bear percentage for PDE display
+    const bullPct = Math.min(100, Math.round((bull / MAX) * 100));
+    const bearPct = Math.min(100, Math.round((bear / MAX) * 100));
+    return { bias, score, bullPct, bearPct, factors: f, valid, adx, atr, ema21: bcTrend.ema21, bcZone };
 }
 
 // ================================================================
-//  BC MICRO ENTRY SCORER
+//  BC MICRO ENTRY SCORER (TIDAK DIUBAH)
 // ================================================================
 function scoreMicroEntry(id, price, microCandles, macroBias) {
     const f = {};
@@ -1511,12 +1637,24 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const microATR  = calcATR(microCandles, Math.min(10, microCandles.length - 1)) || macroBias.atr * 0.3;
     const rsi9      = calcRSI(closes, Math.min(9, closes.length - 1));
     const microMACD = calcMACD(closes, 5, 13, 4);
-    
+
+    // ── Zone enforcement: BUY hanya di zona discount/demand; SELL hanya di premium/supply ──
+    const smcZoneGuard = detectSmartMoneyConcepts(microCandles, price, microATR);
+    const direction_guard = macroBias.bias === 'BULL' ? 'buy' : 'sell';
+    if (direction_guard === 'buy' && smcZoneGuard.premiumDiscount === 'PREMIUM') {
+        return { ready: false, lockable: false, direction: direction_guard, quality: 0, factors: { zone_blocked: 'PREMIUM' }, zoneType: null };
+    }
+    if (direction_guard === 'sell' && smcZoneGuard.premiumDiscount === 'DISCOUNT') {
+        return { ready: false, lockable: false, direction: direction_guard, quality: 0, factors: { zone_blocked: 'DISCOUNT' }, zoneType: null };
+    }
+
     const MICRO_CROSS_MIN = 23;
     const ema9m    = closes.length > MICRO_CROSS_MIN ? calcEMA(closes, 9)  : null;
     const ema21m   = closes.length > MICRO_CROSS_MIN ? calcEMA(closes, 21) : null;
-    const ema9m_1  = closes.length > MICRO_CROSS_MIN + 1 ? calcEMA(closes.slice(0, -1), 9)  : null;
-    const ema21m_1 = closes.length > MICRO_CROSS_MIN + 1 ? calcEMA(closes.slice(0, -1), 21) : null;
+    const ema9m_1  = closes.length > MICRO_CROSS_MIN + 1
+        ? calcEMA(closes.slice(0, -1), 9)  : null;
+    const ema21m_1 = closes.length > MICRO_CROSS_MIN + 1
+        ? calcEMA(closes.slice(0, -1), 21) : null;
     const MICRO_CROSS_LB = Math.min(3, closes.length - MICRO_CROSS_MIN - 1);
     const ema9m_lb  = (MICRO_CROSS_LB > 0 && closes.length > MICRO_CROSS_MIN + MICRO_CROSS_LB)
         ? calcEMA(closes.slice(0, -MICRO_CROSS_LB), 9)  : null;
@@ -1531,13 +1669,13 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const { bias, ema21: macroEMA21, atr: macroATR, bcZone } = macroBias;
     const direction = bias === 'BULL' ? 'buy' : 'sell';
 
-    // 1. BC LIQUID (40 pts)
+    // ── 1. BC LIQUID (40 pts) ─────────────────────────────────────
     const bcLiquid  = calcBCLiquid(microCandles, microATR);
     f.bc_liquid     = bcLiquid.sweep;
     const liquidScore = bcLiquid.sweep === 'BULL_SWEEP' && direction === 'buy'  ? 40 :
                         bcLiquid.sweep === 'BEAR_SWEEP' && direction === 'sell' ? 40 : 0;
 
-    // 2. BC MOM (25 pts)
+    // ── 2. BC MOM (25 pts) ────────────────────────────────────────
     let momScore = 0, rsiSig = 'NEUTRAL';
     if (rsi9 !== null) {
         if (direction === 'buy') {
@@ -1552,13 +1690,13 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     }
     f.rsi_sig = rsiSig;
 
-    // 3. BC DIVERG (20 pts)
+    // ── 3. BC DIVERG (20 pts) ─────────────────────────────────────
     const bcDiv    = calcBCDiverg(microCandles, closes, rsi9);
     f.bc_diverg    = bcDiv.diverg;
     const divergScore = (bcDiv.diverg === 'BULL_DIV' && direction === 'buy')  ? 20 :
                         (bcDiv.diverg === 'BEAR_DIV' && direction === 'sell') ? 20 : 0;
 
-    // 4. Zone proximity (15 pts)
+    // ── 4. Zone proximity (15 pts) ───────────────────────────────
     let zoneScore = 0, zoneType = 'NONE';
     const snapDist = macroATR * 0.30;
     if (direction === 'buy') {
@@ -1576,26 +1714,34 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     }
     f.zone_type = zoneType;
 
-    // 5. MACD micro momentum bonus (5 pts)
+    // ── 5. MACD micro momentum bonus (5 pts) ─────────────────────
     let microMACD_bonus = 0;
     if (microMACD) {
         if (direction === 'buy'  && microMACD.hist > 0) microMACD_bonus = 5;
         if (direction === 'sell' && microMACD.hist < 0) microMACD_bonus = 5;
     }
 
-    // 5b. MICRO EMA CROSS bonus (15 pts)
+    // ── 5b. MICRO EMA CROSS bonus (15 pts) ───────────────────────
     let microCrossScore = 0;
     f.micro_cross = 'NONE';
-    if (direction === 'buy'  && microGoldenX) { microCrossScore = 15; f.micro_cross = 'GOLDEN_X'; }
-    else if (direction === 'sell' && microDeathX) { microCrossScore = 15; f.micro_cross = 'DEATH_X'; }
+    if (direction === 'buy'  && microGoldenX) { 
+        microCrossScore = 15; 
+        f.micro_cross = 'GOLDEN_X'; 
+    } else if (direction === 'sell' && microDeathX) { 
+        microCrossScore = 15; 
+        f.micro_cross = 'DEATH_X'; 
+    }
 
-    // 6. MTF CONFLUENCE (max 25 pts, min -20 pts penalty)
+    // ── 6. MTF CONFLUENCE (max 25 pts, min -20 pts penalty) ──────
     const macroCandles = getMacroCandles(id);
     const mtf = getMTFConfirmation(id, price, macroCandles);
     f.mtf_score = mtf.score;
     f.mtf_5m = mtf.trend5m;
     f.mtf_15m = mtf.trend15m;
-    const mtfRaw = mtf.score;
+    // MTF bonus bersifat directional:
+    //   - score positif = MTF konfirmasi BUY → bonus untuk buy, penalty untuk sell
+    //   - score negatif = MTF konfirmasi SELL → bonus untuk sell, penalty untuk buy
+    const mtfRaw = mtf.score; // bisa negatif sekarang
     let mtfBonus = 0;
     if (direction === 'buy') {
         mtfBonus = mtfRaw > 0 ? Math.min(mtfRaw, 25) : Math.max(mtfRaw, -20);
@@ -1603,7 +1749,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
         mtfBonus = mtfRaw < 0 ? Math.min(-mtfRaw, 25) : Math.max(-mtfRaw, -20);
     }
 
-    // 7. ORDER BLOCK (max 25 pts)
+    // ── 7. ORDER BLOCK (max 25 pts) ──────────────────────────────
     const ob = detectOrderBlock(microCandles, microATR);
     f.ob_type = ob.type;
     let obScore = 0;
@@ -1611,7 +1757,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     else if (direction === 'sell' && ob.type === 'BEAR_OB' && price >= ob.bot && price <= ob.top + microATR*0.2) obScore = 25;
     f.ob_score = obScore;
 
-    // 8. FVG (max 18 pts)
+    // ── 8. FVG (max 18 pts) ───────────────────────────────────────
     const fvg = detectFVG(microCandles);
     f.fvg_type = fvg.type;
     let fvgScore = 0;
@@ -1619,22 +1765,24 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     else if (direction === 'sell' && fvg.type === 'BEAR_FVG' && price >= fvg.level - microATR*0.3) fvgScore = 18;
     f.fvg_score = fvgScore;
 
-    // 9. VOLUME PROFILE (max 10 pts)
+    // ── 9. VOLUME PROFILE (max 10 pts) ────────────────────────────
     const vp = calcVolumeProfile(microCandles, price, microATR);
     f.vp_nearPOC = vp.nearPOC;
     const vpScore = vp.score;
 
-    // 10. PRICE ACTION (max 15 pts)
+    // ── 10. PRICE ACTION (max 15 pts) ─────────────────────────────
     const paScore = checkPriceAction(microCandles, direction, microATR);
     f.pa_score = paScore;
 
-    // QUALITY SUM
+    // ── QUALITY SUM ──────────────────────────────────────────────
     let quality = liquidScore + momScore + divergScore + zoneScore + microMACD_bonus +
                   mtfBonus + obScore + fvgScore + vpScore + paScore + microCrossScore;
+    // Clamp 0–100: mtfBonus bisa negatif (MTF berlawanan arah), wajar bila quality turun
     quality = Math.min(100, Math.max(0, quality));
     f.quality = quality;
     f.in_zone = zoneScore > 0 || liquidScore > 0;
 
+    // ── READY & LOCK THRESHOLDS ──────────────────────────────────
     const hasLiquidOrZone = liquidScore > 0 || zoneScore >= 8 || obScore > 0 || fvgScore > 0;
     const ready = quality >= MICRO_READY_THRESHOLD && hasLiquidOrZone;
     const lockable = quality >= MICRO_LOCK_THRESHOLD && hasLiquidOrZone;
@@ -1643,7 +1791,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 }
 
 // ================================================================
-//  EXECUTE LOCK SIGNAL
+//  EXECUTE LOCK SIGNAL (TIDAK DIUBAH)
 // ================================================================
 function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     const s     = state[id];
@@ -1657,11 +1805,11 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
         if (direction === 'buy') { const lowestLow = Math.min(...recent.map(c => c.low)); structuralSL = lowestLow - atr * 0.12; }
         else { const highestHigh = Math.max(...recent.map(c => c.high)); structuralSL = highestHigh + atr * 0.12; }
     }
-    const minSL = 8;
+    const minSL = id === 'xau' ? 8.5 : 235;
     let slD = Math.abs(entry - structuralSL);
     if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
-    const rr = calculateDynamicRR(atr, calcATR(getMacroCandles(id), 50) || atr);
+    const rr = calculateDynamicRR(atr, entry);
     const tpD = slD * rr;
 
     s.l3 = true; s.confirmed = true;
@@ -1689,24 +1837,29 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
 }
 
 // ================================================================
-//  PROCESS SIGNAL — DENGAN TIMEOUT 30 MENIT
+//  ════════════════════════════════════════════════════════════════
+//  ║  PROCESS SIGNAL — DIPERBAIKI TOAST TP1                    ║
+//  ════════════════════════════════════════════════════════════════
 // ================================================================
+
 function processSignal(id, price) {
     const s = state[id];
     if (!s) return;
     if (Date.now() < (s.cooldownUntil || 0)) return;
     buildCandles(id, price);
 
-    // CONFIRMED SIGNAL — MONITOR TP / SL / BREAKEVEN / TIMEOUT
+    // ============================================================
+    //  CONFIRMED SIGNAL — MONITOR TP / SL / BREAKEVEN
+    // ============================================================
     if (s.confirmed && s.type !== 'none') {
+        // Update tracker
         if (!s.tempHigh) { s.tempHigh = s.entry; s.tempLow = s.entry; }
         if (price > s.tempHigh) s.tempHigh = price;
         if (price < s.tempLow)  s.tempLow  = price;
         updateTracker(id, price);
-        updateCountdownUI(id);
 
-        // 1. Check TP
-        const hitTP = (s.type === 'buy' && price >= s.tp) ||
+        // ── 1. CEK TP ──────────────────────────────────────────
+        const hitTP = (s.type === 'buy' && price >= s.tp) || 
                       (s.type === 'sell' && price <= s.tp);
         if (hitTP) {
             recordSignalResult(id, 'tp');
@@ -1714,10 +1867,12 @@ function processSignal(id, price) {
             return;
         }
 
-        // 2. Check SL
-        const hitSL = (s.type === 'buy' && price <= s.sl) ||
+        // ── 2. CEK SL ──────────────────────────────────────────
+        const hitSL = (s.type === 'buy' && price <= s.sl) || 
                       (s.type === 'sell' && price >= s.sl);
         if (hitSL) {
+            // Jika breakeven sudah armed → BREAKEVEN (TP1)
+            // Jika belum armed → LOSS (SL)
             const result = s.breakevenArmed ? 'be' : 'sl';
             recordSignalResult(id, result);
             if (result === 'sl') {
@@ -1727,93 +1882,130 @@ function processSignal(id, price) {
             return;
         }
 
-        // 3. TIMEOUT — 30 menit tanpa TP/SL dan breakeven belum armed
-        if (!s.breakevenArmed && Date.now() - s.confirmedAt >= SIGNAL_TIMEOUT_MS) {
-            state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
-            resetSignal(id);
-            showToast(`${id.toUpperCase()} ⏱ TIMEOUT 30m — signal dibatalkan`);
-            return;
+        // ── 2b. SIGNAL TIMEOUT 30 MENIT (hanya sebelum breakeven armed) ──
+        if (!s.breakevenArmed) {
+            const elapsed = Date.now() - (s.confirmedAt || 0);
+            if (elapsed >= SIGNAL_TIMEOUT_MS) {
+                s.cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
+                resetSignal(id);
+                showToast(`XAU ⏱ TIMEOUT 30m — signal dibatalkan`);
+                return;
+            }
         }
 
-        // 4. ARM BREAKEVEN (30% dari jarak TP)
+        // ── 3. ARM BREAKEVEN (35% dari jarak TP) ──────────────
         if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
             const tpDist = Math.abs(s.tp - s.entry);
             const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
-            if (moved >= tpDist * 0.45) {
+            
+            // Jika harga sudah mencapai 24% dari jarak TP
+            if (moved >= tpDist * 0.40) {
+                // PINDAHKAN SL KE ENTRY (BREAKEVEN)
                 s.sl = s.entry;
                 s.breakevenArmed = true;
                 throttledSaveState(id);
+                // ── TOAST DIUBAH: BREAKEVEN → TP1 ─────────────
                 showToast(`${id.toUpperCase()} 🔒 TP1 ARMED @ ${s.entry.toFixed(2)}`);
             }
         }
+
+        // ── 4. RETRACE LOGIC DIHAPUS TOTAL ────────────────────
+        // Tidak ada lagi kode retrace di sini
+
         return;
     }
 
-    if (pendingConfirmation[id]) { s.lastPrice = price; return; }
+    // ============================================================
+    //  PENDING CONFIRMATION — skip processing
+    // ============================================================
+    if (pendingConfirmation[id]) { 
+        s.lastPrice = price; 
+        return; 
+    }
 
+    // ============================================================
+    //  BUILD CANDLES & CHECK MINIMUM
+    // ============================================================
     const macroCandles = getMacroCandles(id);
     const microCandles = getMicroCandles(id);
     if (macroCandles.length < MACRO_MIN) { s.lastPrice = price; return; }
     if (microCandles.length < MICRO_MIN) { s.lastPrice = price; return; }
 
-    // MACRO BIAS
+    // ============================================================
+    //  MACRO BIAS
+    // ============================================================
     let macroBias = macroBiasCache[id];
     if (!macroBias) { macroBias = scoreMacroBias(id, price, macroCandles); macroBiasCache[id] = macroBias; }
     updateEngineBadges(id, macroBias);
     updateConfluenceBar(id, macroBias.score);
 
-    // PATTERN DETECTION ENGINE
+    // ── PATTERN DETECTION ENGINE ───────────────────────────────
     const pde = runPatternEngine(id, price, macroCandles, microCandles, macroBias);
     if (pde) updatePatternEngineUI(id, pde);
 
-    if (!macroBias.valid) {
-        if (s.l1 || s.l2) resetSignal(id);
-        s.lastPrice = price;
-        return;
+    if (!macroBias.valid) { 
+        if (s.l1 || s.l2) resetSignal(id); 
+        s.lastPrice = price; 
+        return; 
     }
 
-    // MICRO ENTRY SCORE
+    // ============================================================
+    //  MICRO ENTRY SCORE
+    // ============================================================
     const micro = scoreMicroEntry(id, price, microCandles, macroBias);
 
-    // L1: Bias
+    // ── L1: Bias ─────────────────────────────────────────────────
     if (!s.l1) {
-        s.l1 = true;
-        s.type = macroBias.bias === 'BULL' ? 'buy' : 'sell';
-        s.macroScore = macroBias.score;
+        s.l1 = true; 
+        s.type = macroBias.bias === 'BULL' ? 'buy' : 'sell'; 
+        s.macroScore = macroBias.score; 
         s.macroBias = macroBias.bias;
-        pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id); return;
-    }
-
-    // Check if macro bias still aligns
-    const expectedDir = s.type;
-    const currentDir  = macroBias.bias === 'BULL' ? 'buy' : 'sell';
-    if (s.l1 && !s.confirmed && macroBias.valid && currentDir !== expectedDir) { resetSignal(id); return; }
-
-    // L2: Ready
-    if (s.l1 && !s.l2 && micro.ready) {
-        s.l2 = true; pendingSignalData[id] = true; throttledUpdateUI(id); throttledSaveState(id); return;
-    }
-
-    // L3: Lock — dengan PDE GATE
-    if (s.l2 && !s.l3 && micro.lockable && micro.quality >= MICRO_LOCK_THRESHOLD) {
-        s.l3 = true;
-        pendingSignalData[id] = true;
-        throttledUpdateUI(id);
-        throttledSaveState(id);
-        startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType);
+        pendingSignalData[id] = true; 
+        throttledUpdateUI(id); 
+        throttledSaveState(id); 
         return;
     }
 
-    // Reset L2 if micro no longer ready
-    if (s.l2 && !s.l3 && !micro.ready && !micro.factors.in_zone) {
-        s.l2 = false; pendingSignalData[id] = true; throttledUpdateUI(id);
+    // ── Check if macro bias still aligns ─────────────────────────
+    const expectedDir = s.type;
+    const currentDir  = macroBias.bias === 'BULL' ? 'buy' : 'sell';
+    if (s.l1 && !s.confirmed && macroBias.valid && currentDir !== expectedDir) { 
+        resetSignal(id); 
+        return; 
     }
 
-    s.lastPrice = price; throttledSaveState(id);
+    // ── L2: Ready ────────────────────────────────────────────────
+    if (s.l1 && !s.l2 && micro.ready) { 
+        s.l2 = true; 
+        pendingSignalData[id] = true; 
+        throttledUpdateUI(id); 
+        throttledSaveState(id); 
+        return; 
+    }
+
+    // ── L3: Lock ─────────────────────────────────────────────────
+    if (s.l2 && !s.l3 && micro.lockable && micro.quality >= MICRO_LOCK_THRESHOLD) {
+        s.l3 = true; 
+        pendingSignalData[id] = true; 
+        throttledUpdateUI(id); 
+        throttledSaveState(id);
+        startConfirmationDelay(id, currentDir, price, macroBias.score, micro.zoneType); 
+        return;
+    }
+
+    // ── Reset L2 if micro no longer ready ───────────────────────
+    if (s.l2 && !s.l3 && !micro.ready && !micro.factors.in_zone) { 
+        s.l2 = false; 
+        pendingSignalData[id] = true; 
+        throttledUpdateUI(id); 
+    }
+
+    s.lastPrice = price; 
+    throttledSaveState(id);
 }
 
 // ================================================================
-//  START CONFIRMATION DELAY — DENGAN PDE GATE
+//  START CONFIRMATION DELAY (TIDAK DIUBAH)
 // ================================================================
 function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType) {
     if (pendingConfirmation[id]) cancelPendingConfirmation(id);
@@ -1832,27 +2024,7 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
             const mi2 = scoreMicroEntry(id, lp, microC, mb2);
             const stillValid = mb2.valid && (mb2.bias === 'BULL' ? 'buy' : 'sell') === direction && mi2.ready;
             if (stillValid) {
-                // PDE GATE
-                const pde          = pdeCache[id];
-                const bceStrong    = mb2.score >= PDE_GATE_BYPASS_SCORE;
-                const pdeDir       = pde ? pde.signal.toLowerCase() : null;
-                const pdeOk        = pde && pde.confidence >= PDE_GATE_CONFIDENCE && pdeDir === direction;
-                const pdeBlocked   = !bceStrong && pde && !pdeOk;
-
-                if (pdeBlocked) {
-                    const st = document.getElementById(`signal-text-${id}`);
-                    const reason = pde.confidence < PDE_GATE_CONFIDENCE
-                        ? `PDE LOW (${pde.confidence}%)`
-                        : `PDE ${pde.signal}`;
-                    if (st) {
-                        st.innerText = 'PDE HOLD';
-                        st.style.color = 'var(--amber)';
-                        setTimeout(() => updateSignalUIOnly(id), 3000);
-                    }
-                    showToast(`⚠ ${reason} — Confirmation withheld`);
-                } else {
-                    executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType);
-                }
+                executeLockSignal(id, direction, lp, mb2.score, mi2.zoneType || zoneType);
             } else {
                 resetSignal(id);
                 const st = document.getElementById(`signal-text-${id}`);
@@ -1864,8 +2036,9 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
 }
 
 // ================================================================
-//  STATE MANAGEMENT
+//  STATE MANAGEMENT — DIPERBAIKI (TP1 MASUK WINRATE)
 // ================================================================
+
 function createFreshState() {
     return { v: LS_SCHEMA_VERSION, lastPrice: 0, macroBias: 'NEUTRAL', macroScore: 0, macroValid: false,
              l1: false, l2: false, l3: false, confirmed: false, confirmedAt: 0, resetInProgress: false,
@@ -1877,15 +2050,23 @@ function loadState(id) {
     try { const r = localStorage.getItem(`ura_state_${id}`); return r ? Object.assign(createFreshState(), JSON.parse(r)) : createFreshState(); } catch(e) { return createFreshState(); }
 }
 
-function createDefaultStats() {
-    return { tpHits: 0, tp1Hits: 0, slHits: 0, total: 0, winrate: 0.0 };
+// ── STATS — DIPERBAIKI ──────────────────────────────────────────
+function createDefaultStats() { 
+    return { 
+        tpHits: 0,       // TP2 (full TP)
+        tp1Hits: 0,      // TP1 (dulu breakeven) — MASUK WINRATE
+        slHits: 0, 
+        total: 0, 
+        winrate: 0.0 
+    }; 
 }
 
 function loadPerformanceStats(id) {
-    try {
-        const r = localStorage.getItem(`ura_stats_${id}`);
+    try { 
+        const r = localStorage.getItem(`ura_stats_${id}`); 
         if (r) {
             const parsed = JSON.parse(r);
+            // Migrasi: breakevenHits → tp1Hits
             if (parsed.breakevenHits !== undefined && parsed.tp1Hits === undefined) {
                 parsed.tp1Hits = parsed.breakevenHits;
                 delete parsed.breakevenHits;
@@ -1893,27 +2074,42 @@ function loadPerformanceStats(id) {
             if (parsed.tp1Hits === undefined) parsed.tp1Hits = 0;
             return Object.assign(createDefaultStats(), parsed);
         }
-        return createDefaultStats();
-    } catch(e) { return createDefaultStats(); }
+        return createDefaultStats(); 
+    } catch(e) { 
+        return createDefaultStats(); 
+    }
 }
 
-function savePerformanceStats(id) {
-    try { localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id])); } catch(e) {}
+function savePerformanceStats(id) { 
+    try { 
+        localStorage.setItem(`ura_stats_${id}`, JSON.stringify(performanceStats[id])); 
+    } catch(e) {} 
 }
 
 function updateWinrate(id) {
     const s = performanceStats[id];
+    
+    // Total semua trade: TP2 + TP1 + SL
     s.total = s.tpHits + (s.tp1Hits || 0) + s.slHits;
+    
+    // Winrate: (TP2 + TP1) / (TP2 + TP1 + SL)
     const wins = s.tpHits + (s.tp1Hits || 0);
     const total = wins + s.slHits;
+    
     s.winrate = total > 0 ? parseFloat(((wins / total) * 100).toFixed(1)) : 0.0;
 }
 
 function recordSignalResult(id, type) {
     const s = performanceStats[id];
-    if (type === 'tp')        { s.tpHits++; }
-    else if (type === 'be')   { s.tp1Hits++; }
-    else if (type === 'sl')   { s.slHits++; }
+    
+    if (type === 'tp') {
+        s.tpHits++;          // TP penuh (TP2 di UI)
+    } else if (type === 'be') {
+        s.tp1Hits++;         // TP1 (dulu breakeven) — SEKARANG MASUK WINRATE
+    } else if (type === 'sl') {
+        s.slHits++;
+    }
+    
     updateWinrate(id);
     savePerformanceStats(id);
     updatePerformanceUI(id);
@@ -1921,7 +2117,7 @@ function recordSignalResult(id, type) {
 
 // ── Global Variables ──────────────────────────────────────────────
 let state = { xau: null }; let wsStatus = { xau: false };
-let activePairId = 'xau'; let performanceStats = {};
+let performanceStats = {};
 let pendingConfirmation = { xau: null }; let tapCounters = { xau: 0 }; let tapTimers = { xau: null };
 let historyTapCounters = { xau: 0 }; let historyTapTimers = { xau: null };
 const TAP_TIMEOUT = 500; let pendingPriceData = { xau: null }; let pendingSignalData = { xau: false };
@@ -1954,7 +2150,7 @@ function buildCandles(id, price, vol) {
 function getMacroCandles(id) { return marketData[id].macro.candles.filter(c => c.closed); }
 function getMicroCandles(id) { return marketData[id].micro.candles.filter(c => c.closed); }
 
-// ── Historical Init ───────────────────────────────────────────────
+// ── Historical Init ──────────────────────────────────────────────
 async function initHistoricalCandles(id) {
     const symbol = 'XAUUSDT'; const limit = 250;
     const sources = [`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1m&limit=${limit}`,
@@ -1975,7 +2171,7 @@ async function initHistoricalCandles(id) {
     seedCandles(id, 3300); return false;
 }
 function seedMicroCandles(id, base) {
-    const step = 1.2; const nMicro = 20;
+    const isXau = id === 'xau'; const step = isXau ? 1.2 : 120; const nMicro = 20;
     marketData[id].micro.candles = []; let price = base;
     for (let i = 0; i < nMicro; i++) {
         const open = price + (Math.random() - 0.5) * step * 0.04;
@@ -1987,7 +2183,7 @@ function seedMicroCandles(id, base) {
     }
 }
 function seedCandles(id, base) {
-    const step = 1.2; const nMacro = 55;
+    const isXau = id === 'xau'; const step = isXau ? 1.2 : 120; const nMacro = 55;
     marketData[id].macro.candles = []; let price = base;
     for (let i = 0; i < nMacro; i++) {
         const drift = (Math.random() - 0.48) * step * 0.05; price += drift;
@@ -2026,83 +2222,92 @@ function updateTracker(id, price) {
     if (t) { t.innerText = (Math.round(dist * 100) / 100).toFixed(2); t.style.color = dist >= 0 ? 'var(--emerald)' : 'var(--crimson)'; }
 }
 
-// ── COUNTDOWN TIMER ──────────────────────────────────────────────
-function updateCountdownUI(id) {
-    const s = state[id];
-    const el = document.getElementById(`timeout-${id}`);
-    if (!s || !el) return;
-
-    if (!s.confirmed) {
-        el.style.display = 'none';
-        return;
-    }
-    el.style.display = 'inline-block';
-    if (s.breakevenArmed) {
-        el.innerText = 'OFF';
-        el.style.color = 'var(--text-dim)';
-        return;
-    }
-    const remaining = SIGNAL_TIMEOUT_MS - (Date.now() - s.confirmedAt);
-    if (remaining <= 0) { el.innerText = '00:00'; el.style.color = 'var(--danger)'; return; }
-    const mm = Math.floor(remaining / 60000);
-    const ss = Math.floor((remaining % 60000) / 1000);
-    el.innerText = `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
-    el.style.color = remaining <= 5 * 60000 ? 'var(--amber)' : 'var(--text-dim)';
-}
-
+// ================================================================
+//  updateSignalUIOnly — [BE] → [TP1]
+// ================================================================
 function updateSignalUIOnly(id) {
-    const s = state[id];
+    const s = state[id]; 
     if (!s) return;
 
-    const setDot = (eid, on, type) => {
-        const el = document.getElementById(eid);
-        if (!el) return;
-        if (!on) el.className = 'dot';
-        else if (pendingConfirmation[id] && eid === `l3-${id}` && !s.confirmed) el.className = 'dot confirm-pending';
-        else el.className = type === 'sell' ? 'dot active-down' : 'dot active';
+    // Toggle dots ↔ timer: timer tampil di tengah signal-bar saat signal aktif & !breakevenArmed
+    const timerActive = s.confirmed && !s.breakevenArmed && s.type !== 'none';
+    const dotGroup = document.getElementById(`signal-dot-group-${id}`);
+    const timerEl  = document.getElementById(`timeout-${id}`);
+    if (dotGroup) dotGroup.style.display = timerActive ? 'none' : 'flex';
+    if (timerEl)  timerEl.style.display  = timerActive ? 'inline' : 'none';
+    
+    const setDot = (eid, on, type) => { 
+        const el = document.getElementById(eid); 
+        if (!el) return; 
+        if (!on) el.className = 'dot'; 
+        else if (pendingConfirmation[id] && eid === `l3-${id}` && !s.confirmed) el.className = 'dot confirm-pending'; 
+        else el.className = type === 'sell' ? 'dot active-down' : 'dot active'; 
     };
-
-    setDot(`l1-${id}`, s.l1, s.type);
-    setDot(`l2-${id}`, s.l2, s.type);
+    
+    setDot(`l1-${id}`, s.l1, s.type); 
+    setDot(`l2-${id}`, s.l2, s.type); 
     setDot(`l3-${id}`, s.l3, s.type);
-
+    
     const st = document.getElementById(`signal-text-${id}`);
     if (st) {
-        if (!wsStatus[id]) { st.innerText = 'NO FEED'; st.style.color = 'var(--danger)'; }
-        else if (pendingConfirmation[id] && s.l3 && !s.confirmed) { st.innerText = 'CONFIRM...'; st.style.color = 'var(--gold)'; }
-        else if (s.confirmed) {
-            const tp1Label = s.breakevenArmed ? ' [TP1]' : '';
-            st.innerText = s.type.toUpperCase() + tp1Label;
-            st.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)';
+        if (!wsStatus[id]) { 
+            st.innerText = 'NO FEED'; 
+            st.style.color = 'var(--danger)'; 
         }
-        else if (s.l3) { st.innerText = 'LOCKED'; st.style.color = 'var(--accent)'; }
-        else if (s.l2) { st.innerText = 'READY';  st.style.color = 'var(--accent)'; }
-        else if (s.l1) { st.innerText = 'BIAS';   st.style.color = 'var(--amber)'; }
-        else           { st.innerText = '— WAIT'; st.style.color = 'var(--text-dim)'; }
+        else if (pendingConfirmation[id] && s.l3 && !s.confirmed) { 
+            st.innerText = 'CONFIRM...'; 
+            st.style.color = 'var(--gold)'; 
+        }
+        else if (s.confirmed) { 
+            // [BE] → [TP1]
+            const tp1Label = s.breakevenArmed ? ' [TP1]' : ''; 
+            st.innerText = s.type.toUpperCase() + tp1Label; 
+            st.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; 
+        }
+        else if (s.l3) { 
+            st.innerText = 'LOCKED'; 
+            st.style.color = 'var(--accent)'; 
+        }
+        else if (s.l2) { 
+            st.innerText = 'READY'; 
+            st.style.color = 'var(--accent)'; 
+        }
+        else if (s.l1) { 
+            st.innerText = 'BIAS'; 
+            st.style.color = 'var(--amber)'; 
+        }
+        else { 
+            st.innerText = 'WAIT'; 
+            st.style.color = 'var(--text-dim)'; 
+        }
     }
-
-    const eEl = document.getElementById(`entry-${id}`); if (eEl) eEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
-    const tEl = document.getElementById(`tp-${id}`);    if (tEl) tEl.innerText = s.confirmed ? s.tp.toFixed(2)    : '--';
-    const sEl = document.getElementById(`sl-${id}`);    if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2)    : '--';
-    const rrEl = document.getElementById(`rr-${id}`);   if (rrEl) rrEl.innerText = s.confirmed ? s.rr_used.toFixed(1) : '--';
+    
+    const eEl = document.getElementById(`entry-${id}`); 
+    if (eEl) eEl.innerText = s.confirmed ? s.entry.toFixed(2) : '--';
+    const tEl = document.getElementById(`tp-${id}`); 
+    if (tEl) tEl.innerText = s.confirmed ? s.tp.toFixed(2) : '--';
+    const sEl = document.getElementById(`sl-${id}`); 
+    if (sEl) sEl.innerText = s.confirmed ? s.sl.toFixed(2) : '--';
+    const rrEl = document.getElementById(`rr-${id}`); 
+    if (rrEl) rrEl.innerText = s.confirmed ? s.rr_used.toFixed(1) : '--';
 }
 
 function updateEngineBadges(id, mb) {
     if (!mb) return; const f = mb.factors || {};
     const badges = [
-        { id: `eb-trend-${id}`,    val: f.bc_trend ? f.bc_trend.replace('STRONG_','S-').replace('_PULL','↓').replace('_ZONE','~').replace('_X_BULL','⤢+').replace('_X_BEAR','⤢-').replace('_X','⤢') : 'TRD', cls: (f.bc_trend||'').includes('BULL') ? 'bull' : (f.bc_trend||'').includes('BEAR') ? 'bear' : 'neutral' },
-        { id: `eb-struct-${id}`,   val: f.bc_struct ? f.bc_struct.replace('_BULL','↑').replace('_BEAR','↓') : 'STR', cls: (f.bc_struct||'').includes('BULL') || f.bc_struct === 'BULLISH' ? 'bull' : (f.bc_struct||'').includes('BEAR') || f.bc_struct === 'BEARISH' ? 'bear' : f.bc_struct === 'CHOCH_BULL' || f.bc_struct === 'CHOCH_BEAR' ? 'active' : 'off' },
-        { id: `eb-zone-${id}`,     val: f.bc_zone || 'ZNE', cls: f.bc_zone === 'DEMAND' || f.bc_zone === 'NEAR_DEMAND' ? 'bull' : f.bc_zone === 'SUPPLY' || f.bc_zone === 'NEAR_SUPPLY' ? 'bear' : 'off' },
-        { id: `eb-flow-${id}`,     val: f.bc_flow ? f.bc_flow.replace('_PRESSURE','').replace('MILD_','M-') : 'FLW', cls: (f.bc_flow||'').includes('BUY') ? 'bull' : (f.bc_flow||'').includes('SELL') ? 'bear' : 'neutral' },
-        { id: `eb-macd-${id}`,     val: f.macd_sig || 'MOM', cls: (f.macd_sig||'').startsWith('BULL') ? 'bull' : (f.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral' },
-        { id: `eb-adx-${id}`,      val: f.adx_class || 'ADX', cls: f.adx_class === 'STRONG' || f.adx_class === 'TREND' ? 'bull' : f.adx_class === 'CHOPPY' ? 'bear' : 'neutral' },
+        { id: `eb-trend-${id}`, val: f.bc_trend ? f.bc_trend.replace('STRONG_','S-').replace('_PULL','↓').replace('_ZONE','~').replace('_X_BULL','⤢+').replace('_X_BEAR','⤢-').replace('_X','⤢') : 'TRD', cls: (f.bc_trend||'').includes('BULL') ? 'bull' : (f.bc_trend||'').includes('BEAR') ? 'bear' : 'neutral' },
+        { id: `eb-struct-${id}`, val: f.bc_struct ? f.bc_struct.replace('_BULL','↑').replace('_BEAR','↓') : 'STR', cls: (f.bc_struct||'').includes('BULL') || f.bc_struct === 'BULLISH' ? 'bull' : (f.bc_struct||'').includes('BEAR') || f.bc_struct === 'BEARISH' ? 'bear' : f.bc_struct === 'CHOCH_BULL' || f.bc_struct === 'CHOCH_BEAR' ? 'active' : 'off' },
+        { id: `eb-zone-${id}`, val: f.bc_zone || 'ZNE', cls: f.bc_zone === 'DEMAND' || f.bc_zone === 'NEAR_DEMAND' ? 'bull' : f.bc_zone === 'SUPPLY' || f.bc_zone === 'NEAR_SUPPLY' ? 'bear' : 'off' },
+        { id: `eb-flow-${id}`, val: f.bc_flow ? f.bc_flow.replace('_PRESSURE','').replace('MILD_','M-') : 'FLW', cls: (f.bc_flow||'').includes('BUY') ? 'bull' : (f.bc_flow||'').includes('SELL') ? 'bear' : 'neutral' },
+        { id: `eb-macd-${id}`, val: f.macd_sig || 'MOM', cls: (f.macd_sig||'').startsWith('BULL') ? 'bull' : (f.macd_sig||'').startsWith('BEAR') ? 'bear' : 'neutral' },
+        { id: `eb-adx-${id}`, val: f.adx_class || 'ADX', cls: f.adx_class === 'STRONG' || f.adx_class === 'TREND' ? 'bull' : f.adx_class === 'CHOPPY' ? 'bear' : 'neutral' },
         { id: `eb-conflict-${id}`, val: f.conflict ? 'CONFLICT' : (f.bc_bos ? 'BOS:'+f.bc_bos : 'ALIGN'), cls: f.conflict ? 'bear' : f.bc_bos ? 'active' : 'off' }
     ];
     for (const b of badges) { const el = document.getElementById(b.id); if (el) { el.className = `ebadge ${b.cls}`; el.textContent = b.val; } }
     const sc = document.getElementById(`eb-score-${id}`); if (sc) { const sv = Math.round(mb.score || 0); sc.textContent = `BC:${sv}`; sc.className = 'ebadge score'; sc.style.color = mb.valid ? 'var(--emerald)' : sv >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)'; }
     const mcxEl = document.getElementById(`eb-mcross-${id}`);
     if (mcxEl) {
-        const mcx = (mb.factors && mb.factors.micro_cross) ? mb.factors.micro_cross : 'NONE';
+        const mcx         = (mb.factors && mb.factors.micro_cross) ? mb.factors.micro_cross : 'NONE';
         const macroCrossed = mb.factors && mb.factors.just_crossed;
         if (mcx === 'GOLDEN_X' || (macroCrossed && (mb.factors.bc_trend||'').includes('BULL'))) {
             mcxEl.className = 'ebadge bull' + (macroCrossed ? ' pulse' : '');
@@ -2116,7 +2321,6 @@ function updateEngineBadges(id, mb) {
         }
     }
 }
-
 function updateConfluenceBar(id, score) {
     const fill = document.getElementById(`cf-fill-${id}`); const txt = document.getElementById(`cf-txt-${id}`);
     if (!fill || !txt) return; const pct = Math.min(100, Math.max(0, score));
@@ -2124,31 +2328,52 @@ function updateConfluenceBar(id, score) {
     txt.textContent = Math.round(pct); txt.style.color = pct >= BC_SCORE_MIN ? 'var(--emerald)' : pct >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
 }
 
+// ================================================================
+//  updatePerformanceUI — TP1 dari tp1Hits
+// ================================================================
 function updatePerformanceUI(id) {
     const s = performanceStats[id];
     if (!s) return;
-    const tp1 = document.getElementById(`stats-retrace-${id}`);
-    const tp2 = document.getElementById(`stats-tp-${id}`);
-    const sl  = document.getElementById(`stats-sl-${id}`);
-    const wr  = document.getElementById(`stats-winrate-${id}`);
-    if (tp1) { tp1.innerText = s.tp1Hits || 0; tp1.style.color = 'var(--gold)'; }
-    if (tp2) { tp2.innerText = s.tpHits; tp2.style.color = 'var(--success)'; }
-    if (sl)  { sl.innerText  = s.slHits; sl.style.color  = 'var(--danger)'; }
+    
+    const tp1 = document.getElementById(`stats-retrace-${id}`); // TP1
+    const tp2 = document.getElementById(`stats-tp-${id}`);      // TP2
+    const sl = document.getElementById(`stats-sl-${id}`);
+    const wr = document.getElementById(`stats-winrate-${id}`);
+    
+    // TP1 (dulu breakeven) — warna emas
+    if (tp1) {
+        tp1.innerText = s.tp1Hits || 0;
+        tp1.style.color = 'var(--gold)';
+    }
+    
+    // TP2 (full TP) — warna hijau
+    if (tp2) {
+        tp2.innerText = s.tpHits;
+        tp2.style.color = 'var(--success)';
+    }
+    
+    if (sl) {
+        sl.innerText = s.slHits;
+        sl.style.color = 'var(--danger)';
+    }
+    
+    // Winrate: (TP2 + TP1) / (TP2 + TP1 + SL)
     if (wr) {
         const wins = s.tpHits + (s.tp1Hits || 0);
         const total = wins + s.slHits;
         const winrate = total > 0 ? ((wins / total) * 100).toFixed(1) : '0.0';
         wr.innerText = `${winrate}%`;
-        wr.style.color = parseFloat(winrate) >= 65 ? 'var(--emerald)' : parseFloat(winrate) >= 50 ? 'var(--gold)' : 'var(--crimson)';
+        wr.style.color = parseFloat(winrate) >= 65 ? 'var(--emerald)' : 
+                         parseFloat(winrate) >= 50 ? 'var(--gold)' : 'var(--crimson)';
     }
 }
 
 function updateFeedBadge(id, status) {
     const el = document.getElementById(`feed-badge-${id}`); if (!el) return;
     el.className = 'feed-badge';
-    if (status === 'ok')       { el.textContent = '● WS';   el.classList.add('ok'); }
+    if (status === 'ok') { el.textContent = '● WS'; el.classList.add('ok'); }
     else if (status === 'fallback') { el.textContent = '⚡ REST'; el.classList.add('fallback'); }
-    else                       { el.textContent = '✕ ERR';  el.classList.add('err'); }
+    else { el.textContent = '✕ ERR'; el.classList.add('err'); }
 }
 function updateGlobalPulse() { const el = document.getElementById('globalPulse'); if (el) el.className = wsStatus.xau ? 'pulse connected' : 'pulse disconnected'; }
 function cancelPendingConfirmation(id) {
@@ -2162,9 +2387,7 @@ function resetSignal(id) {
     if (signalDebounceTimer[id]) { clearTimeout(signalDebounceTimer[id]); signalDebounceTimer[id] = null; }
     const kept = { lastPrice: s.lastPrice, cooldownUntil: s.cooldownUntil || 0 };
     Object.assign(s, createFreshState(), kept); pendingSignalData[id] = true; updateSignalUIOnly(id);
-    const t = document.getElementById(`tracker-${id}`); if (t) t.innerText = '0';
-    const tm = document.getElementById(`timeout-${id}`); if (tm) tm.style.display = 'none';
-    throttledSaveState(id); throttledUpdateUI(id);
+    const t = document.getElementById(`tracker-${id}`); if (t) t.innerText = '0'; throttledSaveState(id); throttledUpdateUI(id);
     requestAnimationFrame(() => { s.resetInProgress = false; }); setTimeout(() => { s.resetInProgress = false; }, 300);
 }
 function handleSignalBarTap(id) {
@@ -2172,21 +2395,37 @@ function handleSignalBarTap(id) {
     tapTimers[id] = setTimeout(() => { tapCounters[id] = 0; tapTimers[id] = null; }, TAP_TIMEOUT);
     if (tapCounters[id] === 3) { if (pendingConfirmation[id]) cancelPendingConfirmation(id); resetSignal(id); tapCounters[id] = 0; if (tapTimers[id]) { clearTimeout(tapTimers[id]); tapTimers[id] = null; } if (navigator.vibrate) navigator.vibrate(30); showToast('Signal reset ✓'); }
 }
+
+// ================================================================
+//  handleHistoryPanelTap — Reset dengan format baru
+// ================================================================
 function handleHistoryPanelTap(id) {
     if (historyTapTimers[id]) clearTimeout(historyTapTimers[id]);
     historyTapCounters[id]++;
-    historyTapTimers[id] = setTimeout(() => { historyTapCounters[id] = 0; historyTapTimers[id] = null; }, TAP_TIMEOUT);
-    if (historyTapCounters[id] === 3) {
-        performanceStats[id] = createDefaultStats(); savePerformanceStats(id); updatePerformanceUI(id);
-        historyTapCounters[id] = 0; if (historyTapTimers[id]) { clearTimeout(historyTapTimers[id]); historyTapTimers[id] = null; }
-        if (navigator.vibrate) navigator.vibrate([30, 50, 30]); showToast('History reset ✓');
+    
+    historyTapTimers[id] = setTimeout(() => { 
+        historyTapCounters[id] = 0; 
+        historyTapTimers[id] = null; 
+    }, TAP_TIMEOUT);
+    
+    if (historyTapCounters[id] === 3) { 
+        // Reset dengan format baru (tp1Hits)
+        performanceStats[id] = createDefaultStats(); 
+        savePerformanceStats(id); 
+        updatePerformanceUI(id); 
+        historyTapCounters[id] = 0; 
+        if (historyTapTimers[id]) { 
+            clearTimeout(historyTapTimers[id]); 
+            historyTapTimers[id] = null; 
+        } 
+        if (navigator.vibrate) navigator.vibrate([30, 50, 30]); 
+        showToast('History reset ✓'); 
     }
 }
 
 // ── Card HTML ─────────────────────────────────────────────────────
 function buildCardHTML(id, label) {
-    const isActive = activePairId === id ? 'active' : '';
-    return `<div class="pair-card ${isActive}" id="card-${id}">
+    return `<div class="pair-card" id="card-${id}">
       <div class="card">
         <div class="card-top">
           <div class="pair-info">
@@ -2203,15 +2442,15 @@ function buildCardHTML(id, label) {
         </div>
         <div class="signal-bar" id="signal-bar-${id}">
           <span>SIGNAL</span>
-          <div class="signal-mid-group">
-            <div class="signal-dot-group">
+          <div class="signal-center-slot">
+            <div class="signal-dot-group" id="signal-dot-group-${id}">
               <div class="dot" id="l1-${id}"></div>
               <div class="dot" id="l2-${id}"></div>
               <div class="dot" id="l3-${id}"></div>
             </div>
-            <span class="signal-timer" id="timeout-${id}" style="display:none;">--:--</span>
+            <span class="signal-timer-inline" id="timeout-${id}"></span>
           </div>
-          <span id="signal-text-${id}">— WAIT</span>
+          <span id="signal-text-${id}">WAIT</span>
         </div>
         <div class="card-level-grid">
           <div class="level-item" onclick="window.copyValue('${id}','entry')">
@@ -2226,25 +2465,24 @@ function buildCardHTML(id, label) {
           <div class="level-item" onclick="window.copyValue('${id}','rr')">
             <span class="level-label">RR</span><span class="level-value draw-value" id="rr-${id}">--</span>
           </div>
-        </div>
+        </div>        
         <div class="engine-badge-row">
           <span class="ebadge off" id="eb-adx-${id}">ADX</span>
           <span class="ebadge off" id="eb-trend-${id}">TRD</span>
           <span class="ebadge off" id="eb-struct-${id}">STR</span>
           <span class="ebadge off" id="eb-zone-${id}">ZNE</span>
           <span class="ebadge off" id="eb-mcross-${id}">MCX</span>
-          <span class="ebadge off" id="eb-conflict-${id}">ALIGN</span>
-          <span class="ebadge off" id="eb-macd-${id}">MOM</span>
           <span class="ebadge off" id="eb-flow-${id}">FLW</span>
-        </div>
-
-        <!-- ═══ PATTERN DETECTION ENGINE PANEL ═══════════════════ -->
+          <span class="ebadge off" id="eb-conflict-${id}">ALIGN</span>
+          <span class="ebadge off" id="eb-macd-${id}">MOM</span>          
+    </div>
+    
+         <!-- ═══ PATTERN DETECTION ENGINE PANEL ═══════════════════ -->
         <div class="pde-panel">
           <div class="pde-header">
             <span class="pde-title">Pattern Engine</span>
             <span class="pde-signal-badge neutral" id="pde-signal-${id}">— WAIT</span>
           </div>
-          
           <div class="pde-pattern-row">
             <div class="pde-pattern-name" id="pde-pattern-${id}">Scanning patterns...</div>
           </div>
@@ -2279,7 +2517,7 @@ window.copyValue = (id, type) => {
     if (val && val !== '--') { navigator.clipboard?.writeText(val).then(() => showToast(`${type.toUpperCase()} copied: ${val}`)).catch(() => showToast(val)); if (navigator.vibrate) navigator.vibrate(50); }
 };
 
-// ── Price Feeds ───────────────────────────────────────────────────
+// ── Price Feeds ──────────────────────────────────────────────────
 let xauWs = null, xauReconnectTimer = null, xauReconnectAttempts = 0;
 let xauFetchRetryTimer = null, xauCurrentPrice = 0, xauLastHeartbeat = Date.now();
 const XAU_REST_SOURCES = [
@@ -2311,7 +2549,9 @@ async function xauFetchRestPrice() {
         }
         wsStatus.xau = false; updateGlobalPulse(); updateSignalUIOnly('xau');
         updateFeedBadge('xau', 'err'); return false;
-    } finally { xauFetching = false; }
+    } finally {
+        xauFetching = false;
+    }
 }
 function initXAUWebSocket() {
     if (xauWs) { try { xauWs.close(); } catch(e) {} xauWs = null; }
@@ -2326,7 +2566,11 @@ function initXAUWebSocket() {
                 if (d.p) {
                     const p = parseFloat(d.p);
                     if (isNaN(p) || p <= 100) return;
-                    xauLastHeartbeat = Date.now(); wsStatus.xau = true; updateGlobalPulse();
+                    // Refresh heartbeat SEBELUM cek duplikasi agar feed tidak dianggap stale
+                    xauLastHeartbeat = Date.now();
+                    wsStatus.xau = true;
+                    updateGlobalPulse();
+                    // Skip price update jika harga tidak berubah
                     if (p === rawXauPrice) return;
                     rawXauPrice = p;
                     const q = parseFloat(d.q) || 0;
@@ -2335,21 +2579,31 @@ function initXAUWebSocket() {
             } catch(err) {}
         };
         xauWs.onclose = () => {
-            wsStatus.xau = false; updateGlobalPulse(); updateSignalUIOnly('xau');
+            wsStatus.xau = false;
+            updateGlobalPulse();
+            updateSignalUIOnly('xau');
             const delay = Math.min(1000 * Math.pow(1.6, xauReconnectAttempts), 20000);
             xauReconnectAttempts++;
             xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay);
             updateFeedBadge('xau', 'fallback');
         };
-        xauWs.onerror = () => { wsStatus.xau = false; updateFeedBadge('xau', 'fallback'); updateGlobalPulse(); updateSignalUIOnly('xau'); };
+        xauWs.onerror = () => { 
+            wsStatus.xau = false; 
+            updateFeedBadge('xau', 'fallback'); 
+            updateGlobalPulse(); 
+            updateSignalUIOnly('xau'); 
+        };
     } catch(err) { updateFeedBadge('xau', 'fallback'); }
 }
 
+// BTC pair removed — only XAU is active
+
 function consolidatedPoll() {
     const xauConnected = xauWs && xauWs.readyState === WebSocket.OPEN;
-    if (!xauConnected || (Date.now() - xauLastHeartbeat) > 6000) { if (!xauFetching) xauFetchRestPrice(); }
+    if (!xauConnected || (Date.now() - xauLastHeartbeat) > 6000) {
+        if (!xauFetching) xauFetchRestPrice();
+    }
     updateGlobalPulse();
-    updateCountdownUI('xau');
 }
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -2365,7 +2619,7 @@ async function init() {
     bindTap(document.getElementById('signal-bar-xau'), () => handleSignalBarTap('xau'));
     bindTap(document.getElementById('history-panel-xau'), () => handleHistoryPanelTap('xau'));
 
-    updateSignalUIOnly('xau'); updatePerformanceUI('xau'); updateCountdownUI('xau');
+    updateSignalUIOnly('xau'); updatePerformanceUI('xau');
     updateFeedBadge('xau', 'fallback');
     const el_xau = document.getElementById('ws-status-xau');
     if (el_xau) { el_xau.textContent = '● LOADING...'; el_xau.className = 'ws-status connected'; }
@@ -2377,12 +2631,46 @@ async function init() {
 
     updateGlobalPulse();
 
-    setInterval(consolidatedPoll, 1000);
+    setInterval(consolidatedPoll, 3000);
+
+    // ── Countdown timer — di tengah signal-bar, tiap 1 detik ─────────
+    setInterval(() => {
+        const s = state.xau;
+        const dotGroup = document.getElementById('signal-dot-group-xau');
+        const el       = document.getElementById('timeout-xau');
+        if (!el || !dotGroup) return;
+
+        const timerActive = s && s.confirmed && !s.breakevenArmed && s.type !== 'none';
+
+        // Kalau tidak ada signal aktif → tampilkan dots, sembunyikan timer
+        if (!timerActive) {
+            dotGroup.style.display = 'flex';
+            el.style.display = 'none';
+            return;
+        }
+
+        // Ada signal aktif → sembunyikan dots, tampilkan timer
+        dotGroup.style.display = 'none';
+        el.style.display = 'inline';
+
+        const elapsed   = Date.now() - (s.confirmedAt || 0);
+        const remaining = SIGNAL_TIMEOUT_MS - elapsed;
+        if (remaining <= 0) {
+            el.textContent = '00:00';
+            el.className = 'signal-timer-inline danger';
+            return;
+        }
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        el.textContent = String(minutes).padStart(2,'0') + ':' + String(seconds).padStart(2,'0');
+        el.className = remaining <= 5 * 60 * 1000 ? 'signal-timer-inline amber' : 'signal-timer-inline';
+    }, 1000);
 
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
             if (!xauFetching) xauFetchRestPrice();
-            updateSignalUIOnly('xau'); updateGlobalPulse();
+            updateSignalUIOnly('xau');
+            updateGlobalPulse();
         }
     });
 }
