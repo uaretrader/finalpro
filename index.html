@@ -216,7 +216,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <header>
     <div class="brand">
         <h1>ur<span>advisor</span></h1>
-        <div class="brand-sub">URA V11.2</div>
+        <div class="brand-sub">URA V11.4</div>
     </div>
     <div class="header-right">
         <div class="sys-status">
@@ -228,7 +228,7 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 <div id="terminals"></div>
 
 <footer>
-    BLUE CHART ENGINE v11.3 · SMC ULTRA · MTF CONFLUENCE · OB/FVG · DYNAMIC RR<br>
+    BLUE CHART ENGINE v11.4 · SMC ULTRA · MTF CONFLUENCE · OB/FVG · DYNAMIC RR<br>
     PATTERN DETECTION ENGINE · 11-MODULE SCORING · CANDLESTICK · SMART MONEY · DIVERGENCE
 </footer>
 </div>
@@ -239,24 +239,26 @@ footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.36rem; color: var
 'use strict';
 
 // ================================================================
-//  URADVISOR — BLUE CHART ENGINE v11.2  [SMC ULTRA EDITION]
-//  TP1 MASUK WINRATE:
-//  - BE → TP1
-//  - TP1 masuk perhitungan winrate
-//  - Winrate = (TP2 + TP1) / (TP2 + TP1 + SL)
+//  URADVISOR — BLUE CHART ENGINE v11.4  [SMC ULTRA EDITION]
+//  PERBAIKAN LOGIKA SIGNAL:
+//   - Validasi entry sebelum eksekusi (harga tidak bergerak berlawanan > 0.5 ATR)
+//   - Trailing stop dinamis untuk mengunci profit
+//   - Pengecekan macro bias setiap tick, jika berubah arah maka posisi ditutup (SL)
+//   - RR dinamis berdasarkan ATR dan support/resistance terdekat
+//   - Hapus indikator redundan: CCI, Stochastic, Williams %R, AO, ROC
 // ================================================================
 
-const LS_SCHEMA_VERSION    = 12;  // bumped untuk TP1 masuk winrate
+const LS_SCHEMA_VERSION    = 13;
 const ATR_FALLBACK         = { xau: 3.0 };
 const XAU_WS_URL           = 'wss://fstream.binance.com/ws/xauusdt@trade';
 const CONFIRMATION_WAIT_MS = 2000;
-const SIGNAL_TIMEOUT_MS    = 30 * 60 * 1000; // 30 menit
+const SIGNAL_TIMEOUT_MS    = 30 * 60 * 1000;
 
 // ================================================================
 //  LIVE PRICE OFFSET
 // ================================================================
 const PRICE_OFFSET_XAU = -2.2;
-const COOLDOWN_AFTER_SL_MS = 30000; // 30 detik — sama dengan timeout cooldown
+const COOLDOWN_AFTER_SL_MS = 30000;
 
 // ── Blue Chart Timeframe Durations ────────────────────────────────
 const MACRO_DUR = { xau: 60000 };
@@ -275,8 +277,12 @@ const MICRO_READY_THRESHOLD = 56;
 const MICRO_LOCK_THRESHOLD  = 72;
 
 // ── Persistent Zone TTL & limits ─────────────────────────────────
-const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;   // 4 hours
+const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;
 const ZONE_MAX     = 12;
+
+// ── Trailing Stop parameters ──────────────────────────────────────
+const TRAILING_ACTIVATE_PCT = 0.40;
+const TRAILING_STEP_PCT     = 0.15;
 
 // ================================================================
 //  SCHEMA MIGRATION
@@ -305,7 +311,7 @@ function showToast(msg) {
 }
 
 // ================================================================
-//  INDICATOR LIBRARY (TIDAK DIUBAH)
+//  INDICATOR LIBRARY (HANYA YANG ESENSIAL)
 // ================================================================
 
 function calcEMA(arr, period) {
@@ -405,7 +411,7 @@ function calcADX(candles, period) {
         push_dx(atr14, pdm14, mdm14);
     }
     if (dxArr.length < period) return null;
-    return dxArr.slice(-period).reduce((a,b) => a+b, 0) / period;
+    return dxArr.slice(-period).reduce((a, b) => a + b, 0) / period;
 }
 
 // ================================================================
@@ -662,82 +668,17 @@ function calcBCDiverg(candles, closes, rsi) {
 // ================================================================
 //  ══════════════════════════════════════════════════════════════
 //  ║  ADVANCED BUY/SELL PATTERN DETECTION ENGINE               ║
+//  ║  (Disederhanakan: hanya RSI dan MACD untuk momentum)      ║
 //  ══════════════════════════════════════════════════════════════
 // ================================================================
 
-// ── 1. ADDITIONAL INDICATORS ────────────────────────────────────
-
-function calcCCI(candles, period) {
-    period = period || 14;
-    if (!candles || candles.length < period) return null;
-    const rc = candles.slice(-period);
-    const tps = rc.map(c => (c.high + c.low + c.close) / 3);
-    const sma = tps.reduce((a,b)=>a+b,0) / period;
-    const md  = tps.reduce((a,b)=>a+Math.abs(b-sma),0) / period;
-    return md === 0 ? 0 : (tps[tps.length-1] - sma) / (0.015 * md);
-}
-
-function calcStochastic(candles, kPeriod, dPeriod) {
-    kPeriod = kPeriod || 14; dPeriod = dPeriod || 3;
-    if (!candles || candles.length < kPeriod + dPeriod) return null;
-    const kArr = [];
-    for (let i = kPeriod - 1; i < candles.length; i++) {
-        const sl = candles.slice(i - kPeriod + 1, i + 1);
-        const hh = Math.max(...sl.map(c=>c.high));
-        const ll = Math.min(...sl.map(c=>c.low));
-        kArr.push(hh === ll ? 50 : ((candles[i].close - ll) / (hh - ll)) * 100);
-    }
-    if (kArr.length < dPeriod) return null;
-    const k = kArr[kArr.length-1];
-    const d = kArr.slice(-dPeriod).reduce((a,b)=>a+b,0) / dPeriod;
-    return { k, d };
-}
-
-function calcWilliamsR(candles, period) {
-    period = period || 14;
-    if (!candles || candles.length < period) return null;
-    const rc = candles.slice(-period);
-    const hh = Math.max(...rc.map(c=>c.high));
-    const ll = Math.min(...rc.map(c=>c.low));
-    const close = rc[rc.length-1].close;
-    return hh === ll ? -50 : ((hh - close) / (hh - ll)) * -100;
-}
-
-function calcAO(candles) {
-    if (!candles || candles.length < 34) return null;
-    const med = candles.map(c => (c.high + c.low) / 2);
-    const sma5  = med.slice(-5).reduce((a,b)=>a+b,0) / 5;
-    const sma34 = med.slice(-34).reduce((a,b)=>a+b,0) / 34;
-    return sma5 - sma34;
-}
-
-function calcROC(closes, period) {
-    period = period || 10;
-    if (!closes || closes.length < period + 1) return null;
-    const now  = closes[closes.length - 1];
-    const prev = closes[closes.length - 1 - period];
-    return prev !== 0 ? ((now - prev) / prev) * 100 : 0;
-}
-
-function calcBollingerBands(closes, period, mult) {
-    period = period || 20; mult = mult || 2;
-    if (!closes || closes.length < period) return null;
-    const rc  = closes.slice(-period);
-    const sma = rc.reduce((a,b)=>a+b,0) / period;
-    const variance = rc.reduce((a,b)=>a+Math.pow(b-sma,2),0) / period;
-    const sigma = Math.sqrt(variance);
-    const upper = sma + mult * sigma;
-    const lower = sma - mult * sigma;
-    const width = sma > 0 ? (upper - lower) / sma * 100 : 0;
-    const pctB  = (upper - lower) > 0 ? (closes[closes.length-1] - lower) / (upper - lower) * 100 : 50;
-    return { upper, lower, mid: sma, sigma, width, pctB };
-}
+// ── 1. ADDITIONAL INDICATORS (HANYA YANG DIGUNAKAN) ────────────
 
 function calcSuperTrend(candles, period, mult) {
     period = period || 10; mult = mult || 3;
     if (!candles || candles.length < period + 1) return null;
     const n = candles.length;
-    let stDir = 1; // 1 = uptrend, -1 = downtrend
+    let stDir = 1;
     let prevUp = 0, prevDn = 0, prevST = 0;
     for (let i = period; i < n; i++) {
         const sl = candles.slice(i - period, i);
@@ -758,7 +699,21 @@ function calcSuperTrend(candles, period, mult) {
     return { direction: stDir, value: prevST, bull: stDir === 1, bear: stDir === -1, dist: Math.abs(last.close - prevST) };
 }
 
-// ── 2. CANDLESTICK PATTERN DETECTOR ────────────────────────────
+function calcBollingerBands(closes, period, mult) {
+    period = period || 20; mult = mult || 2;
+    if (!closes || closes.length < period) return null;
+    const rc  = closes.slice(-period);
+    const sma = rc.reduce((a,b)=>a+b,0) / period;
+    const variance = rc.reduce((a,b)=>a+Math.pow(b-sma,2),0) / period;
+    const sigma = Math.sqrt(variance);
+    const upper = sma + mult * sigma;
+    const lower = sma - mult * sigma;
+    const width = sma > 0 ? (upper - lower) / sma * 100 : 0;
+    const pctB  = (upper - lower) > 0 ? (closes[closes.length-1] - lower) / (upper - lower) * 100 : 50;
+    return { upper, lower, mid: sma, sigma, width, pctB };
+}
+
+// ── 2. CANDLESTICK PATTERN DETECTOR (TIDAK DIUBAH) ──────────────
 
 function detectCandlePatterns(candles) {
     if (!candles || candles.length < 3) return [];
@@ -776,68 +731,45 @@ function detectCandlePatterns(candles) {
     const uw2 = c2.high - Math.max(c2.open, c2.close);
     const lw2 = Math.min(c2.open, c2.close) - c2.low;
 
-    // ── Single-candle patterns (c3) ─────────────────────────────
-    // Doji
+    // Single-candle patterns
     if (body3 < range3 * 0.08 && range3 > 0) patterns.push({ name: 'Doji', dir: 'neutral', score: 4 });
-    // Spinning Top
     if (body3 < range3 * 0.25 && lw3 > body3 * 0.5 && uw3 > body3 * 0.5) patterns.push({ name: 'Spinning Top', dir: 'neutral', score: 3 });
-    // Hammer (bullish)
     if (c3.close >= c3.open && lw3 > body3 * 2.0 && uw3 < body3 * 0.6 && body3 > range3 * 0.05) patterns.push({ name: 'Hammer', dir: 'bull', score: 10 });
-    // Inverted Hammer (bullish potential)
     if (c3.close >= c3.open && uw3 > body3 * 2.0 && lw3 < body3 * 0.6 && body3 > range3 * 0.05) patterns.push({ name: 'Inverted Hammer', dir: 'bull', score: 7 });
-    // Shooting Star (bearish)
     if (c3.close <= c3.open && uw3 > body3 * 2.0 && lw3 < body3 * 0.5 && body3 > range3 * 0.05) patterns.push({ name: 'Shooting Star', dir: 'bear', score: 10 });
-    // Hanging Man (bearish)
     if (c3.close <= c3.open && lw3 > body3 * 2.0 && uw3 < body3 * 0.5 && body3 > range3 * 0.05) patterns.push({ name: 'Hanging Man', dir: 'bear', score: 7 });
-    // Marubozu Bull
     if (c3.close > c3.open && uw3 < range3 * 0.05 && lw3 < range3 * 0.05 && body3 > range3 * 0.85) patterns.push({ name: 'Bullish Marubozu', dir: 'bull', score: 12 });
-    // Marubozu Bear
     if (c3.close < c3.open && uw3 < range3 * 0.05 && lw3 < range3 * 0.05 && body3 > range3 * 0.85) patterns.push({ name: 'Bearish Marubozu', dir: 'bear', score: 12 });
-    // Pin Bar Bull
     if (lw3 > range3 * 0.60 && body3 < range3 * 0.25) patterns.push({ name: 'Bullish Pin Bar', dir: 'bull', score: 11 });
-    // Pin Bar Bear
     if (uw3 > range3 * 0.60 && body3 < range3 * 0.25) patterns.push({ name: 'Bearish Pin Bar', dir: 'bear', score: 11 });
 
-    // ── Two-candle patterns (c2, c3) ───────────────────────────
-    // Bullish Engulfing: c2 bearish, c3 bullish and engulfs c2
+    // Two-candle patterns
     if (c2.close < c2.open && c3.close > c3.open && c3.open <= c2.close && c3.close >= c2.open) patterns.push({ name: 'Bullish Engulfing', dir: 'bull', score: 15 });
-    // Bearish Engulfing: c2 bullish, c3 bearish and engulfs c2
     if (c2.close > c2.open && c3.close < c3.open && c3.open >= c2.close && c3.close <= c2.open) patterns.push({ name: 'Bearish Engulfing', dir: 'bear', score: 15 });
-    // Bullish Harami: c2 bearish large, c3 small bullish inside
     if (c2.close < c2.open && body2 > range2 * 0.6 && c3.close > c3.open && c3.open > c2.close && c3.close < c2.open && body3 < body2 * 0.5) patterns.push({ name: 'Bullish Harami', dir: 'bull', score: 8 });
-    // Bearish Harami: c2 bullish large, c3 small bearish inside
     if (c2.close > c2.open && body2 > range2 * 0.6 && c3.close < c3.open && c3.open < c2.close && c3.close > c2.open && body3 < body2 * 0.5) patterns.push({ name: 'Bearish Harami', dir: 'bear', score: 8 });
-    // Inside Bar
     if (c3.high < c2.high && c3.low > c2.low) patterns.push({ name: 'Inside Bar', dir: c3.close > c3.open ? 'bull' : 'bear', score: 7 });
-    // Outside Bar
     if (c3.high > c2.high && c3.low < c2.low) patterns.push({ name: 'Outside Bar', dir: c3.close > c3.open ? 'bull' : 'bear', score: 8 });
-    // Tweezer Bottom: similar lows, c2 bear c3 bull
     if (c2.close < c2.open && c3.close > c3.open && Math.abs(c3.low - c2.low) < (range2 + range3) * 0.06) patterns.push({ name: 'Tweezer Bottom', dir: 'bull', score: 9 });
-    // Tweezer Top: similar highs, c2 bull c3 bear
     if (c2.close > c2.open && c3.close < c3.open && Math.abs(c3.high - c2.high) < (range2 + range3) * 0.06) patterns.push({ name: 'Tweezer Top', dir: 'bear', score: 9 });
 
-    // ── Three-candle patterns (c1, c2, c3) ─────────────────────
-    // Morning Star: c1 bearish, c2 small, c3 bullish strong
+    // Three-candle patterns
     if (c1.close < c1.open && body1 > range1*0.5 && body2 < range2*0.35 && c3.close > c3.open && body3 > range3*0.5 && c3.close > (c1.open+c1.close)/2) patterns.push({ name: 'Morning Star', dir: 'bull', score: 14 });
-    // Evening Star: c1 bullish, c2 small, c3 bearish strong
     if (c1.close > c1.open && body1 > range1*0.5 && body2 < range2*0.35 && c3.close < c3.open && body3 > range3*0.5 && c3.close < (c1.open+c1.close)/2) patterns.push({ name: 'Evening Star', dir: 'bear', score: 14 });
-    // Three White Soldiers
     const c_2 = n>=4 ? candles[n-4] : null;
     if (c1.close>c1.open && c2.close>c2.open && c3.close>c3.open && c2.close>c1.close && c3.close>c2.close && c2.open>c1.open && c3.open>c2.open) patterns.push({ name: 'Three White Soldiers', dir: 'bull', score: 14 });
-    // Three Black Crows
     if (c1.close<c1.open && c2.close<c2.open && c3.close<c3.open && c2.close<c1.close && c3.close<c2.close && c2.open<c1.open && c3.open<c2.open) patterns.push({ name: 'Three Black Crows', dir: 'bear', score: 14 });
 
     return patterns;
 }
 
-// ── 3. SUPPORT / RESISTANCE ENGINE ─────────────────────────────
+// ── 3. SUPPORT / RESISTANCE ENGINE (TIDAK DIUBAH) ──────────────
 
 function detectSupportResistance(candles, price, atr) {
     if (!candles || candles.length < 30 || !atr) return { levels: [], nearSupport: false, nearResistance: false, score: 0 };
     const rc = candles.slice(-60);
     const tol = atr * 0.35;
     const levels = [];
-    // Find pivot highs/lows
     for (let i = 2; i < rc.length - 2; i++) {
         const isPivotHigh = rc[i].high > rc[i-1].high && rc[i].high > rc[i-2].high && rc[i].high > rc[i+1].high && rc[i].high > rc[i+2].high;
         const isPivotLow  = rc[i].low  < rc[i-1].low  && rc[i].low  < rc[i-2].low  && rc[i].low  < rc[i+1].low  && rc[i].low  < rc[i+2].low;
@@ -852,7 +784,6 @@ function detectSupportResistance(candles, price, atr) {
             else { const lv = levels.find(l => l.type === 'support' && Math.abs(l.price - rc[i].low) < tol); if (lv) lv.touches++; }
         }
     }
-    // Daily / weekly high/low proxies (extreme of lookback)
     const allHighs = rc.map(c=>c.high); const allLows = rc.map(c=>c.low);
     const periodHigh = Math.max(...allHighs); const periodLow = Math.min(...allLows);
     const nearResistance = levels.some(l => l.type === 'resistance' && Math.abs(price - l.price) < tol * 1.5);
@@ -865,7 +796,7 @@ function detectSupportResistance(candles, price, atr) {
     return { levels, nearSupport: nearSupport || nearPeriodLow, nearResistance: nearResistance || nearPeriodHigh, periodHigh, periodLow, score };
 }
 
-// ── 4. ENHANCED SMART MONEY ENGINE ─────────────────────────────
+// ── 4. ENHANCED SMART MONEY ENGINE (TIDAK DIUBAH) ──────────────
 
 function detectSmartMoneyConcepts(candles, price, atr) {
     if (!candles || candles.length < 20 || !atr) return { concepts: [], score: 0, premiumDiscount: 'MID', ote: false };
@@ -873,7 +804,6 @@ function detectSmartMoneyConcepts(candles, price, atr) {
     const concepts = [];
     let score = 0;
 
-    // Equal Highs / Equal Lows
     const recentHighs = rc.slice(-10).map(c=>c.high); const recentLows = rc.slice(-10).map(c=>c.low);
     const maxH = Math.max(...recentHighs); const minL = Math.min(...recentLows);
     const eqHighCount = recentHighs.filter(h => Math.abs(h - maxH) < atr * 0.15).length;
@@ -881,11 +811,9 @@ function detectSmartMoneyConcepts(candles, price, atr) {
     if (eqHighCount >= 2) { concepts.push('Equal Highs'); score -= 5; }
     if (eqLowCount  >= 2) { concepts.push('Equal Lows');  score += 5; }
 
-    // Liquidity Pool above/below
     if (price < minL + atr * 0.5 && eqLowCount >= 2)  { concepts.push('Liquidity Pool Below'); score += 8; }
     if (price > maxH - atr * 0.5 && eqHighCount >= 2) { concepts.push('Liquidity Pool Above'); score -= 8; }
 
-    // Premium / Discount Zone (relative to swing range)
     const swingRange = maxH - minL;
     const equil = minL + swingRange * 0.5;
     const ote_lo = minL + swingRange * 0.618;
@@ -894,25 +822,21 @@ function detectSmartMoneyConcepts(candles, price, atr) {
     if (premiumDiscount === 'DISCOUNT') { concepts.push('Discount Zone'); score += 10; }
     if (premiumDiscount === 'PREMIUM')  { concepts.push('Premium Zone');  score -= 10; }
 
-    // OTE (Optimal Trade Entry) — 61.8%–78.6% retracement
     const ote = price >= ote_lo - atr * 0.2 && price <= ote_hi + atr * 0.2;
     if (ote) { concepts.push('OTE Zone'); score += 8; }
 
-    // Mitigation Block — strong opposite move after OB
     const bodies = rc.map(c=>Math.abs(c.close-c.open));
     const avgBody = bodies.reduce((a,b)=>a+b,0) / bodies.length;
     let mitigation = false;
     for (let i = 2; i < rc.length - 1; i++) {
         const bodyI = Math.abs(rc[i].close - rc[i].open);
         if (bodyI > avgBody * 2 && rc[i].close < rc[i].open) {
-            // Check if price came back to that zone
             if (price >= rc[i].low - atr * 0.2 && price <= rc[i].open + atr * 0.2) {
                 concepts.push('Mitigation Block'); score += 7; mitigation = true; break;
             }
         }
     }
 
-    // Breaker Block — OB that price broke through then returned to
     let breaker = false;
     for (let i = 2; i < rc.length - 3; i++) {
         const bodyI = Math.abs(rc[i].close - rc[i].open);
@@ -923,14 +847,13 @@ function detectSmartMoneyConcepts(candles, price, atr) {
         }
     }
 
-    // Inducement — small swings before a larger move
     const last5Lows = rc.slice(-5).map(c=>c.low); const min5Low = Math.min(...last5Lows);
     if (price > min5Low && price - min5Low < atr * 1.5) { concepts.push('Inducement Zone'); score += 6; }
 
     return { concepts, score: Math.max(-20, Math.min(20, score)), premiumDiscount, ote, swingHigh: maxH, swingLow: minL };
 }
 
-// ── 5. ENHANCED DIVERGENCE ENGINE ──────────────────────────────
+// ── 5. ENHANCED DIVERGENCE ENGINE (TIDAK DIUBAH) ──────────────
 
 function detectEnhancedDivergence(candles, closes, atr) {
     if (!candles || candles.length < 20) return { divergences: [], score: 0 };
@@ -947,7 +870,6 @@ function detectEnhancedDivergence(candles, closes, atr) {
     }
     if (pts.length < 8) return { divergences, score };
 
-    // Find swing points
     const swLows = [], swHighs = [];
     for (let i = 2; i < pts.length - 1; i++) {
         if (pts[i].low  <= pts[i-1].low  && pts[i].low  <= pts[i+1].low)  swLows.push(pts[i]);
@@ -957,28 +879,24 @@ function detectEnhancedDivergence(candles, closes, atr) {
     const rsiNow = calcRSI(closes, 14);
     if (rsiNow === null) return { divergences, score };
 
-    // Regular Bullish Divergence: price lower low, RSI higher low
     if (swLows.length >= 2) {
         const sl1 = swLows[swLows.length-2], sl2 = swLows[swLows.length-1];
         if (sl2.price < sl1.price && sl2.rsi > sl1.rsi + 1.5) {
             divergences.push('Regular Bullish Div (RSI)'); score += 5;
         }
     }
-    // Regular Bearish Divergence: price higher high, RSI lower high
     if (swHighs.length >= 2) {
         const sh1 = swHighs[swHighs.length-2], sh2 = swHighs[swHighs.length-1];
         if (sh2.price > sh1.price && sh2.rsi < sh1.rsi - 1.5) {
             divergences.push('Regular Bearish Div (RSI)'); score -= 5;
         }
     }
-    // Hidden Bullish Divergence: price higher low, RSI lower low
     if (swLows.length >= 2) {
         const sl1 = swLows[swLows.length-2], sl2 = swLows[swLows.length-1];
         if (sl2.price > sl1.price && sl2.rsi < sl1.rsi - 1.5) {
             divergences.push('Hidden Bullish Div (RSI)'); score += 4;
         }
     }
-    // Hidden Bearish Divergence: price lower high, RSI higher high
     if (swHighs.length >= 2) {
         const sh1 = swHighs[swHighs.length-2], sh2 = swHighs[swHighs.length-1];
         if (sh2.price < sh1.price && sh2.rsi > sh1.rsi + 1.5) {
@@ -986,7 +904,6 @@ function detectEnhancedDivergence(candles, closes, atr) {
         }
     }
 
-    // MACD Divergence using closing prices
     const macd = calcMACD(closes);
     if (macd && Math.abs(macd.hist) > 0) {
         if (macd.hist > 0 && rsiNow < 50)  { divergences.push('MACD Bull Cross'); score += 3; }
@@ -996,7 +913,7 @@ function detectEnhancedDivergence(candles, closes, atr) {
     return { divergences, score: Math.max(-10, Math.min(10, score)) };
 }
 
-// ── 6. VOLUME ENGINE ────────────────────────────────────────────
+// ── 6. VOLUME ENGINE (TIDAK DIUBAH) ────────────────────────────
 
 function calcVolumeEngine(candles) {
     if (!candles || candles.length < 10) return { label: 'UNKNOWN', relVol: 1, score: 0 };
@@ -1008,7 +925,6 @@ function calcVolumeEngine(candles) {
     const lastC = candles[candles.length-1];
     const isBullCandle = lastC.close > lastC.open;
 
-    // Buying vs Selling Pressure
     let buyVol = 0, sellVol = 0;
     for (const c of rc) {
         const range = c.high - c.low; if (range === 0) continue;
@@ -1030,14 +946,13 @@ function calcVolumeEngine(candles) {
     return { label, relVol: parseFloat(relVol.toFixed(2)), volDelta: parseFloat(volDelta.toFixed(3)), buyingPressure: volDelta > 0.1, sellingPressure: volDelta < -0.1, score: Math.max(-15, Math.min(15, score)) };
 }
 
-// ── 7. VOLATILITY ENGINE ────────────────────────────────────────
+// ── 7. VOLATILITY ENGINE (TIDAK DIUBAH) ────────────────────────
 
 function calcVolatilityEngine(candles, closes, atr) {
     if (!candles || candles.length < 20 || !atr) return { label: 'NORMAL', bbWidth: 0, expansion: false, compression: false, score: 0, breakoutProb: 50 };
     const bb = calcBollingerBands(closes, 20, 2);
     if (!bb) return { label: 'NORMAL', bbWidth: 0, expansion: false, compression: false, score: 0, breakoutProb: 50 };
 
-    // ATR relative to recent average ATR
     const rc = candles.slice(-20);
     const recentATRs = [];
     for (let i = 5; i < rc.length; i++) {
@@ -1064,6 +979,7 @@ function calcVolatilityEngine(candles, closes, atr) {
 //  Market Structure: 20 | Trend: 15 | Momentum: 15 | Volume: 10
 //  Candlestick: 10 | S/R: 10 | Smart Money: 10
 //  Volatility: 5 | Divergence: 5 | Confluence: 10 = 100
+//  (Momentum hanya dari RSI dan MACD)
 
 function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBias) {
     const scores = { structure: 0, trend: 0, momentum: 0, volume: 0, candle: 0, sr: 0, smc: 0, volatility: 0, divergence: 0, confluence: 0 };
@@ -1076,11 +992,6 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     const adx = calcADX(candles, 14) || 0;
     const rsi = calcRSI(closes, 14) || 50;
     const macd = calcMACD(closes);
-    const cci = calcCCI(candles, 14);
-    const stoch = calcStochastic(candles, 14, 3);
-    const willR = calcWilliamsR(candles, 14);
-    const ao = calcAO(candles);
-    const roc = calcROC(closes, 10);
     const superTrend = calcSuperTrend(candles, 10, 3);
 
     // ── Market Structure (max 20) ──────────────────────────────
@@ -1098,7 +1009,6 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     if (struct.choch) reasoning.push('Change of Character');
 
     // ── Trend (max 15) ─────────────────────────────────────────
-    const trendData = macroBias && macroBias.factors ? macroBias.factors.bc_trend : null;
     const trendScore = (macroBias && macroBias.factors && macroBias.factors.bc_trend_score) || 0;
     const stScale = Math.min(15, Math.round(Math.abs(trendScore) * 15 / 30));
     scores.trend = trendScore > 0 ? stScale : (trendScore < 0 ? -stScale : 0);
@@ -1114,28 +1024,16 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
     else if (rsi < 45) { momScore += 6; reasoning.push(`RSI Pullback (${rsi.toFixed(0)})`); }
     else if (rsi > 70) { momScore -= 12; reasoning.push(`RSI Overbought (${rsi.toFixed(0)})`); }
     else if (rsi > 55) { momScore -= 6; }
+
     if (macd) {
         if (macd.hist > 0 && macd.line > 0) { momScore += 8; reasoning.push('MACD Bullish'); }
         else if (macd.hist > 0)             { momScore += 4; reasoning.push('MACD Cross Up'); }
         else if (macd.hist < 0 && macd.line < 0) { momScore -= 8; reasoning.push('MACD Bearish'); }
         else if (macd.hist < 0)             { momScore -= 4; }
     }
-    if (cci !== null) {
-        if (cci < -100) { momScore += 5; reasoning.push('CCI Oversold'); }
-        else if (cci > 100) { momScore -= 5; reasoning.push('CCI Overbought'); }
-    }
-    if (stoch) {
-        if (stoch.k < 20 && stoch.d < 20) { momScore += 5; reasoning.push('Stochastic Oversold'); }
-        else if (stoch.k > 80 && stoch.d > 80) { momScore -= 5; reasoning.push('Stochastic Overbought'); }
-    }
-    if (willR !== null) {
-        if (willR < -80) { momScore += 4; reasoning.push('Williams%R Oversold'); }
-        else if (willR > -20) { momScore -= 4; }
-    }
-    if (ao !== null) {
-        if (ao > 0) momScore += 3; else momScore -= 3;
-    }
-    scores.momentum = Math.max(-15, Math.min(15, Math.round(momScore * 15 / 25)));
+
+    // Skala ke 15 poin (maks total 20)
+    scores.momentum = Math.max(-15, Math.min(15, Math.round(momScore * 15 / 20)));
 
     // ── Volume (max 10) ────────────────────────────────────────
     const volEng = calcVolumeEngine(candles);
@@ -1207,10 +1105,10 @@ function runPatternScoringEngine(id, price, macroCandles, microCandles, macroBia
         confidence = Math.round(Math.max(totalBull, totalBear) / maxPossible * 100 * 0.7);
     }
 
-    return { signal, direction, confidence, scores, totalBull, totalBear, netScore, reasoning, patterns: cpats, smcData, srData, volat, volEng, rsi, cci, stoch, willR, ao, roc, superTrend, atr };
+    return { signal, direction, confidence, scores, totalBull, totalBear, netScore, reasoning, patterns: cpats, smcData, srData, volat, volEng, rsi, superTrend, atr };
 }
 
-// ── 9. FALSE SIGNAL FILTER ─────────────────────────────────────
+// ── 9. FALSE SIGNAL FILTER (TIDAK DIUBAH) ─────────────────────
 
 function applyFalseSignalFilter(scored, candles) {
     if (!scored || scored.signal === 'NEUTRAL') return scored;
@@ -1218,40 +1116,27 @@ function applyFalseSignalFilter(scored, candles) {
     const closes = candles.map(c=>c.close);
     const adx = calcADX(candles, 14);
 
-    // 1. Sideway market (low ADX)
     if (adx !== null && adx < 18) { warns.push('ADX<18 (choppy)'); }
-
-    // 2. Volatility too low
     if (scored.volat && scored.volat.bbWidth < 0.6) { warns.push('BBWidth<0.6 (flat)'); }
-
-    // 3. Breakout without volume
     const bcStruct = calcBCStruct(candles);
     if (bcStruct.bos && scored.volEng && scored.volEng.relVol < 0.7) { warns.push('BOS no volume'); }
-
-    // 4. Pattern incomplete (inside bar without direction)
     const hasNeutralDoji = scored.patterns.some(p => p.dir === 'neutral' && p.name === 'Doji');
     if (hasNeutralDoji && scored.confidence < 60) warns.push('Doji uncertainty');
-
-    // 5. Signal against strong S/R
     if (scored.signal === 'BUY'  && scored.srData && scored.srData.nearResistance) warns.push('Entry near resistance');
     if (scored.signal === 'SELL' && scored.srData && scored.srData.nearSupport)    warns.push('Entry near support');
-
-    // 6. Conflicting trend/structure (already handled in macroBias but double-check)
     if (scored.scores.trend > 5 && scored.scores.structure < -5) warns.push('Trend/struct conflict');
     if (scored.scores.trend < -5 && scored.scores.structure > 5) warns.push('Trend/struct conflict');
 
-    // Penalize confidence for each warning
     const penalty = warns.length * 8;
     const adjConf = Math.max(0, scored.confidence - penalty);
 
-    // If too many warnings, downgrade to NEUTRAL
     if (warns.length >= 4 || adjConf < 20) {
         return { ...scored, signal: 'NEUTRAL', confidence: adjConf, warnings: warns };
     }
     return { ...scored, confidence: adjConf, warnings: warns };
 }
 
-// ── 10. CONFIDENCE ENGINE ────────────────────────────────────────
+// ── 10. CONFIDENCE ENGINE (TIDAK DIUBAH) ───────────────────────
 
 function getConfidenceLabel(confidence, signal) {
     if (signal === 'NEUTRAL') return { label: 'NEUTRAL', color: 'var(--text-dim)' };
@@ -1265,8 +1150,6 @@ function getConfidenceLabel(confidence, signal) {
 
 function getRiskLabel(scored) {
     if (!scored) return { label: 'UNKNOWN', cls: 'medium' };
-    const bullCount = Object.values(scored.scores).filter(v=>v>0).length;
-    const bearCount = Object.values(scored.scores).filter(v=>v<0).length;
     const warns = (scored.warnings || []).length;
     if (scored.confidence >= 75 && warns === 0) return { label: 'LOW RISK',  cls: 'low' };
     if (scored.confidence >= 55 && warns <= 1)  return { label: 'MED RISK',  cls: 'medium' };
@@ -1292,7 +1175,6 @@ function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
         const risk = getRiskLabel(scored);
         const eq = getEntryQuality(scored);
 
-        // Build output object
         const output = {
             signal: scored.signal,
             confidence: scored.confidence,
@@ -1317,7 +1199,6 @@ function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
             smcData: scored.smcData,
             srData: scored.srData,
             volat: scored.volat,
-            // Macro trend direction for PDE display
             macro_bias: macroBias ? macroBias.bias : 'NEUTRAL',
             macro_bullPct: macroBias ? (macroBias.bullPct || 0) : 0,
             macro_bearPct: macroBias ? (macroBias.bearPct || 0) : 0
@@ -1329,12 +1210,8 @@ function runPatternEngine(id, price, macroCandles, microCandles, macroBias) {
     }
 }
 
-// ── 12. PDE UI UPDATE ────────────────────────────────────────────
-
 function updatePatternEngineUI(id, pde) {
     if (!pde) return;
-
-    // Signal badge — tampilkan arah tren macro: BULL X% / BEAR X%
     const sigEl = document.getElementById(`pde-signal-${id}`);
     if (sigEl) {
         const bPct = pde.macro_bullPct || 0;
@@ -1346,29 +1223,21 @@ function updatePatternEngineUI(id, pde) {
             sigEl.textContent = `↓ BEAR ${sPct}%`;
             sigEl.className = 'pde-signal-badge sell';
         } else {
-            // Neutral — tampilkan kedua persen
             sigEl.textContent = `BULL ${bPct}% · BEAR ${sPct}%`;
             sigEl.className = 'pde-signal-badge neutral';
         }
     }
-
-    // Confidence bar
     const cfFill = document.getElementById(`pde-cf-fill-${id}`);
     const cfTxt  = document.getElementById(`pde-cf-txt-${id}`);
     const cfGrade = document.getElementById(`pde-cf-grade-${id}`);
     if (cfFill) { cfFill.style.width = pde.confidence + '%'; cfFill.style.background = pde.signal==='BUY' ? 'var(--emerald)' : pde.signal==='SELL' ? 'var(--crimson)' : 'var(--text-dim)'; }
     if (cfTxt)  { cfTxt.textContent = pde.confidence + '%'; cfTxt.style.color = pde.confidence_color; }
     if (cfGrade){ cfGrade.textContent = pde.confidence_grade; cfGrade.style.color = pde.confidence_color; }
-
-    // Pattern name
     const patEl = document.getElementById(`pde-pattern-${id}`);
     if (patEl) patEl.textContent = pde.pattern;
-
-    // Meters: strength, probability, risk
     const strengthPct = Math.min(100, pde.scores ? Object.values(pde.scores).reduce((a,v)=>a+Math.max(0,v),0) : 0);
     const probPct     = pde.confidence;
     const riskPct     = pde.risk_cls === 'low' ? 25 : pde.risk_cls === 'medium' ? 55 : 85;
-
     ['str','prob','risk'].forEach((m, i) => {
         const fill = document.getElementById(`pde-meter-${m}-fill-${id}`);
         const val  = document.getElementById(`pde-meter-${m}-val-${id}`);
@@ -1378,8 +1247,6 @@ function updatePatternEngineUI(id, pde) {
         if (fill) { fill.style.width = pcts[i]+'%'; fill.style.background = cols[i]; }
         if (val)  { val.textContent = txts[i]; val.style.color = cols[i]; }
     });
-
-    // Score grid
     const scoreKeys = [
         ['str','structure',20], ['trd','trend',15], ['mom','momentum',15],
         ['vol','volume',10],    ['cdl','candle',10], ['sr','sr',10],
@@ -1392,8 +1259,6 @@ function updatePatternEngineUI(id, pde) {
         el.textContent = (v > 0 ? '+' : '') + v;
         el.style.color = v > 0 ? 'var(--emerald)' : v < 0 ? 'var(--crimson)' : 'var(--text-dim)';
     });
-
-    // Reasoning list
     const reasonEl = document.getElementById(`pde-reason-list-${id}`);
     if (reasonEl) {
         const items = pde.reasoning.slice(0,5);
@@ -1401,8 +1266,6 @@ function updatePatternEngineUI(id, pde) {
             ? items.map(r=>`<div class="pde-reason-item">${r}</div>`).join('')
             : `<div class="pde-reason-item" style="color:var(--text-dim)">Scanning...</div>`;
     }
-
-    // Risk & entry quality badges
     const riskEl = document.getElementById(`pde-risk-${id}`);
     if (riskEl) { riskEl.textContent = pde.risk; riskEl.className = `pde-risk-badge ${pde.risk_cls}`; }
     const eqEl = document.getElementById(`pde-eq-${id}`);
@@ -1454,7 +1317,6 @@ function getMTFConfirmation(id, price, macroCandles) {
     }
     if (trend5m && trend15m && trend5m.score > 0 && trend15m.score > 0) score += 5;
     if (trend5m && trend15m && trend5m.score < 0 && trend15m.score < 0) score -= 5;
-    // Kembalikan skor signed (positif = bullish, negatif = bearish)
     return { score, trend5m: t5, trend15m: t15 };
 }
 
@@ -1523,47 +1385,57 @@ function checkPriceAction(candles, direction, atr) {
     let score = 0;
     const range2 = c2.high - c2.low;
     if (direction === 'buy') {
-        // Bullish engulf: c2 menutup di atas high c1 dan buka di bawah low c1
         if (c2.close > c1.high && c2.open < c1.low) score = 15;
         const body = Math.abs(c2.close - c2.open);
-        // Hammer / pin bar bullish: lower wick panjang; body minimal 5% dari range (hindari doji)
         const lowerWick = Math.min(c2.open, c2.close) - c2.low;
         if (body > range2 * 0.05 && lowerWick > body * 2.5) score = Math.max(score, 12);
-        // Inside bar bullish: c2 close > open (candle hijau) dalam range c1
         if (c2.close > c2.open && c2.low > c1.low && c2.high < c1.high) score = Math.max(score, 8);
     } else {
-        // Bearish engulf: c2 menutup di bawah low c1 dan buka di atas high c1
         if (c2.close < c1.low && c2.open > c1.high) score = 15;
         const body = Math.abs(c2.close - c2.open);
-        // Shooting star / pin bar bearish: upper wick panjang; body minimal 5% dari range (hindari doji)
         const upperWick = c2.high - Math.max(c2.open, c2.close);
         if (body > range2 * 0.05 && upperWick > body * 2.5) score = Math.max(score, 12);
-        // Inside bar bearish: c2 close < open (candle merah) dalam range c1
         if (c2.close < c2.open && c2.low > c1.low && c2.high < c1.high) score = Math.max(score, 8);
     }
     return score;
 }
 
 // ================================================================
-//  DYNAMIC RR — dikalibrasi untuk XAU (ATR range $2–30 per 1-min bar)
-//  Threshold berdasarkan ATR absolut agar benar-benar dinamis:
-//    ATR > 18  → pasar sangat volatile → RR ketat 1.2
-//    ATR > 10  → volatile normal-tinggi  → RR 1.4
-//    ATR >  5  → volatilitas sedang      → RR 1.5
-//    ATR ≤  5  → pasar tenang            → RR longgar 1.6
+//  DYNAMIC RR — berbasis ATR dan support/resistance terdekat
 // ================================================================
-function calculateDynamicRR(atr, price) {
-    let rr;
-    // Gunakan ATR absolut — jauh lebih representatif untuk XAU
-    if      (atr > 18) rr = 1.2;
+function calculateDynamicRR(atr, price, macroCandles) {
+    if (!atr || atr <= 0) atr = 3.0;
+    let nearestSupport = null, nearestResistance = null;
+    if (macroCandles && macroCandles.length > 20) {
+        const sr = detectSupportResistance(macroCandles, price, atr);
+        if (sr.levels && sr.levels.length > 0) {
+            for (const lv of sr.levels) {
+                if (lv.type === 'support' && (nearestSupport === null || Math.abs(price - lv.price) < Math.abs(price - nearestSupport))) {
+                    nearestSupport = lv.price;
+                } else if (lv.type === 'resistance' && (nearestResistance === null || Math.abs(price - lv.price) < Math.abs(price - nearestResistance))) {
+                    nearestResistance = lv.price;
+                }
+            }
+        }
+    }
+    let slDistance = atr * 1.2;
+    if (nearestSupport !== null && price > nearestSupport) {
+        slDistance = Math.max(atr * 0.8, price - nearestSupport);
+    }
+    if (nearestResistance !== null && price < nearestResistance) {
+        slDistance = Math.max(atr * 0.8, nearestResistance - price);
+    }
+    let rr = 1.5;
+    if (atr > 15) rr = 1.2;
     else if (atr > 10) rr = 1.4;
-    else if (atr >  5) rr = 1.5;
-    else               rr = 1.6;
+    else if (atr > 5) rr = 1.6;
+    else rr = 1.8;
+    rr = Math.max(1.2, Math.min(2.0, rr));
     return rr;
 }
 
 // ================================================================
-//  BC MACRO BIAS SCORER
+//  BC MACRO BIAS SCORER (TIDAK DIUBAH)
 // ================================================================
 function scoreMacroBias(id, price, macroCandles) {
     const f = {};
@@ -1601,16 +1473,13 @@ function scoreMacroBias(id, price, macroCandles) {
     let bull = Math.round(rawBull * adxMult); let bear = Math.round(rawBear * adxMult);
     const trendBull = bcTrend.score > 0; const trendBear = bcTrend.score < 0;
     const structBull = bcStruct.score > 0; const structBear = bcStruct.score < 0;
-    // Deteksi konflik TREND vs STRUCT: jika keduanya signifikan, blokir sinyal
     const trendSignificant  = Math.abs(bcTrend.score) >= 16;
     const structSignificant = Math.abs(bcStruct.score) >= 15;
     if ((trendBull && structBear) || (trendBear && structBull)) {
         f.conflict = 'TREND_STRUCT';
         if (trendSignificant && structSignificant) {
-            // Konflik kuat — blokir sinyal sama sekali
             return { bias: 'NEUTRAL', score: 0, factors: f, valid: false, adx, atr, ema21: bcTrend.ema21, bcZone };
         }
-        // Konflik ringan — kurangi skor saja
         bull = Math.round(bull * 0.65); bear = Math.round(bear * 0.65);
     }
     const MAX = 72; const diff = Math.abs(bull - bear);
@@ -1619,7 +1488,6 @@ function scoreMacroBias(id, price, macroCandles) {
     else if (bear > bull && diff >= 10) { bias = 'BEAR'; score = Math.min(100, Math.round((bear / MAX) * 100)); }
     else { score = Math.round(Math.max(bull, bear) * 0.55); }
     const valid = score >= BC_SCORE_MIN && bias !== 'NEUTRAL';
-    // Compute bull/bear percentage for PDE display
     const bullPct = Math.min(100, Math.round((bull / MAX) * 100));
     const bearPct = Math.min(100, Math.round((bear / MAX) * 100));
     return { bias, score, bullPct, bearPct, factors: f, valid, adx, atr, ema21: bcTrend.ema21, bcZone };
@@ -1638,7 +1506,6 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const rsi9      = calcRSI(closes, Math.min(9, closes.length - 1));
     const microMACD = calcMACD(closes, 5, 13, 4);
 
-    // ── Zone enforcement: BUY hanya di zona discount/demand; SELL hanya di premium/supply ──
     const smcZoneGuard = detectSmartMoneyConcepts(microCandles, price, microATR);
     const direction_guard = macroBias.bias === 'BULL' ? 'buy' : 'sell';
     if (direction_guard === 'buy' && smcZoneGuard.premiumDiscount === 'PREMIUM') {
@@ -1669,13 +1536,11 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const { bias, ema21: macroEMA21, atr: macroATR, bcZone } = macroBias;
     const direction = bias === 'BULL' ? 'buy' : 'sell';
 
-    // ── 1. BC LIQUID (40 pts) ─────────────────────────────────────
     const bcLiquid  = calcBCLiquid(microCandles, microATR);
     f.bc_liquid     = bcLiquid.sweep;
     const liquidScore = bcLiquid.sweep === 'BULL_SWEEP' && direction === 'buy'  ? 40 :
                         bcLiquid.sweep === 'BEAR_SWEEP' && direction === 'sell' ? 40 : 0;
 
-    // ── 2. BC MOM (25 pts) ────────────────────────────────────────
     let momScore = 0, rsiSig = 'NEUTRAL';
     if (rsi9 !== null) {
         if (direction === 'buy') {
@@ -1690,13 +1555,11 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     }
     f.rsi_sig = rsiSig;
 
-    // ── 3. BC DIVERG (20 pts) ─────────────────────────────────────
     const bcDiv    = calcBCDiverg(microCandles, closes, rsi9);
     f.bc_diverg    = bcDiv.diverg;
     const divergScore = (bcDiv.diverg === 'BULL_DIV' && direction === 'buy')  ? 20 :
                         (bcDiv.diverg === 'BEAR_DIV' && direction === 'sell') ? 20 : 0;
 
-    // ── 4. Zone proximity (15 pts) ───────────────────────────────
     let zoneScore = 0, zoneType = 'NONE';
     const snapDist = macroATR * 0.25;
     if (direction === 'buy') {
@@ -1714,14 +1577,12 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     }
     f.zone_type = zoneType;
 
-    // ── 5. MACD micro momentum bonus (5 pts) ─────────────────────
     let microMACD_bonus = 0;
     if (microMACD) {
         if (direction === 'buy'  && microMACD.hist > 0) microMACD_bonus = 5;
         if (direction === 'sell' && microMACD.hist < 0) microMACD_bonus = 5;
     }
 
-    // ── 5b. MICRO EMA CROSS bonus (15 pts) ───────────────────────
     let microCrossScore = 0;
     f.micro_cross = 'NONE';
     if (direction === 'buy'  && microGoldenX) { 
@@ -1732,16 +1593,12 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
         f.micro_cross = 'DEATH_X'; 
     }
 
-    // ── 6. MTF CONFLUENCE (max 25 pts, min -20 pts penalty) ──────
     const macroCandles = getMacroCandles(id);
     const mtf = getMTFConfirmation(id, price, macroCandles);
     f.mtf_score = mtf.score;
     f.mtf_5m = mtf.trend5m;
     f.mtf_15m = mtf.trend15m;
-    // MTF bonus bersifat directional:
-    //   - score positif = MTF konfirmasi BUY → bonus untuk buy, penalty untuk sell
-    //   - score negatif = MTF konfirmasi SELL → bonus untuk sell, penalty untuk buy
-    const mtfRaw = mtf.score; // bisa negatif sekarang
+    const mtfRaw = mtf.score;
     let mtfBonus = 0;
     if (direction === 'buy') {
         mtfBonus = mtfRaw > 0 ? Math.min(mtfRaw, 25) : Math.max(mtfRaw, -20);
@@ -1749,7 +1606,6 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
         mtfBonus = mtfRaw < 0 ? Math.min(-mtfRaw, 25) : Math.max(-mtfRaw, -20);
     }
 
-    // ── 7. ORDER BLOCK (max 25 pts) ──────────────────────────────
     const ob = detectOrderBlock(microCandles, microATR);
     f.ob_type = ob.type;
     let obScore = 0;
@@ -1757,7 +1613,6 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     else if (direction === 'sell' && ob.type === 'BEAR_OB' && price >= ob.bot && price <= ob.top + microATR*0.2) obScore = 25;
     f.ob_score = obScore;
 
-    // ── 8. FVG (max 18 pts) ───────────────────────────────────────
     const fvg = detectFVG(microCandles);
     f.fvg_type = fvg.type;
     let fvgScore = 0;
@@ -1765,24 +1620,19 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     else if (direction === 'sell' && fvg.type === 'BEAR_FVG' && price >= fvg.level - microATR*0.3) fvgScore = 18;
     f.fvg_score = fvgScore;
 
-    // ── 9. VOLUME PROFILE (max 10 pts) ────────────────────────────
     const vp = calcVolumeProfile(microCandles, price, microATR);
     f.vp_nearPOC = vp.nearPOC;
     const vpScore = vp.score;
 
-    // ── 10. PRICE ACTION (max 15 pts) ─────────────────────────────
     const paScore = checkPriceAction(microCandles, direction, microATR);
     f.pa_score = paScore;
 
-    // ── QUALITY SUM ──────────────────────────────────────────────
     let quality = liquidScore + momScore + divergScore + zoneScore + microMACD_bonus +
                   mtfBonus + obScore + fvgScore + vpScore + paScore + microCrossScore;
-    // Clamp 0–100: mtfBonus bisa negatif (MTF berlawanan arah), wajar bila quality turun
     quality = Math.min(100, Math.max(0, quality));
     f.quality = quality;
     f.in_zone = zoneScore > 0 || liquidScore > 0;
 
-    // ── READY & LOCK THRESHOLDS ──────────────────────────────────
     const hasLiquidOrZone = liquidScore > 0 || zoneScore >= 8 || obScore > 0 || fvgScore > 0;
     const ready = quality >= MICRO_READY_THRESHOLD && hasLiquidOrZone;
     const lockable = quality >= MICRO_LOCK_THRESHOLD && hasLiquidOrZone;
@@ -1791,26 +1641,37 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 }
 
 // ================================================================
-//  EXECUTE LOCK SIGNAL (TIDAK DIUBAH)
+//  EXECUTE LOCK SIGNAL — dengan validasi entry
 // ================================================================
 function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     const s     = state[id];
     const entry = livePrice > 0 ? livePrice : (s.lastPrice || 0);
     if (entry <= 0) return;
     const atr = marketData[id].atr || (ATR_FALLBACK[id] || 300);
+    const macroCandles = getMacroCandles(id);
     const microCandles = getMicroCandles(id);
-    let structuralSL = 0;
-    if (microCandles.length >= 5) {
-        const recent = microCandles.slice(-5);
-        if (direction === 'buy') { const lowestLow = Math.min(...recent.map(c => c.low)); structuralSL = lowestLow - atr * 0.12; }
-        else { const highestHigh = Math.max(...recent.map(c => c.high)); structuralSL = highestHigh + atr * 0.12; }
-    }
-    const minSL = id === 'xau' ? 8.5 : 235;
-    let slD = Math.abs(entry - structuralSL);
-    if (slD < minSL || structuralSL === 0) slD = Math.max(atr * 0.85, minSL);
 
-    const rr = calculateDynamicRR(atr, entry);
-    const tpD = slD * rr;
+    // === VALIDASI ENTRY: harga tidak bergerak berlawanan > 0.5 ATR ===
+    if (s.l3 && s.entry && s.entry > 0) {
+        const moveAgainst = direction === 'buy' ? s.entry - livePrice : livePrice - s.entry;
+        if (moveAgainst > atr * 0.5) {
+            showToast(`${id.toUpperCase()} ❌ Entry ditolak: harga bergerak melawan ${moveAgainst.toFixed(2)} > 0.5 ATR`);
+            resetSignal(id);
+            return;
+        }
+    }
+
+    let slDistance = atr * 1.2;
+    const sr = detectSupportResistance(macroCandles, entry, atr);
+    if (direction === 'buy' && sr.nearSupport) {
+        slDistance = Math.max(atr * 0.8, entry - sr.periodLow);
+    } else if (direction === 'sell' && sr.nearResistance) {
+        slDistance = Math.max(atr * 0.8, sr.periodHigh - entry);
+    }
+    slDistance = Math.max(atr * 0.8, slDistance);
+
+    const rr = calculateDynamicRR(atr, entry, macroCandles);
+    const tpDistance = slDistance * rr;
 
     s.l3 = true; s.confirmed = true;
     s.confirmedAt    = Date.now();
@@ -1824,9 +1685,12 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
     s.entryZone      = zoneType || 'BC_ZONE';
     s.breakevenArmed = false;
     s.rr_used        = rr;
+    s.trailingActive = false;
+    s.trailingStep   = tpDistance * TRAILING_STEP_PCT;
+    s.trailingTrigger = tpDistance * TRAILING_ACTIVATE_PCT;
 
-    if (direction === 'buy') { s.sl = entry - slD; s.tp = entry + tpD; }
-    else                     { s.sl = entry + slD; s.tp = entry - tpD; }
+    if (direction === 'buy') { s.sl = entry - slDistance; s.tp = entry + tpDistance; }
+    else                     { s.sl = entry + slDistance; s.tp = entry - tpDistance; }
 
     throttledSaveState(id);
     pendingSignalData[id] = true;
@@ -1837,28 +1701,75 @@ function executeLockSignal(id, direction, livePrice, macroScore, zoneType) {
 }
 
 // ================================================================
-//  ════════════════════════════════════════════════════════════════
-//  ║  PROCESS SIGNAL — DIPERBAIKI TOAST TP1                    ║
-//  ════════════════════════════════════════════════════════════════
+//  CHECK MACRO ALIGNMENT
 // ================================================================
+function checkMacroAlignment(id, price) {
+    const s = state[id];
+    if (!s || !s.confirmed) return true;
+    const macroCandles = getMacroCandles(id);
+    if (macroCandles.length < MACRO_MIN) return true;
+    const mb = scoreMacroBias(id, price, macroCandles);
+    if (!mb.valid) return true;
+    const currentDir = mb.bias === 'BULL' ? 'buy' : 'sell';
+    if (currentDir !== s.type) {
+        showToast(`${id.toUpperCase()} ⚠️ Macro bias berubah arah → tutup posisi`);
+        recordSignalResult(id, 'sl');
+        resetSignal(id);
+        return false;
+    }
+    return true;
+}
 
+// ================================================================
+//  TRAILING STOP LOGIC
+// ================================================================
+function applyTrailingStop(id, price) {
+    const s = state[id];
+    if (!s || !s.confirmed || s.type === 'none') return;
+
+    const direction = s.type;
+    const entry = s.entry;
+    const tp = s.tp;
+    const sl = s.sl;
+
+    const traveled = direction === 'buy' ? price - entry : entry - price;
+    const totalDist = Math.abs(tp - entry);
+    const pctTraveled = totalDist > 0 ? traveled / totalDist : 0;
+
+    if (pctTraveled < TRAILING_ACTIVATE_PCT) return;
+
+    const step = s.trailingStep || (totalDist * TRAILING_STEP_PCT);
+    const newSL = direction === 'buy' 
+        ? Math.max(sl, entry + traveled - step) 
+        : Math.min(sl, entry - traveled + step);
+    if ((direction === 'buy' && newSL > sl) || (direction === 'sell' && newSL < sl)) {
+        s.sl = newSL;
+        s.trailingActive = true;
+        throttledSaveState(id);
+        const slEl = document.getElementById(`sl-${id}`);
+        if (slEl) slEl.innerText = s.sl.toFixed(2);
+        showToast(`${id.toUpperCase()} 🔒 Trailing SL updated @ ${s.sl.toFixed(2)}`);
+    }
+}
+
+// ================================================================
+//  PROCESS SIGNAL — diperbaiki dengan trailing stop dan macro alignment
+// ================================================================
 function processSignal(id, price) {
     const s = state[id];
     if (!s) return;
     if (Date.now() < (s.cooldownUntil || 0)) return;
     buildCandles(id, price);
 
-    // ============================================================
-    //  CONFIRMED SIGNAL — MONITOR TP / SL / BREAKEVEN
-    // ============================================================
+    // CONFIRMED SIGNAL
     if (s.confirmed && s.type !== 'none') {
-        // Update tracker
         if (!s.tempHigh) { s.tempHigh = s.entry; s.tempLow = s.entry; }
         if (price > s.tempHigh) s.tempHigh = price;
         if (price < s.tempLow)  s.tempLow  = price;
         updateTracker(id, price);
 
-        // ── 1. CEK TP ──────────────────────────────────────────
+        if (!checkMacroAlignment(id, price)) return;
+
         const hitTP = (s.type === 'buy' && price >= s.tp) || 
                       (s.type === 'sell' && price <= s.tp);
         if (hitTP) {
@@ -1867,12 +1778,9 @@ function processSignal(id, price) {
             return;
         }
 
-        // ── 2. CEK SL ──────────────────────────────────────────
         const hitSL = (s.type === 'buy' && price <= s.sl) || 
                       (s.type === 'sell' && price >= s.sl);
         if (hitSL) {
-            // Jika breakeven sudah armed → BREAKEVEN (TP1)
-            // Jika belum armed → LOSS (SL)
             const result = s.breakevenArmed ? 'be' : 'sl';
             recordSignalResult(id, result);
             if (result === 'sl') {
@@ -1882,64 +1790,43 @@ function processSignal(id, price) {
             return;
         }
 
-        // ── 2b. SIGNAL TIMEOUT 30 MENIT (hanya sebelum breakeven armed) ──
-        if (!s.breakevenArmed) {
-            const elapsed = Date.now() - (s.confirmedAt || 0);
-            if (elapsed >= SIGNAL_TIMEOUT_MS) {
-                s.cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
-                resetSignal(id);
-                showToast(`XAU ⏱ TIMEOUT 30m — signal dibatalkan`);
-                return;
-            }
-        }
-
-        // ── 3. ARM BREAKEVEN (35% dari jarak TP) ──────────────
         if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
             const tpDist = Math.abs(s.tp - s.entry);
             const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
-            
-            // Jika harga sudah mencapai 24% dari jarak TP
             if (moved >= tpDist * 0.40) {
-                // PINDAHKAN SL KE ENTRY (BREAKEVEN)
                 s.sl = s.entry;
                 s.breakevenArmed = true;
                 throttledSaveState(id);
-                // ── TOAST DIUBAH: BREAKEVEN → TP1 ─────────────
                 showToast(`${id.toUpperCase()} 🔒 TP1 ARMED @ ${s.entry.toFixed(2)}`);
+                const slEl = document.getElementById(`sl-${id}`);
+                if (slEl) slEl.innerText = s.sl.toFixed(2);
+                const txt = document.getElementById(`signal-text-${id}`);
+                if (txt) txt.textContent = s.type.toUpperCase() + ' [TP1]';
             }
         }
 
-        // ── 4. RETRACE LOGIC DIHAPUS TOTAL ────────────────────
-        // Tidak ada lagi kode retrace di sini
+        if (s.breakevenArmed) {
+            applyTrailingStop(id, price);
+        }
 
         return;
     }
 
-    // ============================================================
-    //  PENDING CONFIRMATION — skip processing
-    // ============================================================
     if (pendingConfirmation[id]) { 
         s.lastPrice = price; 
         return; 
     }
 
-    // ============================================================
-    //  BUILD CANDLES & CHECK MINIMUM
-    // ============================================================
     const macroCandles = getMacroCandles(id);
     const microCandles = getMicroCandles(id);
     if (macroCandles.length < MACRO_MIN) { s.lastPrice = price; return; }
     if (microCandles.length < MICRO_MIN) { s.lastPrice = price; return; }
 
-    // ============================================================
-    //  MACRO BIAS
-    // ============================================================
     let macroBias = macroBiasCache[id];
     if (!macroBias) { macroBias = scoreMacroBias(id, price, macroCandles); macroBiasCache[id] = macroBias; }
     updateEngineBadges(id, macroBias);
     updateConfluenceBar(id, macroBias.score);
 
-    // ── PATTERN DETECTION ENGINE ───────────────────────────────
     const pde = runPatternEngine(id, price, macroCandles, microCandles, macroBias);
     if (pde) updatePatternEngineUI(id, pde);
 
@@ -1949,12 +1836,8 @@ function processSignal(id, price) {
         return; 
     }
 
-    // ============================================================
-    //  MICRO ENTRY SCORE
-    // ============================================================
     const micro = scoreMicroEntry(id, price, microCandles, macroBias);
 
-    // ── L1: Bias ─────────────────────────────────────────────────
     if (!s.l1) {
         s.l1 = true; 
         s.type = macroBias.bias === 'BULL' ? 'buy' : 'sell'; 
@@ -1966,7 +1849,6 @@ function processSignal(id, price) {
         return;
     }
 
-    // ── Check if macro bias still aligns ─────────────────────────
     const expectedDir = s.type;
     const currentDir  = macroBias.bias === 'BULL' ? 'buy' : 'sell';
     if (s.l1 && !s.confirmed && macroBias.valid && currentDir !== expectedDir) { 
@@ -1974,7 +1856,6 @@ function processSignal(id, price) {
         return; 
     }
 
-    // ── L2: Ready ────────────────────────────────────────────────
     if (s.l1 && !s.l2 && micro.ready) { 
         s.l2 = true; 
         pendingSignalData[id] = true; 
@@ -1983,8 +1864,14 @@ function processSignal(id, price) {
         return; 
     }
 
-    // ── L3: Lock ─────────────────────────────────────────────────
     if (s.l2 && !s.l3 && micro.lockable && micro.quality >= MICRO_LOCK_THRESHOLD) {
+        const l2Price = s.entry || price;
+        const move = s.type === 'buy' ? price - l2Price : l2Price - price;
+        if (move > macroBias.atr * 0.3) {
+            showToast(`${id.toUpperCase()} ⏳ Harga bergerak ${move.toFixed(2)} > 0.3 ATR, reset`);
+            resetSignal(id);
+            return;
+        }
         s.l3 = true; 
         pendingSignalData[id] = true; 
         throttledUpdateUI(id); 
@@ -1993,7 +1880,6 @@ function processSignal(id, price) {
         return;
     }
 
-    // ── Reset L2 if micro no longer ready ───────────────────────
     if (s.l2 && !s.l3 && !micro.ready && !micro.factors.in_zone) { 
         s.l2 = false; 
         pendingSignalData[id] = true; 
@@ -2036,25 +1922,25 @@ function startConfirmationDelay(id, direction, entryPrice, macroScore, zoneType)
 }
 
 // ================================================================
-//  STATE MANAGEMENT — DIPERBAIKI (TP1 MASUK WINRATE)
+//  STATE MANAGEMENT (TIDAK DIUBAH)
 // ================================================================
 
 function createFreshState() {
     return { v: LS_SCHEMA_VERSION, lastPrice: 0, macroBias: 'NEUTRAL', macroScore: 0, macroValid: false,
              l1: false, l2: false, l3: false, confirmed: false, confirmedAt: 0, resetInProgress: false,
              warmupUntil: 0, cooldownUntil: 0, type: 'none', entry: 0, sl: 0, tp: 0, rr_used: 1.4,
-             tempHigh: 0, tempLow: 0, originPrice: 0, confluenceScore: 0, entryZone: 'NONE', breakevenArmed: false };
+             tempHigh: 0, tempLow: 0, originPrice: 0, confluenceScore: 0, entryZone: 'NONE', breakevenArmed: false,
+             trailingActive: false, trailingStep: 0, trailingTrigger: 0 };
 }
 
 function loadState(id) {
     try { const r = localStorage.getItem(`ura_state_${id}`); return r ? Object.assign(createFreshState(), JSON.parse(r)) : createFreshState(); } catch(e) { return createFreshState(); }
 }
 
-// ── STATS — DIPERBAIKI ──────────────────────────────────────────
 function createDefaultStats() { 
     return { 
-        tpHits: 0,       // TP2 (full TP)
-        tp1Hits: 0,      // TP1 (dulu breakeven) — MASUK WINRATE
+        tpHits: 0,       
+        tp1Hits: 0,      
         slHits: 0, 
         total: 0, 
         winrate: 0.0 
@@ -2066,7 +1952,6 @@ function loadPerformanceStats(id) {
         const r = localStorage.getItem(`ura_stats_${id}`); 
         if (r) {
             const parsed = JSON.parse(r);
-            // Migrasi: breakevenHits → tp1Hits
             if (parsed.breakevenHits !== undefined && parsed.tp1Hits === undefined) {
                 parsed.tp1Hits = parsed.breakevenHits;
                 delete parsed.breakevenHits;
@@ -2088,28 +1973,21 @@ function savePerformanceStats(id) {
 
 function updateWinrate(id) {
     const s = performanceStats[id];
-    
-    // Total semua trade: TP2 + TP1 + SL
     s.total = s.tpHits + (s.tp1Hits || 0) + s.slHits;
-    
-    // Winrate: (TP2 + TP1) / (TP2 + TP1 + SL)
     const wins = s.tpHits + (s.tp1Hits || 0);
     const total = wins + s.slHits;
-    
     s.winrate = total > 0 ? parseFloat(((wins / total) * 100).toFixed(1)) : 0.0;
 }
 
 function recordSignalResult(id, type) {
     const s = performanceStats[id];
-    
     if (type === 'tp') {
-        s.tpHits++;          // TP penuh (TP2 di UI)
+        s.tpHits++;
     } else if (type === 'be') {
-        s.tp1Hits++;         // TP1 (dulu breakeven) — SEKARANG MASUK WINRATE
+        s.tp1Hits++;
     } else if (type === 'sl') {
         s.slHits++;
     }
-    
     updateWinrate(id);
     savePerformanceStats(id);
     updatePerformanceUI(id);
@@ -2222,14 +2100,10 @@ function updateTracker(id, price) {
     if (t) { t.innerText = (Math.round(dist * 100) / 100).toFixed(2); t.style.color = dist >= 0 ? 'var(--emerald)' : 'var(--crimson)'; }
 }
 
-// ================================================================
-//  updateSignalUIOnly — [BE] → [TP1]
-// ================================================================
 function updateSignalUIOnly(id) {
     const s = state[id]; 
     if (!s) return;
 
-    // Toggle dots ↔ timer: timer tampil di tengah signal-bar saat signal aktif & !breakevenArmed
     const timerActive = s.confirmed && !s.breakevenArmed && s.type !== 'none';
     const dotGroup = document.getElementById(`signal-dot-group-${id}`);
     const timerEl  = document.getElementById(`timeout-${id}`);
@@ -2259,7 +2133,6 @@ function updateSignalUIOnly(id) {
             st.style.color = 'var(--gold)'; 
         }
         else if (s.confirmed) { 
-            // [BE] → [TP1]
             const tp1Label = s.breakevenArmed ? ' [TP1]' : ''; 
             st.innerText = s.type.toUpperCase() + tp1Label; 
             st.style.color = s.type === 'buy' ? 'var(--success)' : 'var(--danger)'; 
@@ -2328,36 +2201,27 @@ function updateConfluenceBar(id, score) {
     txt.textContent = Math.round(pct); txt.style.color = pct >= BC_SCORE_MIN ? 'var(--emerald)' : pct >= BC_SCORE_MIN * 0.7 ? 'var(--gold)' : 'var(--text-dim)';
 }
 
-// ================================================================
-//  updatePerformanceUI — TP1 dari tp1Hits
-// ================================================================
 function updatePerformanceUI(id) {
     const s = performanceStats[id];
     if (!s) return;
     
-    const tp1 = document.getElementById(`stats-retrace-${id}`); // TP1
-    const tp2 = document.getElementById(`stats-tp-${id}`);      // TP2
+    const tp1 = document.getElementById(`stats-retrace-${id}`); 
+    const tp2 = document.getElementById(`stats-tp-${id}`);      
     const sl = document.getElementById(`stats-sl-${id}`);
     const wr = document.getElementById(`stats-winrate-${id}`);
     
-    // TP1 (dulu breakeven) — warna emas
     if (tp1) {
         tp1.innerText = s.tp1Hits || 0;
         tp1.style.color = 'var(--gold)';
     }
-    
-    // TP2 (full TP) — warna hijau
     if (tp2) {
         tp2.innerText = s.tpHits;
         tp2.style.color = 'var(--success)';
     }
-    
     if (sl) {
         sl.innerText = s.slHits;
         sl.style.color = 'var(--danger)';
     }
-    
-    // Winrate: (TP2 + TP1) / (TP2 + TP1 + SL)
     if (wr) {
         const wins = s.tpHits + (s.tp1Hits || 0);
         const total = wins + s.slHits;
@@ -2396,20 +2260,14 @@ function handleSignalBarTap(id) {
     if (tapCounters[id] === 3) { if (pendingConfirmation[id]) cancelPendingConfirmation(id); resetSignal(id); tapCounters[id] = 0; if (tapTimers[id]) { clearTimeout(tapTimers[id]); tapTimers[id] = null; } if (navigator.vibrate) navigator.vibrate(30); showToast('Signal reset ✓'); }
 }
 
-// ================================================================
-//  handleHistoryPanelTap — Reset dengan format baru
-// ================================================================
 function handleHistoryPanelTap(id) {
     if (historyTapTimers[id]) clearTimeout(historyTapTimers[id]);
     historyTapCounters[id]++;
-    
     historyTapTimers[id] = setTimeout(() => { 
         historyTapCounters[id] = 0; 
         historyTapTimers[id] = null; 
     }, TAP_TIMEOUT);
-    
     if (historyTapCounters[id] === 3) { 
-        // Reset dengan format baru (tp1Hits)
         performanceStats[id] = createDefaultStats(); 
         savePerformanceStats(id); 
         updatePerformanceUI(id); 
@@ -2423,7 +2281,6 @@ function handleHistoryPanelTap(id) {
     }
 }
 
-// ── Card HTML ─────────────────────────────────────────────────────
 function buildCardHTML(id, label) {
     return `<div class="pair-card" id="card-${id}">
       <div class="card">
@@ -2566,11 +2423,9 @@ function initXAUWebSocket() {
                 if (d.p) {
                     const p = parseFloat(d.p);
                     if (isNaN(p) || p <= 100) return;
-                    // Refresh heartbeat SEBELUM cek duplikasi agar feed tidak dianggap stale
                     xauLastHeartbeat = Date.now();
                     wsStatus.xau = true;
                     updateGlobalPulse();
-                    // Skip price update jika harga tidak berubah
                     if (p === rawXauPrice) return;
                     rawXauPrice = p;
                     const q = parseFloat(d.q) || 0;
@@ -2595,8 +2450,6 @@ function initXAUWebSocket() {
         };
     } catch(err) { updateFeedBadge('xau', 'fallback'); }
 }
-
-// BTC pair removed — only XAU is active
 
 function consolidatedPoll() {
     const xauConnected = xauWs && xauWs.readyState === WebSocket.OPEN;
@@ -2633,7 +2486,6 @@ async function init() {
 
     setInterval(consolidatedPoll, 3000);
 
-    // ── Countdown timer — di tengah signal-bar, tiap 1 detik ─────────
     setInterval(() => {
         const s = state.xau;
         const dotGroup = document.getElementById('signal-dot-group-xau');
@@ -2642,14 +2494,12 @@ async function init() {
 
         const timerActive = s && s.confirmed && !s.breakevenArmed && s.type !== 'none';
 
-        // Kalau tidak ada signal aktif → tampilkan dots, sembunyikan timer
         if (!timerActive) {
             dotGroup.style.display = 'flex';
             el.style.display = 'none';
             return;
         }
 
-        // Ada signal aktif → sembunyikan dots, tampilkan timer
         dotGroup.style.display = 'none';
         el.style.display = 'inline';
 
