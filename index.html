@@ -1897,7 +1897,7 @@ function processSignal(id, price) {
             const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
             
             // Jika harga sudah mencapai 30% dari jarak TP
-            if (moved >= tpDist * 0.30) {
+            if (moved >= tpDist * 0.40) {
                 // PINDAHKAN SL KE ENTRY (BREAKEVEN)
                 s.sl = s.entry;
                 s.breakevenArmed = true;
