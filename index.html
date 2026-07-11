@@ -1615,9 +1615,15 @@ function scoreMacroBias(id, price, macroCandles) {
     }
     const MAX = 72; const diff = Math.abs(bull - bear);
     let bias = 'NEUTRAL', score = 0;
-    if (bull > bear && diff >= 10) { bias = 'BULL'; score = Math.min(100, Math.round((bull / MAX) * 100)); }
-    else if (bear > bull && diff >= 10) { bias = 'BEAR'; score = Math.min(100, Math.round((bear / MAX) * 100)); }
-    else { score = Math.round(Math.max(bull, bear) * 0.55); }
+    if (bull > bear && diff >= 10) {
+    bias = 'BEAR';   // dibalik
+    score = Math.min(100, Math.round((bear / MAX) * 100));
+} else if (bear > bull && diff >= 10) {
+    bias = 'BULL';   // dibalik
+    score = Math.min(100, Math.round((bull / MAX) * 100));
+} else {
+    score = Math.round(Math.max(bull, bear) * 0.55);
+}
     const valid = score >= BC_SCORE_MIN && bias !== 'NEUTRAL';
     // Compute bull/bear percentage for PDE display
     const bullPct = Math.min(100, Math.round((bull / MAX) * 100));
