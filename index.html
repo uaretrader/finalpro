@@ -256,7 +256,7 @@ const SIGNAL_TIMEOUT_MS    = 30 * 60 * 1000; // 30 menit
 //  LIVE PRICE OFFSET
 // ================================================================
 const PRICE_OFFSET_XAU = -2.2;
-const COOLDOWN_AFTER_SL_MS = 30000; // 30 detik — sama dengan timeout cooldown
+const COOLDOWN_AFTER_SL_MS = 30000;
 
 // ── Blue Chart Timeframe Durations ────────────────────────────────
 const MACRO_DUR = { xau: 60000 };
@@ -272,7 +272,7 @@ const ADX_MIN      = 22;
 
 // ── Micro entry thresholds ──────────────────────────────────────
 const MICRO_READY_THRESHOLD = 55;
-const MICRO_LOCK_THRESHOLD  = 62;
+const MICRO_LOCK_THRESHOLD  = 68;
 
 // ── Persistent Zone TTL & limits ─────────────────────────────────
 const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;   // 4 hours
@@ -1553,12 +1553,12 @@ function checkPriceAction(candles, direction, atr) {
 //    ATR ≤  5  → pasar tenang            → RR longgar 1.6
 // ================================================================
 function calculateDynamicRR(atr, price) {
+    const volatilityPct = (atr / price) * 100;
     let rr;
-    // Gunakan ATR absolut — jauh lebih representatif untuk XAU
-    if      (atr > 18) rr = 1.2;
-    else if (atr > 10) rr = 1.4;
-    else if (atr >  5) rr = 1.5;
-    else               rr = 1.6;
+    if (volatilityPct > 2.5) rr = 1.2;
+    else if (volatilityPct > 1.6) rr = 1.4;
+    else if (volatilityPct > 1.0) rr = 1.5;
+    else rr = 1.6;
     return rr;
 }
 
@@ -1637,16 +1637,6 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
     const microATR  = calcATR(microCandles, Math.min(10, microCandles.length - 1)) || macroBias.atr * 0.3;
     const rsi9      = calcRSI(closes, Math.min(9, closes.length - 1));
     const microMACD = calcMACD(closes, 5, 13, 4);
-
-    // ── Zone enforcement: BUY hanya di zona discount/demand; SELL hanya di premium/supply ──
-    const smcZoneGuard = detectSmartMoneyConcepts(microCandles, price, microATR);
-    const direction_guard = macroBias.bias === 'BULL' ? 'buy' : 'sell';
-    if (direction_guard === 'buy' && smcZoneGuard.premiumDiscount === 'PREMIUM') {
-        return { ready: false, lockable: false, direction: direction_guard, quality: 0, factors: { zone_blocked: 'PREMIUM' }, zoneType: null };
-    }
-    if (direction_guard === 'sell' && smcZoneGuard.premiumDiscount === 'DISCOUNT') {
-        return { ready: false, lockable: false, direction: direction_guard, quality: 0, factors: { zone_blocked: 'DISCOUNT' }, zoneType: null };
-    }
 
     const MICRO_CROSS_MIN = 23;
     const ema9m    = closes.length > MICRO_CROSS_MIN ? calcEMA(closes, 9)  : null;
@@ -1898,8 +1888,8 @@ function processSignal(id, price) {
             const tpDist = Math.abs(s.tp - s.entry);
             const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
             
-            // Jika harga sudah mencapai 24% dari jarak TP
-            if (moved >= tpDist * 0.40) {
+            // Jika harga sudah mencapai 30% dari jarak TP
+            if (moved >= tpDist * 0.30) {
                 // PINDAHKAN SL KE ENTRY (BREAKEVEN)
                 s.sl = s.entry;
                 s.breakevenArmed = true;
@@ -2235,7 +2225,7 @@ function updateSignalUIOnly(id) {
     const timerEl  = document.getElementById(`timeout-${id}`);
     if (dotGroup) dotGroup.style.display = timerActive ? 'none' : 'flex';
     if (timerEl)  timerEl.style.display  = timerActive ? 'inline' : 'none';
-    
+
     const setDot = (eid, on, type) => { 
         const el = document.getElementById(eid); 
         if (!el) return; 
