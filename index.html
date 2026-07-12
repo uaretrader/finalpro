@@ -271,8 +271,8 @@ const BC_SCORE_MIN = 55;
 const ADX_MIN      = 18;
 
 // ── Micro entry thresholds ──────────────────────────────────────
-const MICRO_READY_THRESHOLD = 45;
-const MICRO_LOCK_THRESHOLD  = 50;
+const MICRO_READY_THRESHOLD = 50;
+const MICRO_LOCK_THRESHOLD  = 55;
 
 // ── Persistent Zone TTL & limits ─────────────────────────────────
 const ZONE_TTL_MS  = 4 * 60 * 60 * 1000;   // 4 hours
@@ -1696,7 +1696,7 @@ function scoreMicroEntry(id, price, microCandles, macroBias) {
 
     // ── 4. Zone proximity (15 pts) ───────────────────────────────
     let zoneScore = 0, zoneType = 'NONE';
-    const snapDist = macroATR * 0.30;
+    const snapDist = macroATR * 0.25;
     if (direction === 'buy') {
         const nearEMA  = macroEMA21 && price <= macroEMA21 + snapDist && price >= macroEMA21 - snapDist * 0.6;
         const inDemand = bcZone && (bcZone.zone === 'DEMAND' || bcZone.zone === 'NEAR_DEMAND');
