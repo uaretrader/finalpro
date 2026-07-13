@@ -877,7 +877,8 @@
             const CONFIRMATION_WAIT_MS = 1500;
             const SIGNAL_TIMEOUT_MS = 30 * 60 * 1000;
             const COOLDOWN_AFTER_SL_MS = 30000;
-
+            const COOLDOWN_AFTER_TP_MS = 60000;
+          
             const PRICE_OFFSET_XAU = -2.2;
             const MACRO_DUR = { xau: 60000 };
             const MICRO_DUR = { xau: 15000 };
@@ -1793,9 +1794,12 @@
                     updateTracker(id, price);
 
                     const hitTP = (s.type === 'buy' && price >= s.tp) || (s.type === 'sell' && price <= s.tp);
-                    if (hitTP) { recordSignalResult(id, 'tp');
-                        resetSignal(id); return; }
-
+if (hitTP) {
+    recordSignalResult(id, 'tp');
+    state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_TP_MS;
+    resetSignal(id);
+    return;
+}
                     const hitSL = (s.type === 'buy' && price <= s.sl) || (s.type === 'sell' && price >= s.sl);
                     if (hitSL) {
                         const result = s.breakevenArmed ? 'be' : 'sl';
@@ -1922,7 +1926,7 @@
                 const entry = livePrice > 0 ? livePrice : (s.lastPrice || 0);
                 if (entry <= 0) return;
                 const atr = marketData[id].atr || 1.5;
-                const slDist = Math.max(atr * 0.85, 0.5);
+                const slDist = Math.max(atr * 0.85, 8.5);
                 const rr = calcDynamicRR(entry, atr);
                 const tpDist = slDist * rr;
 
