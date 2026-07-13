@@ -1140,8 +1140,8 @@
                 let signal = 'NEUTRAL',
                     confidence = 0;
                 const absScore = Math.abs(score);
-                if (score > 12) { signal = 'BUY';
-                    confidence = Math.min(95, 50 + absScore * 0.6); } else if (score < -12) { signal = 'SELL';
+                if (score > 15) { signal = 'BUY';
+                    confidence = Math.min(95, 50 + absScore * 0.6); } else if (score < -15) { signal = 'SELL';
                     confidence = Math.min(95, 50 + absScore * 0.6); } else if (score > 5) { signal = 'BUY';
                     confidence = 35 + absScore * 0.8; } else if (score < -5) { signal = 'SELL';
                     confidence = 35 + absScore * 0.8; } else { confidence = 20 + absScore * 2; }
@@ -1814,7 +1814,7 @@ if (hitTP) {
                         if (elapsed >= SIGNAL_TIMEOUT_MS) {
                             s.cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
                             resetSignal(id);
-                            showToast(`XAU ⏱ TIMEOUT 30m — signal dibatalkan`);
+                            showToast(`XAU ⏱ TIMEOUT 4h — signal dibatalkan`);
                             return;
                         }
                     }
@@ -2223,30 +2223,38 @@ if (hitTP) {
 
                 // ── Countdown timer ──
                 setInterval(() => {
-                    const s = state.xau;
-                    const dotGroup = document.getElementById('signal-dot-group-xau');
-                    const el = document.getElementById('timeout-xau');
-                    if (!el || !dotGroup) return;
-                    const timerActive = s && s.confirmed && !s.breakevenArmed && s.type !== 'none';
-                    if (!timerActive) {
-                        dotGroup.style.display = 'flex';
-                        el.style.display = 'none';
-                        return;
-                    }
-                    dotGroup.style.display = 'none';
-                    el.style.display = 'inline';
-                    const elapsed = Date.now() - (s.confirmedAt || 0);
-                    const remaining = SIGNAL_TIMEOUT_MS - elapsed;
-                    if (remaining <= 0) {
-                        el.textContent = '00:00';
-                        el.className = 'signal-timer-inline danger';
-                        return;
-                    }
-                    const minutes = Math.floor(remaining / 60000);
-                    const seconds = Math.floor((remaining % 60000) / 1000);
-                    el.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
-                    el.className = remaining <= 5 * 60 * 1000 ? 'signal-timer-inline amber' : 'signal-timer-inline';
-                }, 1000);
+    const s = state.xau;
+    const dotGroup = document.getElementById('signal-dot-group-xau');
+    const el = document.getElementById('timeout-xau');
+    if (!el || !dotGroup) return;
+    const timerActive = s && s.confirmed && !s.breakevenArmed && s.type !== 'none';
+    if (!timerActive) {
+        dotGroup.style.display = 'flex';
+        el.style.display = 'none';
+        return;
+    }
+    dotGroup.style.display = 'none';
+    el.style.display = 'inline';
+    const elapsed = Date.now() - (s.confirmedAt || 0);
+    const remaining = SIGNAL_TIMEOUT_MS - elapsed;
+    if (remaining <= 0) {
+        el.textContent = '00:00:00';
+        el.className = 'signal-timer-inline danger';
+        return;
+    }
+    const hours = Math.floor(remaining / 3600000);
+    const minutes = Math.floor((remaining % 3600000) / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    if (hours > 0) {
+        el.textContent = String(hours).padStart(2, '0') + ':' + 
+                         String(minutes).padStart(2, '0') + ':' + 
+                         String(seconds).padStart(2, '0');
+    } else {
+        el.textContent = String(minutes).padStart(2, '0') + ':' + 
+                         String(seconds).padStart(2, '0');
+    }
+    el.className = remaining <= 5 * 60 * 1000 ? 'signal-timer-inline amber' : 'signal-timer-inline';
+}, 1000);
 
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden) {
