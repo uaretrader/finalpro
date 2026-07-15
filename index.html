@@ -874,7 +874,7 @@
             // ================================================================
 
             const LS_SCHEMA_VERSION = 1;
-            const CONFIRMATION_WAIT_MS = 1500;
+            const CONFIRMATION_WAIT_MS = 2000;
             const SIGNAL_TIMEOUT_MS = 60 * 60 * 1000;
             const COOLDOWN_AFTER_SL_MS = 180000;
             const COOLDOWN_AFTER_TP_MS = 180000;
@@ -1140,8 +1140,8 @@
                 let signal = 'NEUTRAL',
                     confidence = 0;
                 const absScore = Math.abs(score);
-                if (score > 14) { signal = 'BUY';
-                    confidence = Math.min(95, 50 + absScore * 0.6); } else if (score < -14) { signal = 'SELL';
+                if (score > 15) { signal = 'BUY';
+                    confidence = Math.min(95, 50 + absScore * 0.6); } else if (score < -15) { signal = 'SELL';
                     confidence = Math.min(95, 50 + absScore * 0.6); } else if (score > 5) { signal = 'BUY';
                     confidence = 35 + absScore * 0.8; } else if (score < -5) { signal = 'SELL';
                     confidence = 35 + absScore * 0.8; } else { confidence = 20 + absScore * 2; }
