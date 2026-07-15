@@ -875,7 +875,7 @@
 
             const LS_SCHEMA_VERSION = 1;
             const CONFIRMATION_WAIT_MS = 2000;
-            const SIGNAL_TIMEOUT_MS = 60 * 60 * 1000;
+            
             const COOLDOWN_AFTER_SL_MS = 180000;
             const COOLDOWN_AFTER_TP_MS = 180000;
           
@@ -1482,7 +1482,8 @@
                 }
                 const dist = s.type === 'buy' ? price - s.entry : s.entry - price;
                 if (t) {
-                    t.innerText = (Math.round(dist * 100) / 100).toFixed(2);
+                    const formatted = (Math.round(dist * 100) / 100).toFixed(2);
+t.innerText = dist > 0 ? '+' + formatted : formatted;
                     t.style.color = dist >= 0 ? 'var(--emerald)' : 'var(--crimson)';
                 }
             }
@@ -1807,18 +1808,7 @@ if (hitTP) {
                         if (result === 'sl') state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
                         resetSignal(id);
                         return;
-                    }
-
-                    if (!s.breakevenArmed) {
-                        const elapsed = Date.now() - (s.confirmedAt || 0);
-                        if (elapsed >= SIGNAL_TIMEOUT_MS) {
-                            s.cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
-                            resetSignal(id);
-                            showToast(`XAU ⏱ TIMEOUT 1h — signal dibatalkan`);
-                            return;
-                        }
-                    }
-
+            }
                     if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
                         const tpDist = Math.abs(s.tp - s.entry);
                         const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
@@ -2220,8 +2210,7 @@ if (hitTP) {
                 updateGlobalPulse();
 
                 setInterval(consolidatedPoll, 3000);
-
-                // ── Countdown timer ──
+              
                 setInterval(() => {
     const s = state.xau;
     const dotGroup = document.getElementById('signal-dot-group-xau');
@@ -2236,24 +2225,18 @@ if (hitTP) {
     dotGroup.style.display = 'none';
     el.style.display = 'inline';
     const elapsed = Date.now() - (s.confirmedAt || 0);
-    const remaining = SIGNAL_TIMEOUT_MS - elapsed;
-    if (remaining <= 0) {
-        el.textContent = '00:00:00';
-        el.className = 'signal-timer-inline danger';
-        return;
-    }
-    const hours = Math.floor(remaining / 3600000);
-    const minutes = Math.floor((remaining % 3600000) / 60000);
-    const seconds = Math.floor((remaining % 60000) / 1000);
+    const hours = Math.floor(elapsed / 3600000);
+    const minutes = Math.floor((elapsed % 3600000) / 60000);
+    const seconds = Math.floor((elapsed % 60000) / 1000);
     if (hours > 0) {
-        el.textContent = String(hours).padStart(2, '0') + ':' + 
+        el.textContent = '+' + String(hours).padStart(2, '0') + ':' + 
                          String(minutes).padStart(2, '0') + ':' + 
                          String(seconds).padStart(2, '0');
     } else {
-        el.textContent = String(minutes).padStart(2, '0') + ':' + 
+        el.textContent = '+' + String(minutes).padStart(2, '0') + ':' + 
                          String(seconds).padStart(2, '0');
     }
-    el.className = remaining <= 5 * 60 * 1000 ? 'signal-timer-inline amber' : 'signal-timer-inline';
+    el.className = elapsed >= 30 * 60 * 1000 ? 'signal-timer-inline amber' : 'signal-timer-inline';
 }, 1000);
 
                 document.addEventListener('visibilitychange', () => {
