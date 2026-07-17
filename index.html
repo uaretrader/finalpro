@@ -874,7 +874,7 @@
             // ================================================================
 
             const LS_SCHEMA_VERSION = 1;
-            const CONFIRMATION_WAIT_MS = 2000;
+            const CONFIRMATION_WAIT_MS = 3000;
             
             const COOLDOWN_AFTER_SL_MS = 60000;
             const COOLDOWN_AFTER_TP_MS = 180000;
@@ -886,9 +886,9 @@
             const MICRO_MIN = 10;
 
             // ── Threshold ──
-            const STRUCT_STRONG_THRESHOLD = 0.18; // 15% dari rentang harga
+            const STRUCT_STRONG_THRESHOLD = 0.18; // 18% dari rentang harga
             const LIQ_PROXIMITY_ATR_MULT = 1.2;
-            const FVG_GAP_THRESHOLD = 0.0008; // 0.08% gap minimal
+            const FVG_GAP_THRESHOLD = 0.0012; // 0.12% gap minimal
 
             // ── Schema migration ──
             function checkAndMigrateSchema() {
