@@ -1149,8 +1149,8 @@
                 confidence = Math.min(98, Math.max(0, confidence));
 
                 // Filter false signals: jika struktur dan CHoCH bertentangan
-                const structDir = struct.trend.startsWith('BULL') ? -1 : (struct.trend.startsWith('BEAR') ? 1 : 0);
-                const chochDir = choch.type === 'BULLISH' ? -1 : (choch.type === 'BEARISH' ? 1 : 0);
+                const structDir = struct.trend.startsWith('BULL') ? -2 : (struct.trend.startsWith('BEAR') ? 2 : 0);
+                const chochDir = choch.type === 'BULLISH' ? -2 : (choch.type === 'BEARISH' ? 2 : 0);
                 if (structDir !== 0 && chochDir !== 0 && structDir !== chochDir) {
                     confidence = Math.max(0, confidence - 25);
                     reasons.push('CONFLICT: STRUCT vs CHoCH');
