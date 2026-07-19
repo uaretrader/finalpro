@@ -3,11 +3,11 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport" />
-    <title>URADVISOR v0.1 — STRUCTURE ENGINE</title>
+    <title>URADVISOR v0.1 — STRUCTURE ENGINE (XAU)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet" />
     <style>
-        /* ─── CSS SAMA SEPERTI SEBELUMNYA ─── */
+        /* ─── CSS SAMA DENGAN SEBELUMNYA ─── */
         :root {
             --obsidian: #171717;
             --surface: #0000005a;
@@ -146,7 +146,7 @@
         }
         .signal-timer-inline {
             font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.85rem;
+            font-size: 0.7rem;
             font-weight: 700;
             letter-spacing: 3px;
             color: var(--text-muted);
@@ -642,7 +642,7 @@
             animation: blink 1.5s infinite;
         }
 
-        /* ─── PDE PANEL (DISEDERHANAKAN) ─── */
+        /* ─── PDE PANEL ─── */
         .pde-panel {
             padding: 0;
             border-top: 1px solid var(--edge);
@@ -938,55 +938,144 @@
             'use strict';
 
             // ================================================================
-            //  URADVISOR v0.1 — STRUCTURE ENGINE
+            //  MAINTENANCE SCHEDULED MODE — TERJADWAL OTOMATIS
+            // ================================================================
+
+            // ─── KONFIGURASI ──────────────────────────────────────────────────
+            const MAINTENANCE_CONFIG = {
+                enabled: true,              // ← Ubah ke false untuk nonaktifkan jadwal otomatis
+                startHour: 14,              // 14:00 WIB mulai maintenance
+                endHour: 3,                 // 03:00 WIB berakhir maintenance (next day)
+                weekendFull: true,          // Sabtu-Minggu full maintenance
+                timezone: 'Asia/Jakarta',   // Waktu Indonesia Barat
+                checkInterval: 30000,       // Cek setiap 30 detik
+            };
+
+            // ─── OVERRIDE MANUAL ──────────────────────────────────────────────
+            // null = ikuti jadwal, true = paksa ON, false = paksa OFF
+            let manualOverride = null;
+
+            // Fungsi untuk override manual (bisa dipanggil dari Console)
+            window.setMaintenanceOverride = function(state) {
+                manualOverride = state;
+                const status = state === true ? 'ON (manual)' : state === false ? 'OFF (manual)' : 'AUTO (jadwal)';
+                console.log('🔧 Maintenance override:', status);
+                checkScheduledMaintenance();
+                return status;
+            };
+
+            // ─── PENGECEKAN JADWAL ────────────────────────────────────────────
+            function isWeekend(day) {
+                return day === 0 || day === 6; // 0=Minggu, 6=Sabtu
+            }
+
+            function isMaintenanceScheduled() {
+                // Jika manual override aktif, abaikan jadwal
+                if (manualOverride !== null) {
+                    return manualOverride;
+                }
+
+                // Jika maintenance terjadwal dimatikan
+                if (!MAINTENANCE_CONFIG.enabled) {
+                    return false;
+                }
+
+                const now = new Date();
+                const jakartaTime = new Date(now.toLocaleString('en-US', { timeZone: MAINTENANCE_CONFIG.timezone }));
+                const day = jakartaTime.getDay();
+                const hours = jakartaTime.getHours();
+                const minutes = jakartaTime.getMinutes();
+                const currentTime = hours + minutes / 60;
+
+                // ── Weekend (Sabtu = 6, Minggu = 0) ──
+                if (MAINTENANCE_CONFIG.weekendFull && isWeekend(day)) {
+                    return true; // Full maintenance di weekend
+                }
+
+                // ── Weekday (Senin - Jumat) ──
+                const start = MAINTENANCE_CONFIG.startHour;
+                const end = MAINTENANCE_CONFIG.endHour;
+
+                if (start > end) {
+                    // Periode melewati tengah malam (14:00 - 03:00)
+                    return currentTime >= start || currentTime < end;
+                } else {
+                    return currentTime >= start && currentTime < end;
+                }
+            }
+
+            // ─── UPDATE MAINTENANCE STATUS ──────────────────────────────────
+            function checkScheduledMaintenance() {
+                const shouldMaintenance = isMaintenanceScheduled();
+                const overlay = document.getElementById('maintenance-overlay');
+                const container = document.querySelector('.container');
+
+                if (!overlay) return;
+
+                if (shouldMaintenance) {
+                    overlay.classList.add('show');
+                    if (container) container.style.opacity = '0.15';
+                    console.log('🔧 Maintenance: ON (jadwal aktif)');
+                } else {
+                    overlay.classList.remove('show');
+                    if (container) container.style.opacity = '1';
+                    console.log('✅ Maintenance: OFF (aplikasi aktif)');
+                }
+            }
+
+            // ─── EXPOSE FUNGSI KE CONSOLE ────────────────────────────────────
+            window.getMaintenanceStatus = function() {
+                const status = isMaintenanceScheduled();
+                const now = new Date();
+                const jakarta = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+                console.log('🕐 Waktu Jakarta:', jakarta.toLocaleString());
+                console.log('📊 Maintenance:', status ? 'ON' : 'OFF');
+                console.log('🔧 Manual Override:', manualOverride === null ? 'AUTO' : manualOverride ? 'ON' : 'OFF');
+                return status;
+            };
+
+            window.showMaintenanceSchedule = function() {
+                console.log('📅 MAINTENANCE SCHEDULE (WIB):');
+                console.log('┌─────────────────────────────────────────────────┐');
+                console.log('│ Senin - Jumat : 14:00 - 03:00 (next day)      │');
+                console.log('│ Sabtu - Minggu: FULL 24 jam                   │');
+                console.log('│ Timezone     : Asia/Jakarta (WIB)             │');
+                console.log('└─────────────────────────────────────────────────┘');
+                console.log('');
+                console.log('🔧 COMMANDS (ketik di console):');
+                console.log('  setMaintenanceOverride(true)   → Paksa ON');
+                console.log('  setMaintenanceOverride(false)  → Paksa OFF');
+                console.log('  setMaintenanceOverride(null)   → Kembali ke jadwal auto');
+                console.log('  getMaintenanceStatus()         → Cek status saat ini');
+                console.log('  showMaintenanceSchedule()      → Lihat jadwal');
+            };
+
+            // ================================================================
+            //  URADVISOR v0.1 — STRUCTURE ENGINE (XAU)
             //  PURE PRICE ACTION · NO LAGGING INDICATORS
             //  LOGIC: REAL MARKET LIQUIDITY + CHoCH + FVG + STRUCTURE
             // ================================================================
 
-            // ─── MAINTENANCE MODE ──────────────────────────────────────────────
-            const MAINTENANCE_MODE = true;  // ← Ubah ke false untuk menonaktifkan
-
-            function toggleMaintenance(show) {
-                const overlay = document.getElementById('maintenance-overlay');
-                if (!overlay) return;
-                if (show) {
-                    overlay.classList.add('show');
-                    document.querySelector('.container')?.style.setProperty('opacity', '0.15');
-                } else {
-                    overlay.classList.remove('show');
-                    document.querySelector('.container')?.style.setProperty('opacity', '1');
-                }
-            }
-
-            // Jalankan maintenance jika aktif
-            if (MAINTENANCE_MODE) {
-                document.addEventListener('DOMContentLoaded', function() {
-                    toggleMaintenance(true);
-                });
-            }
-
             const LS_SCHEMA_VERSION = 1;
-            const CONFIRMATION_WAIT_MS = 2000;
+            const CONFIRMATION_WAIT_MS = 3000;
             
-            const COOLDOWN_AFTER_SL_MS = 180000;
+            const COOLDOWN_AFTER_SL_MS = 60000;
             const COOLDOWN_AFTER_TP_MS = 180000;
           
-            const PRICE_OFFSET_BTC = -56;
-            const MACRO_DUR = { btc: 60000 };
-            const MICRO_DUR = { btc: 15000 };
+            const PRICE_OFFSET_XAU = -5.6;
+            const MACRO_DUR = { xau: 60000 };
+            const MICRO_DUR = { xau: 15000 };
             const MACRO_MIN = 35;
             const MICRO_MIN = 10;
 
             // ── Threshold ──
-            const STRUCT_STRONG_THRESHOLD = 0.15; // 15% dari rentang harga
-            const LIQ_PROXIMITY_ATR_MULT = 1.2;
-            const FVG_GAP_THRESHOLD = 0.0008; // 0.08% gap minimal
+            const FVG_GAP_THRESHOLD = 0.0010; // 0.10% gap minimal
 
             // ── Schema migration ──
             function checkAndMigrateSchema() {
                 const v = parseInt(localStorage.getItem('ura_schema_ver') || '0', 10);
                 if (v < LS_SCHEMA_VERSION) {
-                    ['btc'].forEach(id => {
+                    ['xau'].forEach(id => {
                         localStorage.removeItem(`ura_state_${id}`);
                         localStorage.removeItem(`ura_stats_${id}`);
                     });
@@ -1232,8 +1321,8 @@
                 let signal = 'NEUTRAL',
                     confidence = 0;
                 const absScore = Math.abs(score);
-                if (score > 16) { signal = 'BUY';
-                    confidence = Math.min(95, 50 + absScore * 0.6); } else if (score < -16) { signal = 'SELL';
+                if (score > 14) { signal = 'BUY';
+                    confidence = Math.min(95, 50 + absScore * 0.6); } else if (score < -14) { signal = 'SELL';
                     confidence = Math.min(95, 50 + absScore * 0.6); } else if (score > 5) { signal = 'BUY';
                     confidence = 35 + absScore * 0.8; } else if (score < -5) { signal = 'SELL';
                     confidence = 35 + absScore * 0.8; } else { confidence = 20 + absScore * 2; }
@@ -1297,7 +1386,7 @@
             }
 
             // ================================================================
-            //  STATE & PERFORMANCE (SAMA SEPERTI SEBELUMNYA)
+            //  STATE & PERFORMANCE
             // ================================================================
 
             function createFreshState() {
@@ -1375,35 +1464,35 @@
             }
 
             // ── Global ──
-            let state = { btc: null };
-            let wsStatus = { btc: false };
+            let state = { xau: null };
+            let wsStatus = { xau: false };
             let performanceStats = {};
-            let pendingConfirmation = { btc: null };
-            let tapCounters = { btc: 0 };
-            let tapTimers = { btc: null };
-            let historyTapCounters = { btc: 0 };
-            let historyTapTimers = { btc: null };
+            let pendingConfirmation = { xau: null };
+            let tapCounters = { xau: 0 };
+            let tapTimers = { xau: null };
+            let historyTapCounters = { xau: 0 };
+            let historyTapTimers = { xau: null };
             const TAP_TIMEOUT = 500;
-            let pendingPriceData = { btc: null };
-            let pendingSignalData = { btc: false };
-            let rafPending = { btc: false };
-            let pendingSaveData = { btc: null };
-            let pendingSaveTimer = { btc: null };
+            let pendingPriceData = { xau: null };
+            let pendingSignalData = { xau: false };
+            let rafPending = { xau: false };
+            let pendingSaveData = { xau: null };
+            let pendingSaveTimer = { xau: null };
             const SAVE_INTERVAL = 1200;
-            let signalDebounceTimer = { btc: null };
+            let signalDebounceTimer = { xau: null };
             const SIGNAL_DEBOUNCE_MS = 15;
 
             let marketData = {
-                btc: {
+                xau: {
                     macro: { candles: [], current: null, start: 0 },
                     micro: { candles: [], current: null, start: 0 },
                     atr: 0,
                     price: 0
                 }
             };
-            let engineCache = { btc: null };
-            let rawBtcPrice = null;
-            let btcFetching = false;
+            let engineCache = { xau: null };
+            let rawXauPrice = null;
+            let xauFetching = false;
 
             // ── Candle Build ──
             function buildTFCandle(tf, dur, maxCandles, price, vol) {
@@ -1431,7 +1520,7 @@
                 md.price = price;
                 const mc = md.macro.candles.filter(c => c.closed);
                 if (mc.length >= 15) {
-                    md.atr = simpleATR(mc, 14) || md.atr || 200;
+                    md.atr = simpleATR(mc, 14) || md.atr || 1.5;
                 }
             }
 
@@ -1441,7 +1530,7 @@
 
             // ── Historical Init ──
             async function initHistoricalCandles(id) {
-                const symbol = 'BTCUSDT',
+                const symbol = 'XAUUSDT',
                     limit = 250;
                 const sources = [
                     `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1m&limit=${limit}`,
@@ -1469,16 +1558,16 @@
                         const lastClose = candles[candles.length - 1].close;
                         seedMicroCandles(id, lastClose);
                         const mc = getMacroCandles(id);
-                        if (mc.length >= 15) marketData[id].atr = simpleATR(mc, 14) || 200;
+                        if (mc.length >= 15) marketData[id].atr = simpleATR(mc, 14) || 1.5;
                         return true;
                     } catch (e) {}
                 }
-                seedCandles(id, 64000);
+                seedCandles(id, 3300);
                 return false;
             }
 
             function seedMicroCandles(id, base) {
-                const step = 120,
+                const step = 1.2,
                     nMicro = 20;
                 marketData[id].micro.candles = [];
                 let price = base;
@@ -1494,7 +1583,7 @@
             }
 
             function seedCandles(id, base) {
-                const step = 120,
+                const step = 1.2,
                     nMacro = 55;
                 marketData[id].macro.candles = [];
                 let price = base;
@@ -1511,7 +1600,7 @@
                 }
                 seedMicroCandles(id, price);
                 const mc = getMacroCandles(id);
-                if (mc.length >= 15) marketData[id].atr = simpleATR(mc, 14) || 200;
+                if (mc.length >= 15) marketData[id].atr = simpleATR(mc, 14) || 1.5;
             }
 
             // ── UI Functions ──
@@ -1808,7 +1897,7 @@ t.innerText = dist > 0 ? '+' + formatted : formatted;
 
             function updateGlobalPulse() {
                 const el = document.getElementById('globalPulse');
-                if (el) el.className = wsStatus.btc ? 'pulse connected' : 'pulse disconnected';
+                if (el) el.className = wsStatus.xau ? 'pulse connected' : 'pulse disconnected';
             }
 
             function cancelPendingConfirmation(id) {
@@ -1900,12 +1989,11 @@ if (hitTP) {
                         if (result === 'sl') state[id].cooldownUntil = Date.now() + COOLDOWN_AFTER_SL_MS;
                         resetSignal(id);
                         return;
-                    }
-
+            }
                     if (!s.breakevenArmed && Date.now() > (s.warmupUntil || 0)) {
                         const tpDist = Math.abs(s.tp - s.entry);
                         const moved = s.type === 'buy' ? price - s.entry : s.entry - price;
-                        if (moved >= tpDist * 0.50) {
+                        if (moved >= tpDist * 0.33) {
                             s.sl = s.entry;
                             s.breakevenArmed = true;
                             throttledSaveState(id);
@@ -2008,8 +2096,8 @@ if (hitTP) {
                 const s = state[id];
                 const entry = livePrice > 0 ? livePrice : (s.lastPrice || 0);
                 if (entry <= 0) return;
-                const atr = marketData[id].atr || 200;
-                const slDist = Math.max(atr * 0.85, 200);
+                const atr = marketData[id].atr || 1.5;
+                const slDist = Math.max(atr * 0.85, 9.5);
                 const rr = calcDynamicRR(entry, atr);
                 const tpDist = slDist * rr;
 
@@ -2047,7 +2135,7 @@ if (hitTP) {
                   <div class="pair-info">
                     <span class="pair">${label}</span>
                     <div class="status-row">
-                      <span id="ws-status-${id}" class="ws-status ${id==='btc'?'connected':'disconnected'}">${id==='btc'?'● CONNECTING...':'○ RECONNECTING...'}</span>
+                      <span id="ws-status-${id}" class="ws-status ${id==='xau'?'connected':'disconnected'}">${id==='xau'?'● CONNECTING...':'○ RECONNECTING...'}</span>
                       <span class="feed-badge" id="feed-badge-${id}">○ INIT</span>
                     </div>
                   </div>
@@ -2076,10 +2164,10 @@ if (hitTP) {
                     <span class="level-label">Target</span><span class="level-value" id="tp-${id}" style="color:var(--success)">--</span>
                   </div>
                   <div class="level-item" onclick="window.copyValue('${id}','sl')">
-                    <span class="level-label">Deep</span><span class="level-value" id="sl-${id}" style="color:var(--danger)">--</span>
-       </div>                  
-           </div>
-        <div class="engine-badge-row">
+                    <span class="level-label">Deep</span><span class="level-value" id="sl-${id}" style="color:var(--danger)">--</span>     
+            </div>
+                </div>
+                <div class="engine-badge-row">
                   <span class="ebadge off" id="eb-trend-${id}">TRD</span>
                   <span class="ebadge off" id="eb-struct-${id}">STR</span>
                   <span class="ebadge off" id="eb-choch-${id}">CH</span>
@@ -2087,9 +2175,9 @@ if (hitTP) {
                   <span class="ebadge off" id="eb-liq-${id}">LIQ</span>
                   <span class="ebadge off" id="eb-pa-${id}">PA</span>
                   <span class="ebadge score" id="eb-score-${id}">SIG</span>
-                </div>
-                
-      <!-- PDE PANEL (DISEDERHANAKAN) -->
+                </div>                
+
+                <!-- PDE PANEL -->
                 <div class="pde-panel">
                   <div class="pde-header">
                     <span class="pde-title">Pattern Engine</span>
@@ -2112,11 +2200,10 @@ if (hitTP) {
                     <div class="pde-meter-item">
                       <span class="pde-meter-label">RISK</span>
                       <div class="pde-meter-bar-wrap"><div class="pde-meter-bar-fill" id="pde-meter-risk-fill-${id}" style="width:0%;background:var(--text-dim)"></div></div>
-     <span class="pde-meter-val" id="pde-meter-risk-val-${id}" style="color:var(--text-dim)">—</span>
-      </div>
-          </div>                  
-
-         <div class="stats-grid" id="history-panel-${id}">
+                      <span class="pde-meter-val" id="pde-meter-risk-val-${id}" style="color:var(--text-dim)">—</span>
+                    </div>
+                  </div>
+                  <div class="stats-grid" id="history-panel-${id}">
                   <div class="stats-item"><span class="stats-label" style="color:var(--gold)">TP1</span><span class="stats-value be-value" id="stats-retrace-${id}">0</span></div>
                   <div class="stats-item"><span class="stats-label">TP2</span><span class="stats-value" id="stats-tp-${id}" style="color:var(--success)">0</span></div>
                   <div class="stats-item"><span class="stats-label">SL HIT</span><span class="stats-value" id="stats-sl-${id}" style="color:var(--danger)">0</span></div>
@@ -2136,43 +2223,46 @@ if (hitTP) {
             };
 
             // ── PRICE FEEDS ──
-            let btcWs = null,
-                btcReconnectTimer = null,
-                btcReconnectAttempts = 0;
-            let btcFetchRetryTimer = null,
-                btcCurrentPrice = 0,
-                btcLastHeartbeat = Date.now();
-            const BTC_REST_SOURCES = [
-                { url: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', parse: (d) => d?.price ? parseFloat(d
+            let xauWs = null,
+                xauReconnectTimer = null,
+                xauReconnectAttempts = 0;
+            let xauFetchRetryTimer = null,
+                xauCurrentPrice = 0,
+                xauLastHeartbeat = Date.now();
+            const XAU_REST_SOURCES = [
+                { url: 'https://api.metals.live/v1/spot/gold', parse: (d) => { if (Array.isArray(d)) { const g = d.find(x =>
+                            x.gold !== undefined); return g ? parseFloat(g.gold) : null; } return d && d.gold ? parseFloat(d
+                        .gold) : null; } },
+                { url: 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=XAUUSDT', parse: (d) => d?.price ? parseFloat(d
                         .price) : null },
-                { url: 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT', parse: (d) => d?.price ? parseFloat(
-                        d.price) : null }
+                { url: 'https://api.binance.com/api/v3/ticker/price?symbol=XAUUSDT', parse: (d) => d?.price ? parseFloat(d
+                        .price) : null }
             ];
-            let btcRestIdx = 0;
+            let xauRestIdx = 0;
 
-            function updateBTCDisplay(price, feedStatus, vol) {
-                if (!price || isNaN(price) || price < 1000 || price > 2000000) return;
-                price = price + PRICE_OFFSET_BTC;
-                btcCurrentPrice = price;
-                btcLastHeartbeat = Date.now();
-                pendingPriceData.btc = price;
-                pendingSignalData.btc = true;
-                throttledUpdateUI('btc');
-                updateSignal('btc', price, vol || 0);
-                wsStatus.btc = true;
+            function updateXAUDisplay(price, feedStatus, vol) {
+                if (!price || isNaN(price) || price < 100 || price > 20000) return;
+                price = price + PRICE_OFFSET_XAU;
+                xauCurrentPrice = price;
+                xauLastHeartbeat = Date.now();
+                pendingPriceData.xau = price;
+                pendingSignalData.xau = true;
+                throttledUpdateUI('xau');
+                updateSignal('xau', price, vol || 0);
+                wsStatus.xau = true;
                 updateGlobalPulse();
-                const el = document.getElementById('ws-status-btc');
+                const el = document.getElementById('ws-status-xau');
                 if (el) { el.textContent = '● LIVE';
                     el.className = 'ws-status connected'; }
-                if (feedStatus) updateFeedBadge('btc', feedStatus);
+                if (feedStatus) updateFeedBadge('xau', feedStatus);
             }
 
-            async function btcFetchRestPrice() {
-                if (btcFetching) return;
-                btcFetching = true;
+            async function xauFetchRestPrice() {
+                if (xauFetching) return;
+                xauFetching = true;
                 try {
-                    for (let i = 0; i < BTC_REST_SOURCES.length; i++) {
-                        const src = BTC_REST_SOURCES[(btcRestIdx + i) % BTC_REST_SOURCES.length];
+                    for (let i = 0; i < XAU_REST_SOURCES.length; i++) {
+                        const src = XAU_REST_SOURCES[(xauRestIdx + i) % XAU_REST_SOURCES.length];
                         try {
                             const ctrl = new AbortController();
                             const tid = setTimeout(() => ctrl.abort(), 7000);
@@ -2181,83 +2271,85 @@ if (hitTP) {
                             if (!resp.ok) continue;
                             const data = await resp.json();
                             const p = src.parse(data);
-                            if (p && p > 1000 && !isNaN(p)) {
-                                updateBTCDisplay(p, i === 0 ? 'ok' : 'fallback', 0);
-                                btcRestIdx = (btcRestIdx + i) % BTC_REST_SOURCES.length;
+                            if (p && p > 100 && !isNaN(p)) {
+                                updateXAUDisplay(p, i === 0 ? 'ok' : 'fallback', 0);
+                                xauRestIdx = (xauRestIdx + i) % XAU_REST_SOURCES.length;
                                 return true;
                             }
                         } catch (e) {}
                     }
-                    wsStatus.btc = false;
+                    wsStatus.xau = false;
                     updateGlobalPulse();
-                    updateSignalUIOnly('btc');
-                    updateFeedBadge('btc', 'err');
+                    updateSignalUIOnly('xau');
+                    updateFeedBadge('xau', 'err');
                     return false;
                 } finally {
-                    btcFetching = false;
+                    xauFetching = false;
                 }
             }
 
-            function initBTCWebSocket() {
-                if (btcWs) { try { btcWs.close(); } catch (e) {} btcWs = null; }
-                if (btcReconnectTimer) clearTimeout(btcReconnectTimer);
+            function initXAUWebSocket() {
+                if (xauWs) { try { xauWs.close(); } catch (e) {} xauWs = null; }
+                if (xauReconnectTimer) clearTimeout(xauReconnectTimer);
                 try {
-                    btcWs = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+                    xauWs = new WebSocket('wss://fstream.binance.com/ws/xauusdt@trade');
                     const wst = setTimeout(() => {
-                        if (btcWs && btcWs.readyState !== WebSocket.OPEN) {
-                            try { btcWs.close(); } catch (e) {}
-                            btcWs = null;
-                            wsStatus.btc = false;
-                            updateFeedBadge('btc', 'fallback');
+                        if (xauWs && xauWs.readyState !== WebSocket.OPEN) {
+                            try { xauWs.close(); } catch (e) {}
+                            xauWs = null;
+                            wsStatus.xau = false;
+                            updateFeedBadge('xau', 'fallback');
                             updateGlobalPulse();
                         }
-                    }, 7000);
-                    btcWs.onopen = () => {
+                    }, 6000);
+                    xauWs.onopen = () => {
                         clearTimeout(wst);
-                        btcReconnectAttempts = 0;
-                        wsStatus.btc = true;
-                        updateFeedBadge('btc', 'ok');
+                        xauReconnectAttempts = 0;
+                        wsStatus.xau = true;
+                        updateFeedBadge('xau', 'ok');
                         updateGlobalPulse();
-                        updateSignalUIOnly('btc');
+                        updateSignalUIOnly('xau');
                     };
-                    btcWs.onmessage = (e) => {
+                    xauWs.onmessage = (e) => {
                         try {
                             const d = JSON.parse(e.data);
                             if (d.p) {
                                 const p = parseFloat(d.p);
-                                if (isNaN(p) || p <= 1000) return;
-                                btcLastHeartbeat = Date.now();
-                                wsStatus.btc = true;
+                                if (isNaN(p) || p <= 100) return;
+                                xauLastHeartbeat = Date.now();
+                                wsStatus.xau = true;
                                 updateGlobalPulse();
-                                if (p === rawBtcPrice) return;
-                                rawBtcPrice = p;
+                                if (p === rawXauPrice) return;
+                                rawXauPrice = p;
                                 const q = parseFloat(d.q) || 0;
-                                updateBTCDisplay(p, 'ok', q);
+                                updateXAUDisplay(p, 'ok', q);
                             }
                         } catch (err) {}
                     };
-                    btcWs.onclose = () => {
-                        wsStatus.btc = false;
+                    xauWs.onclose = () => {
+                        wsStatus.xau = false;
                         updateGlobalPulse();
-                        updateSignalUIOnly('btc');
-                        const delay = Math.min(1000 * Math.pow(1.6, btcReconnectAttempts), 20000);
-                        btcReconnectAttempts++;
-                        btcReconnectTimer = setTimeout(() => initBTCWebSocket(), delay);
-                        updateFeedBadge('btc', 'fallback');
+                        updateSignalUIOnly('xau');
+                        const delay = Math.min(1000 * Math.pow(1.6, xauReconnectAttempts), 20000);
+                        xauReconnectAttempts++;
+                        xauReconnectTimer = setTimeout(() => initXAUWebSocket(), delay);
+                        updateFeedBadge('xau', 'fallback');
                     };
-                    btcWs.onerror = () => {
-                        wsStatus.btc = false;
-                        updateFeedBadge('btc', 'fallback');
+                    xauWs.onerror = () => {
+                        wsStatus.xau = false;
+                        updateFeedBadge('xau', 'fallback');
                         updateGlobalPulse();
-                        updateSignalUIOnly('btc');
+                        updateSignalUIOnly('xau');
                     };
-                } catch (err) { updateFeedBadge('btc', 'fallback'); }
+                } catch (err) { updateFeedBadge('xau', 'fallback'); }
             }
 
+            // BTC pair removed — only XAU is active
+
             function consolidatedPoll() {
-                const btcConnected = btcWs && btcWs.readyState === WebSocket.OPEN;
-                if (!btcConnected || (Date.now() - btcLastHeartbeat) > 6000) {
-                    if (!btcFetching) btcFetchRestPrice();
+                const xauConnected = xauWs && xauWs.readyState === WebSocket.OPEN;
+                if (!xauConnected || (Date.now() - xauLastHeartbeat) > 6000) {
+                    if (!xauFetching) xauFetchRestPrice();
                 }
                 updateGlobalPulse();
             }
@@ -2265,10 +2357,10 @@ if (hitTP) {
             // ── INIT ──
             async function init() {
                 checkAndMigrateSchema();
-                state.btc = loadState('btc');
-                performanceStats.btc = loadPerformanceStats('btc');
-                updateWinrate('btc');
-                document.getElementById('terminals').innerHTML = buildCardHTML('btc', 'BTCUSD');
+                state.xau = loadState('xau');
+                performanceStats.xau = loadPerformanceStats('xau');
+                updateWinrate('xau');
+                document.getElementById('terminals').innerHTML = buildCardHTML('xau', 'XAUUSD');
 
                 const bindTap = (el, handler) => {
                     if (!el) return;
@@ -2281,60 +2373,71 @@ if (hitTP) {
                     el.addEventListener('touchstart', h, { passive: false });
                     el.addEventListener('click', h);
                 };
-                bindTap(document.getElementById('signal-bar-btc'), () => handleSignalBarTap('btc'));
-                bindTap(document.getElementById('history-panel-btc'), () => handleHistoryPanelTap('btc'));
+                bindTap(document.getElementById('signal-bar-xau'), () => handleSignalBarTap('xau'));
+                bindTap(document.getElementById('history-panel-xau'), () => handleHistoryPanelTap('xau'));
 
-                updateSignalUIOnly('btc');
-                updatePerformanceUI('btc');
-                updateFeedBadge('btc', 'fallback');
-                const el_btc = document.getElementById('ws-status-btc');
-                if (el_btc) { el_btc.textContent = '● LOADING...';
-                    el_btc.className = 'ws-status connected'; }
+                updateSignalUIOnly('xau');
+                updatePerformanceUI('xau');
+                updateFeedBadge('xau', 'fallback');
+                const el_xau = document.getElementById('ws-status-xau');
+                if (el_xau) { el_xau.textContent = '● LOADING...';
+                    el_xau.className = 'ws-status connected'; }
 
-                await initHistoricalCandles('btc');
+                await initHistoricalCandles('xau');
 
-                initBTCWebSocket();
-                await btcFetchRestPrice();
+                initXAUWebSocket();
+                await xauFetchRestPrice();
 
                 updateGlobalPulse();
 
                 setInterval(consolidatedPoll, 3000);
-
+              
                 setInterval(() => {
-                    const s = state.btc;
-                    const dotGroup = document.getElementById('signal-dot-group-btc');
-                    const el = document.getElementById('timeout-btc');
-                    if (!el || !dotGroup) return;
-                    const timerActive = s && s.confirmed && !s.breakevenArmed && s.type !== 'none';
-                    if (!timerActive) {
-                        dotGroup.style.display = 'flex';
-                        el.style.display = 'none';
-                        return;
-                    }
-                    dotGroup.style.display = 'none';
-                    el.style.display = 'inline';
-                    const elapsed = Date.now() - (s.confirmedAt || 0);
-                    const hours = Math.floor(elapsed / 3600000);
-                    const minutes = Math.floor((elapsed % 3600000) / 60000);
-                    const seconds = Math.floor((elapsed % 60000) / 1000);
-                    if (hours > 0) {
-                        el.textContent = '+' + String(hours).padStart(2, '0') + ':' + 
-                                         String(minutes).padStart(2, '0') + ':' + 
-                                         String(seconds).padStart(2, '0');
-                    } else {
-                        el.textContent = '+' + String(minutes).padStart(2, '0') + ':' + 
-                                         String(seconds).padStart(2, '0');
-                    }
-                    el.className = elapsed >= 30 * 60 * 1000 ? 'signal-timer-inline amber' : 'signal-timer-inline';
-                }, 1000);
+    const s = state.xau;
+    const dotGroup = document.getElementById('signal-dot-group-xau');
+    const el = document.getElementById('timeout-xau');
+    if (!el || !dotGroup) return;
+    const timerActive = s && s.confirmed && !s.breakevenArmed && s.type !== 'none';
+    if (!timerActive) {
+        dotGroup.style.display = 'flex';
+        el.style.display = 'none';
+        return;
+    }
+    dotGroup.style.display = 'none';
+    el.style.display = 'inline';
+    const elapsed = Date.now() - (s.confirmedAt || 0);
+    const hours = Math.floor(elapsed / 3600000);
+    const minutes = Math.floor((elapsed % 3600000) / 60000);
+    const seconds = Math.floor((elapsed % 60000) / 1000);
+    if (hours > 0) {
+        el.textContent = '+' + String(hours).padStart(2, '0') + ':' + 
+                         String(minutes).padStart(2, '0') + ':' + 
+                         String(seconds).padStart(2, '0');
+    } else {
+        el.textContent = '+' + String(minutes).padStart(2, '0') + ':' + 
+                         String(seconds).padStart(2, '0');
+    }
+    
+}, 1000);
 
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden) {
-                        if (!btcFetching) btcFetchRestPrice();
-                        updateSignalUIOnly('btc');
+                        if (!xauFetching) xauFetchRestPrice();
+                        updateSignalUIOnly('xau');
                         updateGlobalPulse();
                     }
                 });
+
+                // ─── JALANKAN MAINTENANCE SCHEDULER ──────────────────────────
+                // Cek maintenance saat inisialisasi selesai
+                setTimeout(checkScheduledMaintenance, 1000);
+                
+                // Cek maintenance setiap interval yang ditentukan
+                setInterval(checkScheduledMaintenance, MAINTENANCE_CONFIG.checkInterval);
+                
+                // Tampilkan jadwal di console untuk referensi
+                console.log('📅 Maintenance scheduler aktif (WIB)');
+                window.showMaintenanceSchedule();
             }
 
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
